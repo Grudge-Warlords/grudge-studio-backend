@@ -1,0 +1,8 @@
+.env
+node_modules/
+services/*/node_modules/
+*.log
+*.pid
+dist/
+# Never commit the Linux server binary - deploy separately
+services/grudge-headless/bin/

@@ -1,0 +1,21 @@
+{
+  "name": "grudge-id",
+  "version": "1.0.0",
+  "description": "Grudge Studio unified identity service",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "cors": "^2.8.5",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.6.5",
+    "uuid": "^9.0.0",
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1"
+  }
+}
