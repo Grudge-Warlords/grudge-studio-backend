@@ -61,15 +61,79 @@ router.patch('/:id/complete', async (req, res, next) => {
       [req.params.id]
     );
 
-    // Apply XP reward to character (first active character)
-    if (rows[0].reward_xp > 0) {
-      await db.query(
-        `UPDATE characters SET level = GREATEST(level, 1) WHERE grudge_id = ? LIMIT 1`,
+    const mission = rows[0];
+    let xp_applied = [];
+
+    if (mission.reward_xp > 0) {
+      const [chars] = await db.query(
+        'SELECT id FROM characters WHERE grudge_id = ? ORDER BY id ASC LIMIT 1',
         [req.user.grudge_id]
       );
+      if (chars.length) {
+        const charId = chars[0].id;
+
+        if (mission.type === 'harvesting') {
+          // Split XP evenly across all 5 harvesting professions
+          const profXP = Math.max(1, Math.floor(mission.reward_xp / 5));
+          const professions = ['mining', 'fishing', 'woodcutting', 'farming', 'hunting'];
+          for (const prof of professions) {
+            await db.query(
+              `INSERT INTO profession_progress (char_id, grudge_id, profession, xp)
+               VALUES (?, ?, ?, ?)
+               ON DUPLICATE KEY UPDATE xp = xp + VALUES(xp)`,
+              [charId, req.user.grudge_id, prof, profXP]
+            );
+            // Recalculate and sync level
+            const [pr] = await db.query(
+              'SELECT xp FROM profession_progress WHERE char_id = ? AND profession = ?',
+              [charId, prof]
+            );
+            const newLevel = Math.min(Math.floor(pr[0].xp / 1000), 100);
+            const colMap = { mining:'mining_lvl', fishing:'fishing_lvl',
+                             woodcutting:'woodcutting_lvl', farming:'farming_lvl', hunting:'hunting_lvl' };
+            await db.query(
+              `UPDATE profession_progress SET level = ?, milestone = FLOOR(? / 25) * 25, unlocked_tier = LEAST(FLOOR(? / 25) + 1, 5)
+               WHERE char_id = ? AND profession = ?`,
+              [newLevel, newLevel, newLevel, charId, prof]
+            );
+            await db.query(`UPDATE characters SET ${colMap[prof]} = ? WHERE id = ?`, [newLevel, charId]);
+          }
+          xp_applied = professions.map(p => ({ profession: p, xp: profXP }));
+        } else {
+          // fighting / sailing / competing: accumulate combat XP, raise character level
+          const [totRow] = await db.query(
+            `SELECT COALESCE(SUM(reward_xp), 0) AS total FROM missions
+             WHERE grudge_id = ? AND status = 'completed' AND type != 'harvesting'`,
+            [req.user.grudge_id]
+          );
+          const newLevel = Math.min(Math.floor(totRow[0].total / 5000) + 1, 100);
+          await db.query(
+            'UPDATE characters SET level = GREATEST(level, ?) WHERE id = ?',
+            [newLevel, charId]
+          );
+          xp_applied = [{ type: 'combat_level', new_level: newLevel }];
+        }
+      }
     }
 
-    res.json({ success: true, reward_gold: rows[0].reward_gold, reward_xp: rows[0].reward_xp });
+    res.json({ success: true, reward_gold: mission.reward_gold, reward_xp: mission.reward_xp, xp_applied });
+  } catch (err) { next(err); }
+});
+
+// ── PATCH /missions/:id/fail ────────────────
+router.patch('/:id/fail', async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [rows] = await db.query(
+      `SELECT id FROM missions WHERE id = ? AND grudge_id = ? AND status = 'active'`,
+      [req.params.id, req.user.grudge_id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Active mission not found' });
+    await db.query(
+      `UPDATE missions SET status = 'failed', completed_at = NOW() WHERE id = ?`,
+      [req.params.id]
+    );
+    res.json({ success: true });
   } catch (err) { next(err); }
 });
 

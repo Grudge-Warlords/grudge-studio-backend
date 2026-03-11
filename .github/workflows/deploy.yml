@@ -39,16 +39,19 @@ jobs:
               ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
               'cd /opt/grudge-studio-backend && \
                docker compose pull 2>/dev/null || true && \
-               docker compose build --no-cache grudge-id wallet-service game-api && \
+               docker compose build --no-cache grudge-id wallet-service game-api ai-agent account-api launcher-api && \
                docker compose up -d --remove-orphans && \
                docker system prune -f'
 
       - name: Health check
         run: |
-          sleep 10
+          sleep 15
           ssh -i ~/.ssh/deploy_key \
               -o StrictHostKeyChecking=no \
               ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
               'curl -sf http://localhost:3001/health && \
                curl -sf http://localhost:3003/health && \
+               curl -sf http://localhost:3004/health && \
+               curl -sf http://localhost:3005/health && \
+               curl -sf http://localhost:3006/health && \
                echo "All services healthy!"'

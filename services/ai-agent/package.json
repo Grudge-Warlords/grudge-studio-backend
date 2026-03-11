@@ -1,7 +1,7 @@
 {
-  "name": "wallet-service",
+  "name": "ai-agent",
   "version": "1.0.0",
-  "description": "Grudge Studio server-side Solana HD wallet service",
+  "description": "Grudge Studio AI agent — dynamic missions, Gouldstone behavior profiles, faction intel",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
@@ -10,10 +10,7 @@
   "dependencies": {
     "express": "^4.18.2",
     "helmet": "^7.1.0",
-    "@solana/web3.js": "^1.87.6",
-    "bip39": "^3.1.0",
-    "ed25519-hd-key": "^1.3.0",
-    "tweetnacl": "^1.0.3",
+    "express-rate-limit": "^7.1.5",
     "mysql2": "^3.6.5",
     "dotenv": "^16.3.1"
   },

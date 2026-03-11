@@ -6,3 +6,8 @@ services/*/node_modules/
 dist/
 # Never commit the Linux server binary - deploy separately
 services/grudge-headless/bin/
+# Generated secrets
+.env.local
+# OS files
+.DS_Store
+Thumbs.db

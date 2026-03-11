@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db');
 
-// ── GET /crews/mine ───────────────────────────
+// ── GET /crews/mine ─────────────────────
 router.get('/mine', async (req, res, next) => {
   try {
     const db = getDB();
@@ -16,7 +16,7 @@ router.get('/mine', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── POST /crews ───────────────────────────────
+// ── POST /crews ───────────────────────
 router.post('/', async (req, res, next) => {
   try {
     const { name, faction } = req.body;
@@ -35,25 +35,107 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── POST /crews/:id/join ──────────────────────
+// ── GET /crews/:id ──────────────────────
+router.get('/:id', async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [crew] = await db.query('SELECT * FROM crews WHERE id = ?', [req.params.id]);
+    if (!crew.length) return res.status(404).json({ error: 'Crew not found' });
+    const [members] = await db.query(
+      `SELECT cm.grudge_id, cm.role, cm.joined_at, u.username, u.faction
+       FROM crew_members cm
+       JOIN users u ON u.grudge_id = cm.grudge_id
+       WHERE cm.crew_id = ?`,
+      [req.params.id]
+    );
+    res.json({ ...crew[0], members });
+  } catch (err) { next(err); }
+});
+
+// ── POST /crews/:id/join ─────────────────
 router.post('/:id/join', async (req, res, next) => {
   try {
     const db = getDB();
     const [crew] = await db.query('SELECT * FROM crews WHERE id = ?', [req.params.id]);
     if (!crew.length) return res.status(404).json({ error: 'Crew not found' });
-
-    // Max 5 members
+    // Max 5 human members (ai companions don't count toward cap)
     const [count] = await db.query(
       "SELECT COUNT(*) as c FROM crew_members WHERE crew_id = ? AND role != 'ai'",
       [req.params.id]
     );
     if (count[0].c >= 5) return res.status(400).json({ error: 'Crew is full (max 5)' });
-
     await db.query(
       'INSERT IGNORE INTO crew_members (crew_id, grudge_id, role) VALUES (?, ?, ?)',
       [req.params.id, req.user.grudge_id, 'member']
     );
     res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+// ── DELETE /crews/:id/leave ────────────────
+router.delete('/:id/leave', async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [membership] = await db.query(
+      'SELECT role FROM crew_members WHERE crew_id = ? AND grudge_id = ?',
+      [req.params.id, req.user.grudge_id]
+    );
+    if (!membership.length) return res.status(404).json({ error: 'Not a member of this crew' });
+    if (membership[0].role === 'captain') {
+      return res.status(400).json({ error: 'Captain cannot leave — transfer captaincy or disband crew first' });
+    }
+    await db.query(
+      'DELETE FROM crew_members WHERE crew_id = ? AND grudge_id = ?',
+      [req.params.id, req.user.grudge_id]
+    );
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+// ── PATCH /crews/:id/claim-base ─────────────
+// Surviving crew captain plants a Pirate Claim flag on an island.
+router.patch('/:id/claim-base', async (req, res, next) => {
+  try {
+    const { island } = req.body;
+    if (!island) return res.status(400).json({ error: 'island required' });
+    const db = getDB();
+    const [membership] = await db.query(
+      'SELECT role FROM crew_members WHERE crew_id = ? AND grudge_id = ?',
+      [req.params.id, req.user.grudge_id]
+    );
+    if (!membership.length) return res.status(403).json({ error: 'Not a member of this crew' });
+    if (membership[0].role !== 'captain') {
+      return res.status(403).json({ error: 'Only the captain can plant a Pirate Claim flag' });
+    }
+    await db.query('UPDATE crews SET base_island = ? WHERE id = ?', [island, req.params.id]);
+    res.json({ success: true, base_island: island, message: `Pirate Claim flag planted on ${island}!` });
+  } catch (err) { next(err); }
+});
+
+// ── PATCH /crews/:id/captain ──────────────
+// Transfer captaincy to another member.
+router.patch('/:id/captain', async (req, res, next) => {
+  try {
+    const { new_captain_grudge_id } = req.body;
+    if (!new_captain_grudge_id) return res.status(400).json({ error: 'new_captain_grudge_id required' });
+    const db = getDB();
+    const [membership] = await db.query(
+      'SELECT role FROM crew_members WHERE crew_id = ? AND grudge_id = ?',
+      [req.params.id, req.user.grudge_id]
+    );
+    if (!membership.length || membership[0].role !== 'captain') {
+      return res.status(403).json({ error: 'Only the captain can transfer captaincy' });
+    }
+    // Demote current captain, promote new one
+    await db.query(
+      'UPDATE crew_members SET role = ? WHERE crew_id = ? AND grudge_id = ?',
+      ['member', req.params.id, req.user.grudge_id]
+    );
+    await db.query(
+      'UPDATE crew_members SET role = ? WHERE crew_id = ? AND grudge_id = ?',
+      ['captain', req.params.id, new_captain_grudge_id]
+    );
+    res.json({ success: true, new_captain: new_captain_grudge_id });
   } catch (err) { next(err); }
 });
 

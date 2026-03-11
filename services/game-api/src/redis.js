@@ -2,9 +2,13 @@ const Redis = require('ioredis');
 let client;
 
 async function initRedis() {
+  // REDIS_URL includes password: redis://:password@host:port
   client = new Redis(process.env.REDIS_URL, {
-    password: process.env.REDIS_PASSWORD,
     lazyConnect: true,
+    maxRetriesPerRequest: null,
+    retryStrategy(times) {
+      return Math.min(times * 200, 5000);
+    },
   });
   await client.connect();
   console.log('[game-api] Redis connected');

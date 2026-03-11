@@ -35,6 +35,8 @@ services:
       DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI}
       WEB3AUTH_CLIENT_ID: ${WEB3AUTH_CLIENT_ID}
       WALLET_SERVICE_URL: http://wallet-service:3002
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudgestudio.com,https://grudachain.grudgestudio.com}
     depends_on:
       mysql:
         condition: service_healthy
@@ -42,7 +44,7 @@ services:
       - grudge-net
 
   # ─────────────────────────────────────────
-  # WALLET SERVICE — Server-Side Solana Wallets
+  # WALLET SERVICE
   # ─────────────────────────────────────────
   wallet-service:
     build: ./services/wallet-service
@@ -81,9 +83,11 @@ services:
       DB_NAME: ${MYSQL_DATABASE}
       DB_USER: ${MYSQL_USER}
       DB_PASS: ${MYSQL_PASSWORD}
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      AI_AGENT_URL: http://ai-agent:3004
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudgestudio.com,https://grudachain.grudgestudio.com}
     depends_on:
       mysql:
         condition: service_healthy
@@ -93,8 +97,91 @@ services:
       - grudge-net
 
   # ─────────────────────────────────────────
-  # GRUDGE HEADLESS — Game Server
+  # AI AGENT — Dynamic Missions, Companions, Faction Intel
   # ─────────────────────────────────────────
+  ai-agent:
+    build: ./services/ai-agent
+    container_name: ai-agent
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3004
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASS: ${MYSQL_PASSWORD}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - grudge-net
+    # NOTE: ai-agent is NOT exposed externally — internal network only
+
+  # ─────────────────────────────────────────────
+  # ACCOUNT API — Profiles, Social, Achievements, Puter Cloud
+  # ─────────────────────────────────────────────
+  account-api:
+    build: ./services/account-api
+    container_name: account-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3005
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASS: ${MYSQL_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      OBJECT_STORAGE_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET}
+      OBJECT_STORAGE_KEY: ${OBJECT_STORAGE_KEY}
+      OBJECT_STORAGE_SECRET: ${OBJECT_STORAGE_SECRET}
+      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+      OBJECT_STORAGE_PUBLIC_URL: ${OBJECT_STORAGE_PUBLIC_URL}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudgestudio.com,https://account.grudgestudio.com,https://app.puter.com}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - grudge-net
+
+  # ─────────────────────────────────────────────
+  # LAUNCHER API — Version Manifest, Computer Registration, Launch Tokens
+  # ─────────────────────────────────────────────
+  launcher-api:
+    build: ./services/launcher-api
+    container_name: launcher-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3006
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASS: ${MYSQL_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      LAUNCH_TOKEN_SECRET: ${LAUNCH_TOKEN_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      OBJECT_STORAGE_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET}
+      OBJECT_STORAGE_KEY: ${OBJECT_STORAGE_KEY}
+      OBJECT_STORAGE_SECRET: ${OBJECT_STORAGE_SECRET}
+      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudgestudio.com,https://launcher.grudgestudio.com}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - grudge-net
+
+  # ─────────────────────────────────────────────
+  # GRUDGE HEADLESS
+  # ─────────────────────────────────────────────
   grudge-headless:
     build: ./services/grudge-headless
     container_name: grudge-headless
@@ -176,11 +263,13 @@ services:
     depends_on:
       - grudge-id
       - game-api
+      - account-api
+      - launcher-api
     networks:
       - grudge-net
 
-  # ─────────────────────────────────────────
-  # CERTBOT — TLS Certificate Renewal
+  # ─────────────────────────────────────────────
+  # CERTBOT
   # ─────────────────────────────────────────
   certbot:
     image: certbot/certbot

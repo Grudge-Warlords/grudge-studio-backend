@@ -13,15 +13,15 @@ const PORT = process.env.PORT || 3001;
 
 // ── Security middleware ───────────────────────
 app.use(helmet());
-app.use(cors({
-  origin: [
-    'https://grudgewarlords.com',
-    'https://grudgestudio.com',
-    'https://grudachain.grudgestudio.com',
-    process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : null,
-  ].filter(Boolean),
-  credentials: true,
-}));
+// ── Dynamic CORS — add GitHub Pages / puter app URLs to CORS_ORIGINS env ─
+ const CORS_ORIGINS = (
+  process.env.CORS_ORIGINS ||
+  'https://grudgewarlords.com,https://grudgestudio.com,https://grudachain.grudgestudio.com'
+).split(',').map(o => o.trim()).filter(Boolean);
+if (process.env.NODE_ENV !== 'production') {
+  CORS_ORIGINS.push('http://localhost:3000', 'http://localhost:5173');
+}
+app.use(cors({ origin: CORS_ORIGINS, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 
 // ── Rate limiting ─────────────────────────────

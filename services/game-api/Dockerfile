@@ -1,7 +1,15 @@
-FROM node:20-alpine
+FROM node:20-alpine AS base
 WORKDIR /app
 COPY package.json .
-RUN npm install --production
+
+FROM base AS development
+RUN npm install
+COPY src ./src
+EXPOSE 3003
+CMD ["npx", "nodemon", "src/index.js"]
+
+FROM base AS production
+RUN npm install --omit=dev
 COPY src ./src
 EXPOSE 3003
 CMD ["node", "src/index.js"]

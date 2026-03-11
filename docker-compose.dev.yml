@@ -1,0 +1,74 @@
+# ─────────────────────────────────────────────────────────────
+# Development override — hot reload + exposed ports
+# Usage: npm run docker:dev
+#        (docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build)
+# ─────────────────────────────────────────────────────────────
+version: "3.9"
+
+services:
+
+  grudge-id:
+    build:
+      context: ./services/grudge-id
+      target: development
+    volumes:
+      - ./services/grudge-id/src:/app/src
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+
+  wallet-service:
+    build:
+      context: ./services/wallet-service
+      target: development
+    volumes:
+      - ./services/wallet-service/src:/app/src
+    ports:
+      - "3002:3002"
+    environment:
+      NODE_ENV: development
+
+  game-api:
+    build:
+      context: ./services/game-api
+      target: development
+    volumes:
+      - ./services/game-api/src:/app/src
+    ports:
+      - "3003:3003"
+    environment:
+      NODE_ENV: development
+
+  ai-agent:
+    build:
+      context: ./services/ai-agent
+      target: development
+    volumes:
+      - ./services/ai-agent/src:/app/src
+    ports:
+      - "3004:3004"
+    environment:
+      NODE_ENV: development
+
+  account-api:
+    build:
+      context: ./services/account-api
+      target: development
+    volumes:
+      - ./services/account-api/src:/app/src
+    ports:
+      - "3005:3005"
+    environment:
+      NODE_ENV: development
+
+  launcher-api:
+    build:
+      context: ./services/launcher-api
+      target: development
+    volumes:
+      - ./services/launcher-api/src:/app/src
+    ports:
+      - "3006:3006"
+    environment:
+      NODE_ENV: development
