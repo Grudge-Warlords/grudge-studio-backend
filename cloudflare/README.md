@@ -1,6 +1,24 @@
 # Cloudflare Free Services — Grudge Studio
 
-Account ID: `ee475864561b02d4588180b8b9acf694`
+## Live Resources
+
+| Resource | Value |
+|---|---|
+| **Account ID** | `ee475864561b02d4588180b8b9acf694` |
+| **R2 Bucket** | `grudge-assets` |
+| **Public R2 URL** | `https://pub-e7fcf1fd4c9946ecb84b3766bbc7b50d.r2.dev` |
+| **CDN Worker** | `https://grudge-r2-cdn.grudge.workers.dev` |
+| **Custom domain** | `https://assets.grudgestudio.com` (add CNAME below) |
+| **KV Namespace** | `GRUDGE_RATE_LIMIT` — id: `35be1828b2124f82abdc770293177165` |
+
+### One-time DNS setup — Cloudflare Dashboard
+In your `grudgestudio.com` zone, add:
+```
+assets   CNAME   grudge-r2-cdn.grudge.workers.dev   (Proxied ☁️)
+```
+Then update `.env` on VPS: `OBJECT_STORAGE_PUBLIC_URL=https://assets.grudgestudio.com`
+
+---
 
 All services below are **free tier** — no credit card required for basic usage.
 
