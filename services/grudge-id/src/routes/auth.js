@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
 const { getDB } = require('../db');
+const { verifyTurnstile } = require('../middleware/turnstile');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
@@ -76,7 +77,8 @@ async function getOrCreateUser(db, identityField, identityValue, extraFields = {
 
 // ── POST /auth/wallet ─────────────────────────
 // Web3Auth: client sends verified wallet address + Web3Auth token
-router.post('/wallet', async (req, res, next) => {
+// Turnstile: bot protection (free, unlimited — enabled in production)
+router.post('/wallet', verifyTurnstile, async (req, res, next) => {
   try {
     const { wallet_address, web3auth_token } = req.body;
     if (!wallet_address) return res.status(400).json({ error: 'wallet_address required' });

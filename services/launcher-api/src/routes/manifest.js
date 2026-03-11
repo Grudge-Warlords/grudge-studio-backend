@@ -3,6 +3,21 @@ const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { getDB } = require('../db');
 
+// ── In-memory cache for manifest responses ───────────────────────────────────
+// The launcher calls GET /manifest on every startup to check for updates.
+// Caching for 60s dramatically reduces DB reads without impacting update latency.
+const manifestCache = new Map(); // channel -> { data, expiresAt }
+const MANIFEST_TTL_MS = 60 * 1000; // 60 seconds
+
+function getCachedManifest(channel) {
+  const entry = manifestCache.get(channel);
+  if (entry && entry.expiresAt > Date.now()) return entry.data;
+  return null;
+}
+function setCachedManifest(channel, data) {
+  manifestCache.set(channel, { data, expiresAt: Date.now() + MANIFEST_TTL_MS });
+}
+
 const s3 = new S3Client({
   endpoint: process.env.OBJECT_STORAGE_ENDPOINT,
   region: process.env.OBJECT_STORAGE_REGION || 'us-east-1',
@@ -39,6 +54,13 @@ router.get('/', async (req, res, next) => {
     ? req.query.channel
     : 'stable';
   try {
+    // Return cached response if still fresh
+    const cached = getCachedManifest(channel);
+    if (cached) {
+      res.set('X-Cache', 'HIT');
+      return res.json(cached);
+    }
+
     const db = getDB();
     const [[version]] = await db.query(
       `SELECT id, version, channel, windows_url, windows_sha256,
@@ -61,18 +83,23 @@ router.get('/', async (req, res, next) => {
       presignIfNeeded(version.linux_url),
     ]);
 
-    res.json({
-      version: version.version,
-      channel: version.channel,
-      min_version: version.min_version,
+    const payload = {
+      version:      version.version,
+      channel:      version.channel,
+      min_version:  version.min_version,
       published_at: version.published_at,
-      patch_notes: version.patch_notes,
+      patch_notes:  version.patch_notes,
+      cdn_base:     process.env.OBJECT_STORAGE_PUBLIC_URL || null,
       downloads: {
         windows: windows_url ? { url: windows_url, sha256: version.windows_sha256 } : null,
         mac:     mac_url     ? { url: mac_url,     sha256: version.mac_sha256     } : null,
         linux:   linux_url   ? { url: linux_url,   sha256: version.linux_sha256   } : null,
       },
-    });
+    };
+
+    setCachedManifest(channel, payload);
+    res.set('X-Cache', 'MISS');
+    res.json(payload);
   } catch (err) {
     next(err);
   }

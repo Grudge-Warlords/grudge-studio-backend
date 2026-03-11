@@ -8,12 +8,13 @@ const { requireAuth } = require('../middleware/auth');
 // ── S3 client (Cloudflare R2 / Backblaze B2 / AWS S3 compatible) ──
 const s3 = new S3Client({
   endpoint: process.env.OBJECT_STORAGE_ENDPOINT,
-  region: process.env.OBJECT_STORAGE_REGION || 'us-east-1',
+  region:   process.env.OBJECT_STORAGE_REGION || 'auto', // R2 uses 'auto'
   credentials: {
-    accessKeyId: process.env.OBJECT_STORAGE_KEY,
+    accessKeyId:     process.env.OBJECT_STORAGE_KEY,
     secretAccessKey: process.env.OBJECT_STORAGE_SECRET,
   },
-  forcePathStyle: true, // needed for R2 / non-AWS providers
+  // R2 account-level endpoint uses path style: endpoint/bucket/key
+  forcePathStyle: true,
 });
 
 // multer memory storage — 2 MB cap, images only
@@ -90,11 +91,18 @@ router.post('/avatar', requireAuth, upload.single('avatar'), async (req, res, ne
 
   try {
     await s3.send(new PutObjectCommand({
-      Bucket: process.env.OBJECT_STORAGE_BUCKET,
-      Key: key,
-      Body: req.file.buffer,
-      ContentType: req.file.mimetype,
-      CacheControl: 'public, max-age=31536000',
+      Bucket:             process.env.OBJECT_STORAGE_BUCKET,
+      Key:                key,
+      Body:               req.file.buffer,
+      ContentType:        req.file.mimetype,
+      // Immutable cache — key contains SHA-256 hash so content never changes
+      CacheControl:       'public, max-age=31536000, immutable',
+      ContentDisposition: 'inline',
+      // Cloudflare R2 custom metadata
+      Metadata: {
+        'grudge-id':    grudge_id,
+        'uploaded-at':  new Date().toISOString(),
+      },
     }));
 
     const avatar_url = `${process.env.OBJECT_STORAGE_PUBLIC_URL}/${key}`;

@@ -1,0 +1,34 @@
+name            = "grudge-r2-cdn"
+main            = "index.js"
+compatibility_date = "2024-11-01"
+
+# ── R2 binding (native — no S3 API key needed for reads) ─────────────────────
+[[r2_buckets]]
+binding     = "GRUDGE_ASSETS"
+bucket_name = "grudgedata"
+
+# ── KV namespace for rate limiting ───────────────────────────────────────────
+# Create before first deploy:
+#   npx wrangler kv namespace create "GRUDGE_RATE_LIMIT"
+# Copy the returned `id` below.
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id      = "TODO_paste_kv_namespace_id_here"
+
+# ── Environment variables ────────────────────────────────────────────────────
+[vars]
+ENVIRONMENT = "production"
+
+# ── Routes / custom domain ───────────────────────────────────────────────────
+# After running `npx wrangler deploy`:
+#   1. Go to Cloudflare Dashboard → Workers & Pages → grudge-r2-cdn → Settings → Domains
+#   2. Add custom domain: assets.grudgestudio.com
+#   OR add a CNAME in DNS:
+#      assets  CNAME  grudge-r2-cdn.grudge.workers.dev  (proxied)
+#
+# Then update .env:
+#   OBJECT_STORAGE_PUBLIC_URL=https://assets.grudgestudio.com
+
+# ── Dev preview (local) ──────────────────────────────────────────────────────
+# npx wrangler dev  →  http://localhost:8787
+# Uses real R2 bucket in preview mode.

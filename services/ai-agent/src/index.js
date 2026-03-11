@@ -3,6 +3,7 @@ const express    = require('express');
 const helmet     = require('helmet');
 const rateLimit  = require('express-rate-limit');
 const { initDB } = require('./db');
+const { SYSTEM_CONTEXT } = require('./data/systemContext');
 
 const missionRoutes   = require('./routes/missions');
 const companionRoutes = require('./routes/companions');
@@ -28,8 +29,10 @@ app.use(rateLimit({ windowMs: 60 * 1000, max: 200 }));
 
 // ── Routes ────────────────────────────────────────────────────
 app.get('/health', (req, res) =>
-  res.json({ status: 'ok', service: 'ai-agent', version: '1.0.0' })
+  res.json({ status: 'ok', service: 'ai-agent', version: SYSTEM_CONTEXT.version })
 );
+// Expose full system context (internal only — requires x-internal-key)
+app.get('/ai/context', (req, res) => res.json(SYSTEM_CONTEXT));
 app.use('/ai/mission',   missionRoutes);
 app.use('/ai/companion', companionRoutes);
 app.use('/ai/faction',   factionRoutes);

@@ -36,7 +36,9 @@ services:
       WEB3AUTH_CLIENT_ID: ${WEB3AUTH_CLIENT_ID}
       WALLET_SERVICE_URL: http://wallet-service:3002
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudgestudio.com,https://grudachain.grudgestudio.com}
+      CF_TURNSTILE_SECRET_KEY: ${CF_TURNSTILE_SECRET_KEY}
+      CF_TURNSTILE_SITE_KEY: ${CF_TURNSTILE_SITE_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudgestudio.com,https://grudachain.grudgestudio.com,https://app.puter.com}
     depends_on:
       mysql:
         condition: service_healthy
@@ -156,7 +158,7 @@ services:
       OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET}
       OBJECT_STORAGE_KEY: ${OBJECT_STORAGE_KEY}
       OBJECT_STORAGE_SECRET: ${OBJECT_STORAGE_SECRET}
-      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-auto}
       OBJECT_STORAGE_PUBLIC_URL: ${OBJECT_STORAGE_PUBLIC_URL}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudgestudio.com,https://account.grudgestudio.com,https://app.puter.com}
     depends_on:
@@ -195,7 +197,8 @@ services:
       OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET}
       OBJECT_STORAGE_KEY: ${OBJECT_STORAGE_KEY}
       OBJECT_STORAGE_SECRET: ${OBJECT_STORAGE_SECRET}
-      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-auto}
+      OBJECT_STORAGE_PUBLIC_URL: ${OBJECT_STORAGE_PUBLIC_URL}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudgestudio.com,https://launcher.grudgestudio.com}
     depends_on:
       mysql:
