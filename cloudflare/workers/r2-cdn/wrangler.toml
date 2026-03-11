@@ -13,7 +13,7 @@ bucket_name = "grudge-assets"
 # Copy the returned `id` below.
 [[kv_namespaces]]
 binding = "RATE_LIMIT"
-id      = "TODO_paste_kv_namespace_id_here"
+id      = "35be1828b2124f82abdc770293177165"
 
 # ── Environment variables ────────────────────────────────────────────────────
 [vars]

@@ -4,11 +4,11 @@
   "private": true,
   "description": "Grudge Studio R2 CDN Worker — edge-serves grudgedata bucket",
   "scripts": {
-    "dev":    "wrangler dev",
+    "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "tail":   "wrangler tail"
+    "tail": "wrangler tail"
   },
   "devDependencies": {
-    "wrangler": "^3.0.0"
+    "wrangler": "^3.114.17"
   }
 }
