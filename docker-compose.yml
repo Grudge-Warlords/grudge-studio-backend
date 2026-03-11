@@ -180,11 +180,14 @@ services:
       - grudge-net
 
   # ─────────────────────────────────────────────
-  # GRUDGE HEADLESS
+  # GRUDGE HEADLESS — Unity Linux Game Server
+  # Requires bin/ to be uploaded separately (not in git)
+  # Start with: docker compose --profile gameserver up -d grudge-headless
   # ─────────────────────────────────────────────
   grudge-headless:
     build: ./services/grudge-headless
     container_name: grudge-headless
+    profiles: ["gameserver"]
     restart: unless-stopped
     ports:
       - "7777:7777/tcp"
