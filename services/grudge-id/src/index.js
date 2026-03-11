@@ -11,8 +11,10 @@ const { initDB } = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// ── Trust Cloudflare proxy (real IP, HTTPS detection, rate limit accuracy) ──
+app.set('trust proxy', true);
 // ── Security middleware ───────────────────────
-app.use(helmet());
+app.use(helmet({ hsts: { maxAge: 31536000, includeSubDomains: true, preload: true } }));
 // ── Dynamic CORS — add GitHub Pages / puter app URLs to CORS_ORIGINS env ─
 const CORS_ORIGINS = (
   process.env.CORS_ORIGINS ||

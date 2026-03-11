@@ -136,10 +136,13 @@ export default {
     headers.set('Last-Modified', object.uploaded.toUTCString());
     headers.set('Accept-Ranges', 'bytes');
 
-    // Security
-    headers.set('X-Content-Type-Options', 'nosniff');
-    headers.set('X-Frame-Options',        'DENY');
-    headers.set('Referrer-Policy',         'strict-origin-when-cross-origin');
+    // Security (best-practice for Cloudflare Always Use HTTPS + TLS 1.3 zone)
+    headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+    headers.set('X-Content-Type-Options',    'nosniff');
+    headers.set('X-Frame-Options',           'DENY');
+    headers.set('Referrer-Policy',           'strict-origin-when-cross-origin');
+    headers.set('Permissions-Policy',        'interest-cohort=()');
+    headers.set('Cross-Origin-Resource-Policy', 'cross-origin'); // allow CDN embeds
 
     // Cache-Control
     const isMutable = MUTABLE_PREFIXES.some(p => key.startsWith(p));

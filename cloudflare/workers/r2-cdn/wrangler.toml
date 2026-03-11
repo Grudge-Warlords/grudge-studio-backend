@@ -1,6 +1,7 @@
-name            = "grudge-r2-cdn"
-main            = "index.js"
-compatibility_date = "2024-11-01"
+name               = "grudge-r2-cdn"
+main               = "index.js"
+compatibility_date = "2025-02-04"
+account_id         = "ee475864561b02d4588180b8b9acf694"
 
 # ── R2 binding (native — no S3 API key needed for reads) ─────────────────────
 [[r2_buckets]]
@@ -24,7 +25,7 @@ ENVIRONMENT = "production"
 # Route binding tells Cloudflare to run this worker for that hostname.
 [[routes]]
 pattern = "assets.grudge-studio.com/*"
-zone_name = "grudge-studio.com"
+zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
 
 # Legacy grudgestudio.com (keep until fully migrated)
 # [[routes]]

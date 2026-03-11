@@ -16,6 +16,7 @@ const gouldstoneRoutes = require('./routes/gouldstones');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
+app.set('trust proxy', true);
 
 // ── Dynamic CORS — supports GitHub Pages, puter apps, ObjectStore ────
 const CORS_ORIGINS = (
@@ -26,7 +27,7 @@ if (process.env.NODE_ENV !== 'production') {
   CORS_ORIGINS.push('http://localhost:3000', 'http://localhost:5173', 'http://localhost:4173');
 }
 
-app.use(helmet());
+app.use(helmet({ hsts: { maxAge: 31536000, includeSubDomains: true, preload: true } }));
 app.use(cors({ origin: CORS_ORIGINS, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
 

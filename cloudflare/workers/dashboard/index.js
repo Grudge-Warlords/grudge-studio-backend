@@ -282,9 +282,10 @@ function dashboardPage(env, key) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Grudge Studio — Dashboard</title>
+  <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token":"grudge-studio"}'></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    :root{--gold:#e8c96f;--bg:#0a0a0f;--surface:#12121a;--border:#1e1e2e;--text:#c8c8d8;--green:#4caf7d;--red:#e85555;--yellow:#e8c96f;--blue:#5b8cf5}
+    :root{--gold:#e8c96f;
     body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px}
     header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px}
     .logo{font-size:20px;font-weight:800;color:var(--gold);letter-spacing:2px;text-transform:uppercase}
@@ -559,18 +560,41 @@ function dashboardPage(env, key) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Security headers applied to every response ──────────────────────────────
+const SECURITY_HEADERS = {
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
+  'X-Content-Type-Options':    'nosniff',
+  'X-Frame-Options':           'SAMEORIGIN',
+  'Referrer-Policy':           'strict-origin-when-cross-origin',
+  'Permissions-Policy':        'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+  'Content-Security-Policy':   [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https://assets.grudge-studio.com",
+    "connect-src 'self' https://cloudflareinsights.com https://*.grudge-studio.com https://*.grudgestudio.com",
+    "frame-ancestors 'none'",
+  ].join('; '),
+};
+
+function applySecurityHeaders(headers) {
+  for (const [k, v] of Object.entries(SECURITY_HEADERS)) headers.set(k, v);
+}
+
 function json(data, status = 200) {
-  return new Response(JSON.stringify(data, null, 2), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-store',
-    },
+  const headers = new Headers({
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-store',
   });
+  applySecurityHeaders(headers);
+  return new Response(JSON.stringify(data, null, 2), { status, headers });
 }
 
 function html(content) {
-  return new Response(content, {
-    headers: { 'Content-Type': 'text/html;charset=UTF-8', 'Cache-Control': 'no-store' },
+  const headers = new Headers({
+    'Content-Type': 'text/html;charset=UTF-8',
+    'Cache-Control': 'no-store',
   });
+  applySecurityHeaders(headers);
+  return new Response(content, { headers });
 }

@@ -1,14 +1,15 @@
-name                = "grudge-dashboard"
-main                = "index.js"
-compatibility_date  = "2025-02-04"
+name               = "grudge-dashboard"
+main               = "index.js"
+compatibility_date = "2025-02-04"
+account_id         = "ee475864561b02d4588180b8b9acf694"
 
 [observability]
 enabled = true
 
 # ── Custom domain ─────────────────────────────────────────────────────────────
 [[routes]]
-pattern   = "dash.grudge-studio.com/*"
-zone_name = "grudge-studio.com"
+pattern = "dash.grudge-studio.com/*"
+zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
 
 # ── D1 Database (Grudge Studio primary CF data) ───────────────────────────────
 [[d1_databases]]
