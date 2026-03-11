@@ -3,13 +3,13 @@ version: "3.9"
 networks:
   grudge-net:
     driver: bridge
+  coolify:
+    external: true
 
 volumes:
   mysql-data:
   redis-data:
   server-data:
-  certbot-certs:
-  certbot-www:
 
 services:
 
@@ -40,8 +40,16 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grudge-id.rule=Host(`id.grudgestudio.com`)"
+      - "traefik.http.routers.grudge-id.entrypoints=websecure"
+      - "traefik.http.routers.grudge-id.tls.certresolver=letsencrypt"
+      - "traefik.http.services.grudge-id.loadbalancer.server.port=3001"
+      - "traefik.docker.network=coolify"
     networks:
       - grudge-net
+      - coolify
 
   # ─────────────────────────────────────────
   # WALLET SERVICE
@@ -93,8 +101,16 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.game-api.rule=Host(`api.grudgestudio.com`)"
+      - "traefik.http.routers.game-api.entrypoints=websecure"
+      - "traefik.http.routers.game-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.game-api.loadbalancer.server.port=3003"
+      - "traefik.docker.network=coolify"
     networks:
       - grudge-net
+      - coolify
 
   # ─────────────────────────────────────────
   # AI AGENT — Dynamic Missions, Companions, Faction Intel
@@ -146,8 +162,16 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.account-api.rule=Host(`account.grudgestudio.com`)"
+      - "traefik.http.routers.account-api.entrypoints=websecure"
+      - "traefik.http.routers.account-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.account-api.loadbalancer.server.port=3005"
+      - "traefik.docker.network=coolify"
     networks:
       - grudge-net
+      - coolify
 
   # ─────────────────────────────────────────────
   # LAUNCHER API — Version Manifest, Computer Registration, Launch Tokens
@@ -176,8 +200,16 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.launcher-api.rule=Host(`launcher.grudgestudio.com`)"
+      - "traefik.http.routers.launcher-api.entrypoints=websecure"
+      - "traefik.http.routers.launcher-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.launcher-api.loadbalancer.server.port=3006"
+      - "traefik.docker.network=coolify"
     networks:
       - grudge-net
+      - coolify
 
   # ─────────────────────────────────────────────
   # GRUDGE HEADLESS — Unity Linux Game Server
@@ -248,38 +280,4 @@ services:
     networks:
       - grudge-net
 
-  # ─────────────────────────────────────────
-  # NGINX — Reverse Proxy + TLS
-  # ─────────────────────────────────────────
-  nginx:
-    image: nginx:alpine
-    container_name: grudge-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - certbot-certs:/etc/letsencrypt:ro
-      - certbot-www:/var/www/certbot:ro
-    depends_on:
-      - grudge-id
-      - game-api
-      - account-api
-      - launcher-api
-    networks:
-      - grudge-net
-
-  # ─────────────────────────────────────────────
-  # CERTBOT
-  # ─────────────────────────────────────────
-  certbot:
-    image: certbot/certbot
-    container_name: grudge-certbot
-    volumes:
-      - certbot-certs:/etc/letsencrypt
-      - certbot-www:/var/www/certbot
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
-    networks:
-      - grudge-net
+  # NOTE: nginx and certbot removed — Traefik (managed by Coolify) handles TLS + routing
