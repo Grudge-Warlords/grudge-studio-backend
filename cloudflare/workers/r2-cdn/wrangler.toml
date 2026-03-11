@@ -5,7 +5,7 @@ compatibility_date = "2024-11-01"
 # ── R2 binding (native — no S3 API key needed for reads) ─────────────────────
 [[r2_buckets]]
 binding     = "GRUDGE_ASSETS"
-bucket_name = "grudgedata"
+bucket_name = "grudge-assets"
 
 # ── KV namespace for rate limiting ───────────────────────────────────────────
 # Create before first deploy:

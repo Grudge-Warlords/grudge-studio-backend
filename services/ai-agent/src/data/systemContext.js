@@ -19,9 +19,9 @@ const SYSTEM_CONTEXT = {
 
   // ── Cloudflare R2 CDN ─────────────────────────────────────
   cdn: {
-    baseUrl:    process.env.GRUDGE_CDN_URL         || process.env.OBJECT_STORAGE_PUBLIC_URL || 'https://pub-04dc39a204e94952b06d07c0fb8b210b.r2.dev',
+    baseUrl:    process.env.GRUDGE_CDN_URL         || process.env.OBJECT_STORAGE_PUBLIC_URL || 'https://pub-e7fcf1fd4c9946ecb84b3766bbc7b50d.r2.dev',
     assetsUrl:  process.env.GRUDGE_ASSETS_URL      || 'https://assets.grudgestudio.com',
-    bucket:     'grudgedata',
+    bucket:     'grudge-assets',
     region:     'auto',
     // Asset path conventions
     paths: {

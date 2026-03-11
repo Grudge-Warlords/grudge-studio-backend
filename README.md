@@ -23,9 +23,10 @@ Built with Node.js · Docker · MySQL 8 · Redis 7 · nginx · Solana · Cloudfl
 ## Cloudflare Integration
 
 ### R2 Object Storage
-- **Bucket**: `grudgedata` (Eastern North America)
+- **Bucket**: `grudge-assets`
 - **S3 endpoint**: `https://ee475864561b02d4588180b8b9acf694.r2.cloudflarestorage.com`
-- **Public CDN base**: `https://pub-04dc39a204e94952b06d07c0fb8b210b.r2.dev`
+- **Catalog URI**: `https://catalog.cloudflarestorage.com/ee475864561b02d4588180b8b9acf694/grudge-assets`
+- **Public CDN base**: `https://pub-e7fcf1fd4c9946ecb84b3766bbc7b50d.r2.dev`
 - Region must be set to `auto` — R2 does not use `us-east-1`
 - `account-api` uploads avatars/assets with `ContentDisposition: inline`, immutable cache headers, and per-user R2 metadata
 
@@ -165,7 +166,7 @@ WEB3AUTH_CLIENT_ID
 OBJECT_STORAGE_KEY           # R2 Access Key ID
 OBJECT_STORAGE_SECRET        # R2 Secret Access Key
 OBJECT_STORAGE_REGION        # always "auto" for R2
-OBJECT_STORAGE_PUBLIC_URL    # https://pub-xxxxx.r2.dev
+OBJECT_STORAGE_PUBLIC_URL    # https://pub-e7fcf1fd4c9946ecb84b3766bbc7b50d.r2.dev
 CF_ACCOUNT_ID
 
 # Cloudflare Turnstile

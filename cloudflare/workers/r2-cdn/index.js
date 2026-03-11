@@ -9,7 +9,7 @@
  *
  * Deploy  : npx wrangler deploy  (from cloudflare/workers/r2-cdn/)
  * Domain  : assets.grudgestudio.com  (CNAME → this Worker after deploy)
- * Bucket  : grudgedata
+ * Bucket  : grudge-assets
  *
  * URL scheme:
  *   https://assets.grudgestudio.com/avatars/<grudge_id>/<hash>.webp
