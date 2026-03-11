@@ -1,0 +1,42 @@
+name                = "grudge-dashboard"
+main                = "index.js"
+compatibility_date  = "2025-02-04"
+
+[observability]
+enabled = true
+
+# ── Custom domain ─────────────────────────────────────────────────────────────
+[[routes]]
+pattern   = "dash.grudge-studio.com/*"
+zone_name = "grudge-studio.com"
+
+# ── D1 Database (Grudge Studio primary CF data) ───────────────────────────────
+[[d1_databases]]
+binding      = "DB"
+database_name = "grudge-studio-db"
+database_id  = "8fcb111b-fcee-4f4e-b0d5-59ad416ee3b9"
+
+# ── R2 Bucket (game assets) ───────────────────────────────────────────────────
+[[r2_buckets]]
+binding     = "ASSETS"
+bucket_name = "grudge-assets"
+
+# ── KV (rate limiting / sessions) ─────────────────────────────────────────────
+[[kv_namespaces]]
+binding = "KV"
+id      = "35be1828b2124f82abdc770293177165"
+
+# ── Environment variables (non-secret) ───────────────────────────────────────
+[vars]
+ENVIRONMENT       = "production"
+VPS_IP            = "74.208.155.229"
+IDENTITY_API      = "https://id.grudge-studio.com"
+GAME_API          = "https://api.grudge-studio.com"
+ACCOUNT_API       = "https://account.grudge-studio.com"
+LAUNCHER_API      = "https://launcher.grudge-studio.com"
+CDN_URL           = "https://assets.grudge-studio.com"
+
+# ── Secrets (set via wrangler secret put) ─────────────────────────────────────
+# wrangler secret put DASH_API_KEY
+# → paste your INTERNAL_API_KEY value
+# This key gates all dashboard access.

@@ -38,13 +38,13 @@ services:
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       CF_TURNSTILE_SECRET_KEY: ${CF_TURNSTILE_SECRET_KEY}
       CF_TURNSTILE_SITE_KEY: ${CF_TURNSTILE_SITE_KEY}
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudgestudio.com,https://grudachain.grudgestudio.com,https://app.puter.com}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com,https://app.puter.com}
     depends_on:
       mysql:
         condition: service_healthy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.grudge-id.rule=Host(`id.grudgestudio.com`)"
+      - "traefik.http.routers.grudge-id.rule=Host(`id.grudge-studio.com`) || Host(`id.grudgestudio.com`)"
       - "traefik.http.routers.grudge-id.entrypoints=websecure"
       - "traefik.http.routers.grudge-id.tls.certresolver=letsencrypt"
       - "traefik.http.services.grudge-id.loadbalancer.server.port=3001"
@@ -97,7 +97,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       AI_AGENT_URL: http://ai-agent:3004
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudgestudio.com,https://grudachain.grudgestudio.com}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com}
     depends_on:
       mysql:
         condition: service_healthy
@@ -105,7 +105,7 @@ services:
         condition: service_healthy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.game-api.rule=Host(`api.grudgestudio.com`)"
+      - "traefik.http.routers.game-api.rule=Host(`api.grudge-studio.com`) || Host(`api.grudgestudio.com`)"
       - "traefik.http.routers.game-api.entrypoints=websecure"
       - "traefik.http.routers.game-api.tls.certresolver=letsencrypt"
       - "traefik.http.services.game-api.loadbalancer.server.port=3003"
@@ -160,13 +160,13 @@ services:
       OBJECT_STORAGE_SECRET: ${OBJECT_STORAGE_SECRET}
       OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-auto}
       OBJECT_STORAGE_PUBLIC_URL: ${OBJECT_STORAGE_PUBLIC_URL}
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudgestudio.com,https://account.grudgestudio.com,https://app.puter.com}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://account.grudge-studio.com,https://dash.grudge-studio.com,https://app.puter.com}
     depends_on:
       mysql:
         condition: service_healthy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.account-api.rule=Host(`account.grudgestudio.com`)"
+      - "traefik.http.routers.account-api.rule=Host(`account.grudge-studio.com`) || Host(`account.grudgestudio.com`)"
       - "traefik.http.routers.account-api.entrypoints=websecure"
       - "traefik.http.routers.account-api.tls.certresolver=letsencrypt"
       - "traefik.http.services.account-api.loadbalancer.server.port=3005"
@@ -199,13 +199,13 @@ services:
       OBJECT_STORAGE_SECRET: ${OBJECT_STORAGE_SECRET}
       OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-auto}
       OBJECT_STORAGE_PUBLIC_URL: ${OBJECT_STORAGE_PUBLIC_URL}
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudgestudio.com,https://launcher.grudgestudio.com}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://launcher.grudge-studio.com}
     depends_on:
       mysql:
         condition: service_healthy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.launcher-api.rule=Host(`launcher.grudgestudio.com`)"
+      - "traefik.http.routers.launcher-api.rule=Host(`launcher.grudge-studio.com`) || Host(`launcher.grudgestudio.com`)"
       - "traefik.http.routers.launcher-api.entrypoints=websecure"
       - "traefik.http.routers.launcher-api.tls.certresolver=letsencrypt"
       - "traefik.http.services.launcher-api.loadbalancer.server.port=3006"

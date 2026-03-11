@@ -20,14 +20,16 @@ id      = "35be1828b2124f82abdc770293177165"
 ENVIRONMENT = "production"
 
 # ── Routes / custom domain ───────────────────────────────────────────────────
-# After running `npx wrangler deploy`:
-#   1. Go to Cloudflare Dashboard → Workers & Pages → grudge-r2-cdn → Settings → Domains
-#   2. Add custom domain: assets.grudgestudio.com
-#   OR add a CNAME in DNS:
-#      assets  CNAME  grudge-r2-cdn.grudge.workers.dev  (proxied)
-#
-# Then update .env:
-#   OBJECT_STORAGE_PUBLIC_URL=https://assets.grudgestudio.com
+# assets.grudge-studio.com CNAME → grudge-r2-cdn.grudge.workers.dev (proxied)
+# Route binding tells Cloudflare to run this worker for that hostname.
+[[routes]]
+pattern = "assets.grudge-studio.com/*"
+zone_name = "grudge-studio.com"
+
+# Legacy grudgestudio.com (keep until fully migrated)
+# [[routes]]
+# pattern = "assets.grudgestudio.com/*"
+# zone_name = "grudgestudio.com"
 
 # ── Dev preview (local) ──────────────────────────────────────────────────────
 # npx wrangler dev  →  http://localhost:8787

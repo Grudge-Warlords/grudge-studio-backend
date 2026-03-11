@@ -40,11 +40,26 @@ upsert "CF_ACCOUNT_ID"             "ee475864561b02d4588180b8b9acf694"
 upsert "CF_KV_RATE_LIMIT_ID"       "35be1828b2124f82abdc770293177165"
 
 # ── CDN / system URLs ─────────────────────────────────────────────────────────
-upsert "GRUDGE_CDN_URL"            "https://pub-e7fcf1fd4c9946ecb84b3766bbc7b50d.r2.dev"
-upsert "GRUDGE_IDENTITY_API"       "https://id.grudgestudio.com"
-upsert "GRUDGE_GAME_API"           "https://api.grudgestudio.com"
-upsert "GRUDGE_ACCOUNT_API"        "https://account.grudgestudio.com"
-upsert "GRUDGE_ASSETS_URL"         "https://assets.grudgestudio.com"
+upsert "GRUDGE_CDN_URL"            "https://assets.grudge-studio.com"
+upsert "GRUDGE_IDENTITY_API"       "https://id.grudge-studio.com"
+upsert "GRUDGE_GAME_API"           "https://api.grudge-studio.com"
+upsert "GRUDGE_ACCOUNT_API"        "https://account.grudge-studio.com"
+upsert "GRUDGE_ASSETS_URL"         "https://assets.grudge-studio.com"
+upsert "CF_D1_DATABASE_ID"         "8fcb111b-fcee-4f4e-b0d5-59ad416ee3b9"
+
+# ── Domains ───────────────────────────────────────────────────────────────────
+upsert "DOMAIN_ID"                 "id.grudge-studio.com"
+upsert "DOMAIN_API"                "api.grudge-studio.com"
+upsert "DOMAIN_ACCOUNT"            "account.grudge-studio.com"
+upsert "DOMAIN_LAUNCHER"           "launcher.grudge-studio.com"
+upsert "DOMAIN_WS"                 "ws.grudge-studio.com"
+upsert "DOMAIN_DASH"               "dash.grudge-studio.com"
+
+# ── CORS ──────────────────────────────────────────────────────────────────────
+upsert "CORS_ORIGINS"              "https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com"
+
+# ── Discord redirect URI ──────────────────────────────────────────────────────
+upsert "DISCORD_REDIRECT_URI"      "https://id.grudge-studio.com/auth/discord/callback"
 
 # ── Turnstile keys (fill these in manually from dash.cloudflare.com) ──────────
 # upsert "CF_TURNSTILE_SITE_KEY"   "YOUR_SITE_KEY_HERE"

@@ -10,17 +10,17 @@ const SYSTEM_CONTEXT = {
 
   // ── Public service endpoints ──────────────────────────────
   services: {
-    identity:  process.env.GRUDGE_IDENTITY_API  || 'https://id.grudgestudio.com',
-    gameApi:   process.env.GRUDGE_GAME_API      || 'https://api.grudgestudio.com',
-    accountApi:process.env.GRUDGE_ACCOUNT_API   || 'https://account.grudgestudio.com',
-    launcher:  process.env.GRUDGE_LAUNCHER_API  || 'https://launcher.grudgestudio.com',
-    websocket: process.env.GRUDGE_WS_API        || 'wss://ws.grudgestudio.com',
+    identity:  process.env.GRUDGE_IDENTITY_API  || 'https://id.grudge-studio.com',
+    gameApi:   process.env.GRUDGE_GAME_API      || 'https://api.grudge-studio.com',
+    accountApi:process.env.GRUDGE_ACCOUNT_API   || 'https://account.grudge-studio.com',
+    launcher:  process.env.GRUDGE_LAUNCHER_API  || 'https://launcher.grudge-studio.com',
+    websocket: process.env.GRUDGE_WS_API        || 'wss://ws.grudge-studio.com',
   },
 
   // ── Cloudflare R2 CDN ─────────────────────────────────────
   cdn: {
     baseUrl:    process.env.GRUDGE_CDN_URL         || process.env.OBJECT_STORAGE_PUBLIC_URL || 'https://pub-e7fcf1fd4c9946ecb84b3766bbc7b50d.r2.dev',
-    assetsUrl:  process.env.GRUDGE_ASSETS_URL      || 'https://assets.grudgestudio.com',
+    assetsUrl:  process.env.GRUDGE_ASSETS_URL      || 'https://assets.grudge-studio.com',
     bucket:     'grudge-assets',
     region:     'auto',
     // Asset path conventions
@@ -34,7 +34,7 @@ const SYSTEM_CONTEXT = {
 
   // ── Auth endpoints ────────────────────────────────────────
   auth: {
-    base:         'https://id.grudgestudio.com',
+    base:         'https://id.grudge-studio.com',
     discord:      '/auth/discord',
     logout:       '/auth/logout',
     verify:       '/auth/verify',

@@ -35,6 +35,11 @@ const ALLOWED_ORIGINS = new Set([
   'https://grudgestudio.com',
   'https://grudachain.grudgestudio.com',
   'https://launcher.grudgestudio.com',
+  // grudge-studio.com (hyphenated domain)
+  'https://grudge-studio.com',
+  'https://assets.grudge-studio.com',
+  'https://app.grudge-studio.com',
+  'https://launcher.grudge-studio.com',
 ]);
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -57,7 +62,7 @@ export default {
     // ── Decode R2 key from path ───────────────────────────────────────────────
     const key = decodeURIComponent(url.pathname.slice(1)); // strip leading /
     if (!key) {
-      return new Response('Grudge Studio CDN — assets.grudgestudio.com\n', {
+    return new Response('Grudge Studio CDN — assets.grudge-studio.com\n', {
         headers: { 'Content-Type': 'text/plain' },
       });
     }

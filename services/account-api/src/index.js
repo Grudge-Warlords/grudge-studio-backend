@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 3005;
 // ── Dynamic CORS ──────────────────────────────────────────────────
 const CORS_ORIGINS = (
   process.env.CORS_ORIGINS ||
-  'https://grudgewarlords.com,https://grudgestudio.com,https://grudachain.grudgestudio.com,https://account.grudgestudio.com,https://app.puter.com'
+  'https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudachain.grudge-studio.com,https://account.grudge-studio.com,https://dash.grudge-studio.com,https://app.puter.com'
 ).split(',').map(o => o.trim()).filter(Boolean);
 if (process.env.NODE_ENV !== 'production') {
   CORS_ORIGINS.push('http://localhost:3000', 'http://localhost:5173', 'http://localhost:4173');

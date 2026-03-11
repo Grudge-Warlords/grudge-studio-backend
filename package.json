@@ -2,7 +2,7 @@
   "name": "grudge-studio-backend",
   "version": "2.0.0",
   "private": true,
-  "description": "Grudge Studio — monorepo backend for grudgewarlords.com & grudgestudio.com",
+  "description": "Grudge Studio — monorepo backend for grudgewarlords.com & grudge-studio.com",
   "workspaces": [
     "services/game-api",
     "services/grudge-id",

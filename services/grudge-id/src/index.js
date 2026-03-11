@@ -16,7 +16,7 @@ app.use(helmet());
 // ── Dynamic CORS — add GitHub Pages / puter app URLs to CORS_ORIGINS env ─
 const CORS_ORIGINS = (
   process.env.CORS_ORIGINS ||
-  'https://grudgewarlords.com,https://grudgestudio.com,https://grudachain.grudgestudio.com,https://app.puter.com'
+  'https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com,https://app.puter.com'
 ).split(',').map(o => o.trim()).filter(Boolean);
 // Allow all *.puter.site subdomains for Puter-hosted apps
 const CORS_ORIGIN_FN = (origin, cb) => {

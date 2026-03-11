@@ -7,7 +7,7 @@
  * Dashboard setup (one-time):
  *   https://dash.cloudflare.com → Turnstile → Add Site
  *   Site keys:
- *     Domain    : grudgestudio.com (+ grudgewarlords.com)
+   *     Domain    : grudge-studio.com (+ grudgewarlords.com)
  *     Widget type: Managed (invisible challenge, no user interaction needed)
  *   Copy:
  *     Site Key   → CF_TURNSTILE_SITE_KEY  (put in frontend .env / HTML)
