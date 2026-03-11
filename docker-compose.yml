@@ -44,8 +44,8 @@ services:
         condition: service_healthy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.grudge-id.rule=Host(`id.grudge-studio.com`) || Host(`id.grudgestudio.com`)"
-      - "traefik.http.routers.grudge-id.entrypoints=websecure"
+      - "traefik.http.routers.grudge-id.rule=Host(`id.grudge-studio.com`)"
+      - "traefik.http.routers.grudge-id.entrypoints=https"
       - "traefik.http.routers.grudge-id.tls.certresolver=letsencrypt"
       - "traefik.http.services.grudge-id.loadbalancer.server.port=3001"
       - "traefik.docker.network=coolify"
@@ -93,7 +93,7 @@ services:
       DB_NAME: ${MYSQL_DATABASE}
       DB_USER: ${MYSQL_USER}
       DB_PASS: ${MYSQL_PASSWORD}
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD}@grudge-redis:6379
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       AI_AGENT_URL: http://ai-agent:3004
@@ -105,8 +105,8 @@ services:
         condition: service_healthy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.game-api.rule=Host(`api.grudge-studio.com`) || Host(`api.grudgestudio.com`)"
-      - "traefik.http.routers.game-api.entrypoints=websecure"
+      - "traefik.http.routers.game-api.rule=Host(`api.grudge-studio.com`)"
+      - "traefik.http.routers.game-api.entrypoints=https"
       - "traefik.http.routers.game-api.tls.certresolver=letsencrypt"
       - "traefik.http.services.game-api.loadbalancer.server.port=3003"
       - "traefik.docker.network=coolify"
@@ -166,8 +166,8 @@ services:
         condition: service_healthy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.account-api.rule=Host(`account.grudge-studio.com`) || Host(`account.grudgestudio.com`)"
-      - "traefik.http.routers.account-api.entrypoints=websecure"
+      - "traefik.http.routers.account-api.rule=Host(`account.grudge-studio.com`)"
+      - "traefik.http.routers.account-api.entrypoints=https"
       - "traefik.http.routers.account-api.tls.certresolver=letsencrypt"
       - "traefik.http.services.account-api.loadbalancer.server.port=3005"
       - "traefik.docker.network=coolify"
@@ -205,8 +205,8 @@ services:
         condition: service_healthy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.launcher-api.rule=Host(`launcher.grudge-studio.com`) || Host(`launcher.grudgestudio.com`)"
-      - "traefik.http.routers.launcher-api.entrypoints=websecure"
+      - "traefik.http.routers.launcher-api.rule=Host(`launcher.grudge-studio.com`)"
+      - "traefik.http.routers.launcher-api.entrypoints=https"
       - "traefik.http.routers.launcher-api.tls.certresolver=letsencrypt"
       - "traefik.http.services.launcher-api.loadbalancer.server.port=3006"
       - "traefik.docker.network=coolify"
