@@ -215,6 +215,44 @@ services:
       - coolify
 
   # ─────────────────────────────────────────────
+  # ASSET SERVICE — Upload, metadata, conversions, export bundles
+  # ─────────────────────────────────────────────
+  asset-service:
+    build: ./services/asset-service
+    container_name: asset-service
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3008
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASS: ${MYSQL_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      OBJECT_STORAGE_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET}
+      OBJECT_STORAGE_KEY: ${OBJECT_STORAGE_KEY}
+      OBJECT_STORAGE_SECRET: ${OBJECT_STORAGE_SECRET}
+      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-auto}
+      OBJECT_STORAGE_PUBLIC_URL: ${OBJECT_STORAGE_PUBLIC_URL}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.asset-service.rule=Host(`assets-api.grudge-studio.com`)"
+      - "traefik.http.routers.asset-service.entrypoints=https"
+      - "traefik.http.routers.asset-service.tls.certresolver=letsencrypt"
+      - "traefik.http.services.asset-service.loadbalancer.server.port=3008"
+      - "traefik.docker.network=coolify"
+    networks:
+      - grudge-net
+      - coolify
+
+  # ─────────────────────────────────────────────
   # WS SERVICE — Real-time WebSocket (Socket.IO)
   # Namespaces: /game (island rooms), /crew, /global
   # ─────────────────────────────────────────────

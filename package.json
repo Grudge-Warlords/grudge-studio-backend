@@ -9,16 +9,18 @@
     "services/wallet-service",
     "services/ai-agent",
     "services/account-api",
-    "services/launcher-api"
+    "services/launcher-api",
+    "services/asset-service"
   ],
   "scripts": {
-    "dev": "concurrently -n \"id,wallet,game,ai,account,launcher\" -c \"cyan,yellow,green,magenta,blue,red\" \"npm:dev:id\" \"npm:dev:wallet\" \"npm:dev:game\" \"npm:dev:ai\" \"npm:dev:account\" \"npm:dev:launcher\"",
+    "dev": "concurrently -n \"id,wallet,game,ai,account,launcher,assets\" -c \"cyan,yellow,green,magenta,blue,red,white\" \"npm:dev:id\" \"npm:dev:wallet\" \"npm:dev:game\" \"npm:dev:ai\" \"npm:dev:account\" \"npm:dev:launcher\" \"npm:dev:assets\"",
     "dev:id":       "npm run dev --workspace=services/grudge-id",
     "dev:wallet":   "npm run dev --workspace=services/wallet-service",
     "dev:game":     "npm run dev --workspace=services/game-api",
     "dev:ai":       "npm run dev --workspace=services/ai-agent",
     "dev:account":  "npm run dev --workspace=services/account-api",
     "dev:launcher": "npm run dev --workspace=services/launcher-api",
+    "dev:assets":   "npm run dev --workspace=services/asset-service",
     "install:all": "npm install --workspaces --include-workspace-root",
     "docker:deps": "docker compose up -d mysql redis",
     "docker:dev":  "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build",

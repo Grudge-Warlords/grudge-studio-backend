@@ -1,6 +1,5 @@
 const router = require('express').Router();
-const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { resolveUrl, getPublicUrl } = require('../../../shared/storage');
 const { getDB } = require('../db');
 
 // ── In-memory cache for manifest responses ───────────────────────────────────
@@ -18,32 +17,6 @@ function setCachedManifest(channel, data) {
   manifestCache.set(channel, { data, expiresAt: Date.now() + MANIFEST_TTL_MS });
 }
 
-const s3 = new S3Client({
-  endpoint: process.env.OBJECT_STORAGE_ENDPOINT,
-  region: process.env.OBJECT_STORAGE_REGION || 'us-east-1',
-  credentials: {
-    accessKeyId: process.env.OBJECT_STORAGE_KEY,
-    secretAccessKey: process.env.OBJECT_STORAGE_SECRET,
-  },
-  forcePathStyle: true,
-});
-
-// Presign a download URL for the given S3 key (24h expiry).
-// If the URL is already a full https:// URL (CDN or direct), return it as-is.
-async function presignIfNeeded(url) {
-  if (!url) return null;
-  if (url.startsWith('https://') || url.startsWith('http://')) return url;
-  // Treat as an S3 object key
-  try {
-    return await getSignedUrl(
-      s3,
-      new GetObjectCommand({ Bucket: process.env.OBJECT_STORAGE_BUCKET, Key: url }),
-      { expiresIn: 86400 } // 24 hours
-    );
-  } catch {
-    return url; // Fall back to raw key if presign fails
-  }
-}
 
 // ── GET /manifest ─────────────────────────────────────────────────
 // Returns the current stable version with download URLs.
@@ -76,11 +49,11 @@ router.get('/', async (req, res, next) => {
       return res.status(404).json({ error: `No current ${channel} version found` });
     }
 
-    // Presign download URLs in parallel
+    // Resolve download URLs (CDN or presigned) in parallel
     const [windows_url, mac_url, linux_url] = await Promise.all([
-      presignIfNeeded(version.windows_url),
-      presignIfNeeded(version.mac_url),
-      presignIfNeeded(version.linux_url),
+      resolveUrl(version.windows_url),
+      resolveUrl(version.mac_url),
+      resolveUrl(version.linux_url),
     ]);
 
     const payload = {
@@ -89,7 +62,7 @@ router.get('/', async (req, res, next) => {
       min_version:  version.min_version,
       published_at: version.published_at,
       patch_notes:  version.patch_notes,
-      cdn_base:     process.env.OBJECT_STORAGE_PUBLIC_URL || null,
+      cdn_base:     getPublicUrl() || null,
       downloads: {
         windows: windows_url ? { url: windows_url, sha256: version.windows_sha256 } : null,
         mac:     mac_url     ? { url: mac_url,     sha256: version.mac_sha256     } : null,

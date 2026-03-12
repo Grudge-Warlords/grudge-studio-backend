@@ -1,0 +1,62 @@
+require('dotenv').config();
+const express = require('express');
+const helmet  = require('helmet');
+const cors    = require('cors');
+const rateLimit = require('express-rate-limit');
+const { initDB } = require('./db');
+
+const assetRoutes = require('./routes/assets');
+
+const app  = express();
+const PORT = process.env.PORT || 3008;
+app.set('trust proxy', true);
+
+// ── Dynamic CORS ──────────────────────────────────
+const CORS_ORIGINS = (
+  process.env.CORS_ORIGINS ||
+  'https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com'
+).split(',').map(o => o.trim()).filter(Boolean);
+if (process.env.NODE_ENV !== 'production') {
+  CORS_ORIGINS.push('http://localhost:3000', 'http://localhost:5173', 'http://localhost:4173');
+}
+
+app.use(helmet({ hsts: { maxAge: 31536000, includeSubDomains: true, preload: true } }));
+app.use(cors({ origin: CORS_ORIGINS, credentials: true }));
+app.use(express.json({ limit: '2mb' }));
+
+// ── Rate limiting ─────────────────────────────────────────────────
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  message: { error: 'Too many requests, slow down.' },
+});
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 60,
+  message: { error: 'Upload limit reached, try again later.' },
+});
+
+app.use(generalLimiter);
+
+// ── Routes ────────────────────────────────────────────────────────
+app.get('/health', (req, res) =>
+  res.json({ status: 'ok', service: 'asset-service', version: '1.0.0' })
+);
+
+app.use('/assets', (req, res, next) => {
+  if (req.method === 'POST') return uploadLimiter(req, res, next);
+  next();
+}, assetRoutes);
+
+// ── Error handler ─────────────────────────────────────────────────
+app.use((err, req, res, next) => {
+  console.error('[asset-service]', err.message);
+  const status = err.status || 500;
+  res.status(status).json({ error: err.message || 'Internal server error' });
+});
+
+// ── Start ─────────────────────────────────────────────────────────
+(async () => {
+  await initDB();
+  app.listen(PORT, () => console.log(`[asset-service] Running on port ${PORT}`));
+})();
