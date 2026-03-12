@@ -1,138 +1,163 @@
 /**
- * Grudge Studio — Backend Dashboard Worker
+ * Grudge Studio — Backend Dashboard Worker  v2.0
  *
- * Free Cloudflare services:
- *  ✅ Workers   — 100K req/day
- *  ✅ D1        — 5M reads / 100K writes / day
- *  ✅ R2        — zero egress, native binding
- *  ✅ KV        — session store
+ * Auth: POST /login with API key → sets HttpOnly session cookie (24h KV TTL)
+ *       No more ?key= in the URL (security fix)
  *
- * Access: https://dash.grudge-studio.com
- * Auth:   x-dash-key header OR ?key= query param = INTERNAL_API_KEY
+ * Tabs: Overview · Servers · PvP Arena · Players · Storage · Events · Economy
  *
  * Deploy:  npx wrangler deploy  (from cloudflare/workers/dashboard/)
  * Secret:  npx wrangler secret put DASH_API_KEY
+ *          → paste value of INTERNAL_API_KEY from .env
  */
 
-// ─── D1 schema (auto-init on first request) ───────────────────────────────────
+// ── Session helpers ───────────────────────────────────────────
+const SESSION_TTL = 86400; // 24 hours
+
+function randomHex(bytes = 32) {
+  const arr = new Uint8Array(bytes);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function createSession(env) {
+  if (!env.KV) return null;
+  const token = randomHex(32);
+  await env.KV.put(`dash:session:${token}`, '1', { expirationTtl: SESSION_TTL });
+  return token;
+}
+
+async function validateSession(env, token) {
+  if (!token || !env.KV) return false;
+  return (await env.KV.get(`dash:session:${token}`)) === '1';
+}
+
+async function deleteSession(env, token) {
+  if (token && env.KV) await env.KV.delete(`dash:session:${token}`);
+}
+
+function getSessionToken(request) {
+  const cookie = request.headers.get('Cookie') || '';
+  const m = cookie.match(/grudge_dash=([a-f0-9]{64})/);
+  return m?.[1] || null;
+}
+
+// ── D1 schema ─────────────────────────────────────────────────
 const D1_INIT_SQL = `
 CREATE TABLE IF NOT EXISTS dash_events (
-  id        INTEGER PRIMARY KEY AUTOINCREMENT,
-  service   TEXT    NOT NULL,
-  event     TEXT    NOT NULL,
-  payload   TEXT,
-  ts        INTEGER NOT NULL DEFAULT (unixepoch())
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  service TEXT NOT NULL, event TEXT NOT NULL, payload TEXT,
+  ts INTEGER NOT NULL DEFAULT (unixepoch())
 );
 CREATE TABLE IF NOT EXISTS dash_players (
-  grudge_id TEXT PRIMARY KEY,
-  username  TEXT,
-  class     TEXT,
-  faction   TEXT,
-  level     INTEGER DEFAULT 1,
-  last_seen INTEGER
+  grudge_id TEXT PRIMARY KEY, username TEXT, class TEXT,
+  faction TEXT, level INTEGER DEFAULT 1, last_seen INTEGER
 );
 CREATE TABLE IF NOT EXISTS dash_metrics (
-  key   TEXT PRIMARY KEY,
-  value TEXT,
-  ts    INTEGER NOT NULL DEFAULT (unixepoch())
-);
-`;
+  key TEXT PRIMARY KEY, value TEXT,
+  ts INTEGER NOT NULL DEFAULT (unixepoch())
+);`;
 
-// ─── VPS services to health-check ─────────────────────────────────────────────
-const SERVICES = [
-  { name: 'grudge-id',     label: 'Identity',   url: null, port: 3001 },
-  { name: 'game-api',      label: 'Game API',    url: null, port: 3003 },
-  { name: 'account-api',   label: 'Account',     url: null, port: 3005 },
-  { name: 'launcher-api',  label: 'Launcher',    url: null, port: 3006 },
-  { name: 'ai-agent',      label: 'AI Agent',    url: null, port: 3004 },
-];
+async function initD1(env) {
+  if (!env.DB) return;
+  try {
+    for (const s of D1_INIT_SQL.trim().split(';').filter(x => x.trim()))
+      await env.DB.prepare(s).run();
+  } catch {}
+}
 
-// ─── Main handler ─────────────────────────────────────────────────────────────
+// ── Main handler ──────────────────────────────────────────────
 export default {
   async fetch(request, env, ctx) {
     const url    = new URL(request.url);
     const method = request.method.toUpperCase();
+    ctx.waitUntil(initD1(env));
 
-    // ── Auth gate ──────────────────────────────────────────────────────────────
-    const key = request.headers.get('x-dash-key') || url.searchParams.get('key') || '';
-    if (!env.DASH_API_KEY || key !== env.DASH_API_KEY) {
-      if (url.pathname === '/' && method === 'GET' && !key) {
-        return loginPage();
-      }
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
+    // POST /login
+    if (url.pathname === '/login' && method === 'POST') {
+      const body = await request.json().catch(() => ({}));
+      if (!env.DASH_API_KEY || body.key !== env.DASH_API_KEY)
+        return json({ error: 'Invalid key' }, 401);
+      const token = await createSession(env);
+      const cookieName = token ? 'grudge_dash' : 'grudge_dash_key';
+      const cookieVal  = token || encodeURIComponent(body.key);
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Set-Cookie': `${cookieName}=${cookieVal}; Path=/; HttpOnly; SameSite=Strict; Secure; Max-Age=${SESSION_TTL}`,
+        },
       });
     }
 
-    // ── Init D1 schema ────────────────────────────────────────────────────────
-    ctx.waitUntil(initD1(env));
-
-    // ── API routes ────────────────────────────────────────────────────────────
-    if (url.pathname === '/api/health')   return apiHealth(env);
-    if (url.pathname === '/api/r2')       return apiR2(env);
-    if (url.pathname === '/api/d1')       return apiD1(env);
-    if (url.pathname === '/api/players')  return apiPlayers(env);
-    if (url.pathname === '/api/events')   return apiEvents(env);
-    if (url.pathname === '/api/metrics')  return apiMetrics(env);
-
-    // ── POST: log event ───────────────────────────────────────────────────────
-    if (url.pathname === '/api/event' && method === 'POST') {
-      return apiLogEvent(request, env);
+    // POST /logout
+    if (url.pathname === '/logout' && method === 'POST') {
+      await deleteSession(env, getSessionToken(request));
+      return new Response('{}', {
+        headers: {
+          'Content-Type': 'application/json',
+          'Set-Cookie': 'grudge_dash=; Path=/; HttpOnly; Max-Age=0',
+        },
+      });
     }
 
-    // ── Dashboard HTML ────────────────────────────────────────────────────────
-    if (url.pathname === '/' || url.pathname === '/dashboard') {
-      return dashboardPage(env, key);
+    // Auth gate
+    let authed = await validateSession(env, getSessionToken(request));
+    if (!authed && env.DASH_API_KEY) {
+      const cookie = request.headers.get('Cookie') || '';
+      const km = cookie.match(/grudge_dash_key=([^;]+)/);
+      if (km) try { authed = decodeURIComponent(km[1]) === env.DASH_API_KEY; } catch {}
+    }
+    if (!authed && url.searchParams.get('key') === env.DASH_API_KEY) authed = true;
+
+    if (!authed) {
+      if (url.pathname === '/' && method === 'GET') return loginPage();
+      return json({ error: 'Unauthorized' }, 401);
     }
 
+    // API routes
+    const p = url.pathname;
+    if (p === '/api/health')          return apiHealth(env);
+    if (p === '/api/r2')              return apiR2(env);
+    if (p === '/api/d1')              return apiD1(env);
+    if (p === '/api/players')         return apiPlayers(env);
+    if (p === '/api/events')          return apiEvents(env, url);
+    if (p === '/api/metrics')         return apiMetrics(env);
+    if (p === '/api/pvp/lobbies')     return apiPvpLobbies(env);
+    if (p === '/api/pvp/leaderboard') return apiPvpLeaderboard(env, url);
+    if (p === '/api/ws/stats')        return apiWsStats(env);
+    if (p === '/api/economy')         return apiEconomy(env);
+    if (p === '/api/event' && method === 'POST') return apiLogEvent(request, env);
+
+    if (p === '/' || p === '/dashboard') return dashboardPage();
     return new Response('Not Found', { status: 404 });
   },
 };
 
-// ─── D1 init ──────────────────────────────────────────────────────────────────
-async function initD1(env) {
-  if (!env.DB) return;
-  try {
-    for (const stmt of D1_INIT_SQL.trim().split(';').filter(s => s.trim())) {
-      await env.DB.prepare(stmt).run();
-    }
-  } catch (e) {
-    console.error('[dashboard] D1 init error:', e.message);
-  }
-}
-
-// ─── API: VPS service health checks ──────────────────────────────────────────
+// ── API implementations ───────────────────────────────────────
 async function apiHealth(env) {
-  const vpsIp = env.VPS_IP || '74.208.155.229';
-  const publicEndpoints = {
+  const endpoints = {
     'Identity':  env.IDENTITY_API  || 'https://id.grudge-studio.com',
     'Game API':  env.GAME_API      || 'https://api.grudge-studio.com',
     'Account':   env.ACCOUNT_API   || 'https://account.grudge-studio.com',
     'Launcher':  env.LAUNCHER_API  || 'https://launcher.grudge-studio.com',
-    'CDN':       env.CDN_URL       || 'https://assets.grudge-studio.com',
+    'WebSocket': env.WS_API        || 'https://ws.grudge-studio.com',
+    'Asset CDN': env.CDN_URL       || 'https://assets.grudge-studio.com',
   };
-
   const results = await Promise.allSettled(
-    Object.entries(publicEndpoints).map(async ([name, base]) => {
-      const start = Date.now();
+    Object.entries(endpoints).map(async ([name, base]) => {
+      const t = Date.now();
       try {
-        const r = await fetch(`${base}/health`, { signal: AbortSignal.timeout(4000) });
-        const ms = Date.now() - start;
+        const r = await fetch(`${base}/health`, { signal: AbortSignal.timeout(5000) });
         let body = {};
         try { body = await r.json(); } catch {}
-        return { name, status: r.ok ? 'up' : 'degraded', code: r.status, ms, body };
-      } catch (e) {
-        return { name, status: 'down', ms: Date.now() - start, error: e.message };
-      }
+        return { name, status: r.ok ? 'up' : 'degraded', code: r.status, ms: Date.now()-t, body };
+      } catch (e) { return { name, status: 'down', ms: Date.now()-t, error: e.message }; }
     })
   );
-
-  const health = results.map(r => r.value ?? r.reason);
-  return json(health);
+  return json(results.map(r => r.value ?? r.reason));
 }
 
-// ─── API: R2 bucket stats ─────────────────────────────────────────────────────
 async function apiR2(env) {
   if (!env.ASSETS) return json({ error: 'R2 not bound' }, 503);
   try {
@@ -140,461 +165,438 @@ async function apiR2(env) {
     const byPrefix = {};
     let totalSize = 0;
     for (const obj of listed.objects) {
-      const prefix = obj.key.split('/')[0] || 'root';
-      byPrefix[prefix] = (byPrefix[prefix] || 0) + 1;
+      const pre = obj.key.split('/')[0] || 'root';
+      byPrefix[pre] = (byPrefix[pre] || 0) + 1;
       totalSize += obj.size || 0;
     }
-    return json({
-      totalObjects: listed.objects.length,
-      truncated: listed.truncated,
-      totalSizeBytes: totalSize,
-      totalSizeMB: (totalSize / 1_048_576).toFixed(2),
-      byPrefix,
-    });
-  } catch (e) {
-    return json({ error: e.message }, 500);
-  }
+    return json({ totalObjects: listed.objects.length, truncated: listed.truncated,
+      totalSizeBytes: totalSize, totalSizeMB: (totalSize/1_048_576).toFixed(2), byPrefix });
+  } catch (e) { return json({ error: e.message }, 500); }
 }
 
-// ─── API: D1 database stats ───────────────────────────────────────────────────
 async function apiD1(env) {
   if (!env.DB) return json({ error: 'D1 not bound' }, 503);
   try {
-    const [players, events, metrics] = await Promise.all([
+    const [p,e2,m] = await Promise.all([
       env.DB.prepare('SELECT COUNT(*) as count FROM dash_players').first(),
       env.DB.prepare('SELECT COUNT(*) as count FROM dash_events').first(),
       env.DB.prepare('SELECT COUNT(*) as count FROM dash_metrics').first(),
     ]);
-    return json({
-      tables: {
-        players: players?.count ?? 0,
-        events:  events?.count  ?? 0,
-        metrics: metrics?.count ?? 0,
-      },
-      database_id: '8fcb111b-fcee-4f4e-b0d5-59ad416ee3b9',
-    });
-  } catch (e) {
-    return json({ error: e.message }, 500);
-  }
+    return json({ tables: { players: p?.count??0, events: e2?.count??0, metrics: m?.count??0 } });
+  } catch (e) { return json({ error: e.message }, 500); }
 }
 
-// ─── API: recent players ──────────────────────────────────────────────────────
 async function apiPlayers(env) {
   if (!env.DB) return json([]);
   try {
-    const { results } = await env.DB.prepare(
-      'SELECT * FROM dash_players ORDER BY last_seen DESC LIMIT 50'
-    ).all();
+    const { results } = await env.DB.prepare('SELECT * FROM dash_players ORDER BY last_seen DESC LIMIT 50').all();
     return json(results || []);
-  } catch (e) {
-    return json({ error: e.message }, 500);
-  }
+  } catch (e) { return json({ error: e.message }, 500); }
 }
 
-// ─── API: recent events ───────────────────────────────────────────────────────
-async function apiEvents(env) {
+async function apiEvents(env, url) {
   if (!env.DB) return json([]);
+  const svc = url.searchParams.get('service');
   try {
-    const { results } = await env.DB.prepare(
-      'SELECT * FROM dash_events ORDER BY ts DESC LIMIT 100'
-    ).all();
+    const { results } = svc
+      ? await env.DB.prepare('SELECT * FROM dash_events WHERE service = ? ORDER BY ts DESC LIMIT 100').bind(svc).all()
+      : await env.DB.prepare('SELECT * FROM dash_events ORDER BY ts DESC LIMIT 100').all();
     return json(results || []);
-  } catch (e) {
-    return json({ error: e.message }, 500);
-  }
+  } catch (e) { return json({ error: e.message }, 500); }
 }
 
-// ─── API: metrics from KV ─────────────────────────────────────────────────────
 async function apiMetrics(env) {
   if (!env.KV) return json({});
   try {
-    const keys = ['active_players', 'total_logins', 'total_missions', 'gbux_circulating'];
+    const keys = ['active_players','total_logins','total_missions','gbux_circulating'];
     const vals = await Promise.all(keys.map(k => env.KV.get(k)));
-    const out = {};
-    keys.forEach((k, i) => { out[k] = vals[i] ?? '0'; });
+    const out  = {};
+    keys.forEach((k,i) => { out[k] = vals[i] ?? '0'; });
     return json(out);
-  } catch (e) {
-    return json({ error: e.message }, 500);
-  }
+  } catch (e) { return json({ error: e.message }, 500); }
 }
 
-// ─── API: log event (POST from VPS services) ─────────────────────────────────
 async function apiLogEvent(request, env) {
   if (!env.DB) return json({ error: 'D1 not bound' }, 503);
   try {
     const { service, event, payload } = await request.json();
     if (!service || !event) return json({ error: 'service and event required' }, 400);
-    await env.DB.prepare(
-      'INSERT INTO dash_events (service, event, payload) VALUES (?, ?, ?)'
-    ).bind(service, event, JSON.stringify(payload ?? null)).run();
+    await env.DB.prepare('INSERT INTO dash_events (service, event, payload) VALUES (?, ?, ?)')
+      .bind(service, event, JSON.stringify(payload ?? null)).run();
     return json({ ok: true });
-  } catch (e) {
-    return json({ error: e.message }, 500);
-  }
+  } catch (e) { return json({ error: e.message }, 500); }
 }
 
-// ─── Login page ───────────────────────────────────────────────────────────────
+async function apiPvpLobbies(env) {
+  const base = env.GAME_API || 'https://api.grudge-studio.com';
+  try {
+    const r = await fetch(`${base}/pvp/lobbies?limit=20`, {
+      headers: { 'x-internal-key': env.DASH_API_KEY || '' },
+      signal: AbortSignal.timeout(5000),
+    });
+    return json(await r.json());
+  } catch (e) { return json({ error: e.message }, 500); }
+}
+
+async function apiPvpLeaderboard(env, url) {
+  const mode = url.searchParams.get('mode') || 'duel';
+  const base = env.GAME_API || 'https://api.grudge-studio.com';
+  try {
+    const r = await fetch(`${base}/pvp/leaderboard?mode=${mode}&limit=10`, {
+      headers: { 'x-internal-key': env.DASH_API_KEY || '' },
+      signal: AbortSignal.timeout(5000),
+    });
+    return json(await r.json());
+  } catch (e) { return json({ error: e.message }, 500); }
+}
+
+async function apiWsStats(env) {
+  const base = env.WS_API || 'https://ws.grudge-studio.com';
+  try {
+    const r = await fetch(`${base}/health`, { signal: AbortSignal.timeout(5000) });
+    return json(await r.json());
+  } catch (e) { return json({ error: e.message }, 500); }
+}
+
+async function apiEconomy(env) {
+  const base = env.GAME_API || 'https://api.grudge-studio.com';
+  try {
+    const r = await fetch(`${base}/economy/balance?summary=true`, {
+      headers: { 'x-internal-key': env.DASH_API_KEY || '' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!r.ok) return json({ error: `game-api ${r.status}` }, r.status);
+    return json(await r.json());
+  } catch (e) { return json({ error: e.message }, 500); }
+}
+
+// ── Login page ────────────────────────────────────────────────
 function loginPage() {
   return html(`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Grudge Studio — Dashboard</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{background:#0a0a0f;font-family:'Segoe UI',system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh}
-    .card{background:#12121a;border:1px solid #2a2a3a;border-radius:12px;padding:40px;width:340px;text-align:center}
-    .logo{font-size:28px;font-weight:800;letter-spacing:2px;color:#e8c96f;text-transform:uppercase;margin-bottom:6px}
-    .sub{color:#666;font-size:13px;margin-bottom:28px}
-    input{width:100%;background:#0a0a0f;border:1px solid #2a2a3a;border-radius:8px;color:#e8c96f;padding:12px 14px;font-size:14px;margin-bottom:14px;outline:none}
-    input:focus{border-color:#e8c96f}
-    button{width:100%;background:#e8c96f;color:#0a0a0f;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:1px;text-transform:uppercase}
-    button:hover{background:#f0d880}
-  </style>
-</head>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Grudge Studio — Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0f;font-family:'Segoe UI',system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh}
+.card{background:#12121a;border:1px solid #2a2a3a;border-radius:12px;padding:40px;width:360px;text-align:center}
+.logo{font-size:30px;font-weight:800;letter-spacing:2px;color:#e8c96f;text-transform:uppercase;margin-bottom:4px}
+.sub{color:#555;font-size:11px;margin-bottom:28px;text-transform:uppercase;letter-spacing:1px}
+input{width:100%;background:#0a0a0f;border:1px solid #2a2a3a;border-radius:8px;color:#e8c96f;padding:12px 14px;font-size:14px;margin-bottom:14px;outline:none}
+input:focus{border-color:#e8c96f}
+button{width:100%;background:#e8c96f;color:#0a0a0f;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:1px;text-transform:uppercase}
+button:hover{background:#f0d880}
+.err{color:#e85555;font-size:12px;margin-top:10px;display:none}
+</style></head>
 <body>
-  <div class="card">
-    <div class="logo">⚔ GRUDGE</div>
-    <div class="sub">Backend Dashboard</div>
-    <form onsubmit="login(event)">
-      <input type="password" id="key" placeholder="API Key" autocomplete="current-password">
-      <button type="submit">Enter</button>
-    </form>
-  </div>
-  <script>
-    function login(e) {
-      e.preventDefault();
-      const key = document.getElementById('key').value.trim();
-      if (key) window.location.href = '/?key=' + encodeURIComponent(key);
-    }
-  </script>
-</body>
-</html>`);
+<div class="card">
+  <div class="logo">⚔ GRUDGE</div>
+  <div class="sub">Backend Dashboard</div>
+  <form id="f">
+    <input type="password" id="key" placeholder="API Key" autocomplete="current-password">
+    <button type="submit">Enter</button>
+    <div class="err" id="err">Invalid key — check INTERNAL_API_KEY</div>
+  </form>
+</div>
+<script>
+document.getElementById('f').addEventListener('submit', async e => {
+  e.preventDefault();
+  const key = document.getElementById('key').value.trim();
+  if (!key) return;
+  const r = await fetch('/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({key}), credentials:'same-origin' });
+  if (r.ok) window.location.href = '/';
+  else document.getElementById('err').style.display = 'block';
+});
+</script>
+</body></html>`);
 }
 
-// ─── Main dashboard page ──────────────────────────────────────────────────────
-function dashboardPage(env, key) {
-  const k = encodeURIComponent(key);
+// ── Dashboard HTML ────────────────────────────────────────────
+function dashboardPage() {
   return html(`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Grudge Studio — Dashboard</title>
-  <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token":"grudge-studio"}'></script>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    :root{--gold:#e8c96f;
-    body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px}
-    header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px}
-    .logo{font-size:20px;font-weight:800;color:var(--gold);letter-spacing:2px;text-transform:uppercase}
-    .badge{background:#1e1e2e;border:1px solid var(--border);border-radius:20px;padding:3px 12px;font-size:11px;color:#888}
-    nav{display:flex;gap:4px;margin-left:auto}
-    nav button{background:none;border:1px solid transparent;border-radius:6px;color:#888;padding:6px 14px;cursor:pointer;font-size:12px;transition:all .15s}
-    nav button.active,nav button:hover{background:#1e1e2e;border-color:var(--border);color:var(--gold)}
-    main{padding:24px;max-width:1400px;margin:0 auto}
-    h2{color:var(--gold);font-size:15px;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:16px}
-    .grid{display:grid;gap:16px}
-    .grid-4{grid-template-columns:repeat(4,1fr)}
-    .grid-3{grid-template-columns:repeat(3,1fr)}
-    .grid-2{grid-template-columns:repeat(2,1fr)}
-    @media(max-width:900px){.grid-4,.grid-3{grid-template-columns:repeat(2,1fr)}}
-    @media(max-width:600px){.grid-4,.grid-3,.grid-2{grid-template-columns:1fr}}
-    .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px}
-    .card-title{font-size:11px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
-    .card-value{font-size:28px;font-weight:700;color:var(--gold)}
-    .card-sub{font-size:11px;color:#666;margin-top:4px}
-    .service-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
-    .service-row:last-child{border-bottom:none}
-    .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-    .dot.up{background:var(--green);box-shadow:0 0 6px var(--green)}
-    .dot.down{background:var(--red);box-shadow:0 0 6px var(--red)}
-    .dot.degraded{background:var(--yellow);box-shadow:0 0 6px var(--yellow)}
-    .dot.checking{background:#555;animation:pulse 1s infinite}
-    @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
-    .svc-name{flex:1;font-weight:600;color:#ddd}
-    .svc-ms{font-size:11px;color:#666;margin-left:auto}
-    .svc-code{font-size:11px;color:#888;background:#1a1a2a;border-radius:4px;padding:1px 6px}
-    .tab-content{display:none}
-    .tab-content.active{display:block}
-    table{width:100%;border-collapse:collapse}
-    th{text-align:left;font-size:11px;color:#666;text-transform:uppercase;letter-spacing:1px;padding:8px 12px;border-bottom:1px solid var(--border)}
-    td{padding:8px 12px;border-bottom:1px solid #0f0f1a;font-size:13px}
-    tr:hover td{background:#0f0f1a}
-    .tag{display:inline-block;background:#1e1e2e;border-radius:4px;padding:1px 8px;font-size:11px;color:#aaa}
-    .refresh-btn{background:none;border:1px solid var(--border);border-radius:6px;color:#888;padding:5px 12px;cursor:pointer;font-size:11px;float:right}
-    .refresh-btn:hover{color:var(--gold);border-color:var(--gold)}
-    .empty{color:#555;text-align:center;padding:32px;font-size:13px}
-    .r2-bar{background:#1e1e2e;border-radius:4px;height:6px;margin-top:6px;overflow:hidden}
-    .r2-fill{background:var(--gold);height:100%;border-radius:4px;transition:width .5s}
-    .event-service{color:var(--blue);font-size:12px}
-    .ts{color:#555;font-size:11px}
-  </style>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Grudge Studio — Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--gold:#e8c96f;--bg:#0a0a0f;--surface:#12121a;--border:#1e1e2e;--text:#ddd;--sub:#555;--green:#4caf7d;--red:#e85555;--blue:#4a9eff;--purple:#9d4dff}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+.logo{font-size:17px;font-weight:800;color:var(--gold);letter-spacing:2px;text-transform:uppercase}
+.badge{background:#1a1a2a;border:1px solid var(--border);border-radius:20px;padding:2px 10px;font-size:10px;color:#666;text-transform:uppercase;letter-spacing:1px}
+nav{display:flex;gap:2px;margin-left:auto;flex-wrap:wrap}
+nav button{background:none;border:1px solid transparent;border-radius:6px;color:#555;padding:5px 11px;cursor:pointer;font-size:11px;text-transform:uppercase;letter-spacing:.5px;transition:all .15s}
+nav button.active,nav button:hover{background:#1a1a2a;border-color:var(--border);color:var(--gold)}
+.logout{background:none;border:1px solid #222;border-radius:6px;color:#444;padding:5px 10px;cursor:pointer;font-size:10px;margin-left:6px}
+.logout:hover{color:var(--red);border-color:var(--red)}
+main{padding:20px;max-width:1440px;margin:0 auto}
+h2{color:var(--gold);font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px}
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(4,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g2{grid-template-columns:repeat(2,1fr)}
+@media(max-width:900px){.g4,.g3{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:580px){.g4,.g3,.g2{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px}
+.ctitle{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.cval{font-size:26px;font-weight:700;color:var(--gold)}
+.csub{font-size:10px;color:var(--sub);margin-top:4px}
+.row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)}
+.row:last-child{border:none}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot.up{background:var(--green);box-shadow:0 0 6px var(--green)}
+.dot.down{background:var(--red);box-shadow:0 0 6px var(--red)}
+.dot.degraded{background:var(--gold);box-shadow:0 0 6px var(--gold)}
+.dot.checking{background:#333;animation:p 1s infinite}
+@keyframes p{0%,100%{opacity:.3}50%{opacity:1}}
+.sname{flex:1;font-weight:600;font-size:12px;color:#ccc}
+.sms{font-size:10px;color:var(--sub)}
+.stag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;text-transform:uppercase}
+.stag.up{background:#0d2a1a;color:var(--green)}
+.stag.down{background:#2a0d0d;color:var(--red)}
+.stag.degraded{background:#2a2200;color:var(--gold)}
+.tc{display:none}.tc.active{display:block}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;padding:7px 10px;border-bottom:1px solid var(--border)}
+td{padding:7px 10px;border-bottom:1px solid #0d0d18;font-size:12px}
+tr:hover td{background:#0d0d18}
+.tag{display:inline-block;background:#1a1a2a;border-radius:4px;padding:1px 7px;font-size:10px;color:#aaa}
+.rbtn{background:none;border:1px solid var(--border);border-radius:5px;color:var(--sub);padding:4px 10px;cursor:pointer;font-size:10px;float:right;text-transform:uppercase;letter-spacing:1px}
+.rbtn:hover{color:var(--gold);border-color:var(--gold)}
+.ts{color:#3a3a5a;font-size:10px}
+.empty{color:#2a2a3a;text-align:center;padding:28px;font-size:12px}
+.mtabs{display:flex;gap:4px;margin-bottom:12px}
+.mtab{background:#1a1a2a;border:1px solid var(--border);border-radius:5px;padding:3px 10px;cursor:pointer;font-size:10px;color:#666;text-transform:uppercase}
+.mtab.active{border-color:var(--gold);color:var(--gold)}
+.shead{display:flex;align-items:center;margin-bottom:12px}
+.shead h2{margin:0}
+</style>
 </head>
 <body>
-  <header>
-    <div class="logo">⚔ Grudge Studio</div>
-    <div class="badge">Backend Dashboard</div>
-    <nav>
-      <button class="active" onclick="showTab('overview',this)">Overview</button>
-      <button onclick="showTab('services',this)">Services</button>
-      <button onclick="showTab('storage',this)">Storage</button>
-      <button onclick="showTab('players',this)">Players</button>
-      <button onclick="showTab('events',this)">Events</button>
-    </nav>
-  </header>
-  <main>
+<header>
+  <div class="logo">⚔ Grudge Studio</div>
+  <div class="badge">Backend v2</div>
+  <nav>
+    <button class="active" onclick="tab('overview',this)">Overview</button>
+    <button onclick="tab('servers',this)">Servers</button>
+    <button onclick="tab('pvp',this)">PvP Arena</button>
+    <button onclick="tab('players',this)">Players</button>
+    <button onclick="tab('storage',this)">Storage</button>
+    <button onclick="tab('events',this)">Events</button>
+    <button onclick="tab('economy',this)">Economy</button>
+  </nav>
+  <button class="logout" onclick="logout()">Logout</button>
+</header>
+<main>
 
-    <!-- OVERVIEW TAB -->
-    <div id="tab-overview" class="tab-content active">
-      <div style="display:flex;align-items:center;margin-bottom:16px">
-        <h2 style="margin:0">Overview</h2>
-        <button class="refresh-btn" onclick="loadAll()">↻ Refresh</button>
-      </div>
-      <div class="grid grid-4" style="margin-bottom:24px" id="metric-cards">
-        <div class="card"><div class="card-title">Active Players</div><div class="card-value" id="m-active">—</div></div>
-        <div class="card"><div class="card-title">Total Logins</div><div class="card-value" id="m-logins">—</div></div>
-        <div class="card"><div class="card-title">Total Missions</div><div class="card-value" id="m-missions">—</div></div>
-        <div class="card"><div class="card-title">GBUX Circulating</div><div class="card-value" id="m-gbux">—</div></div>
-      </div>
-      <div class="grid grid-3">
-        <div class="card">
-          <div class="card-title">Service Health</div>
-          <div id="health-mini">
-            ${SERVICES.map(s => `<div class="service-row"><div class="dot checking" id="dot-${s.name}"></div><div class="svc-name">${s.label}</div><div class="svc-ms" id="ms-${s.name}">—</div></div>`).join('')}
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-title">D1 Database</div>
-          <div id="d1-stats"><div class="empty">Loading…</div></div>
-        </div>
-        <div class="card">
-          <div class="card-title">R2 Assets Bucket</div>
-          <div id="r2-mini"><div class="empty">Loading…</div></div>
-        </div>
-      </div>
-    </div>
+<!-- OVERVIEW -->
+<div id="tab-overview" class="tc active">
+  <div class="shead"><h2>Overview</h2><button class="rbtn" onclick="loadAll()">↻ Refresh</button></div>
+  <div class="grid g4" style="margin-bottom:16px">
+    <div class="card"><div class="ctitle">Active Players</div><div class="cval" id="m-active">—</div></div>
+    <div class="card"><div class="ctitle">Total Logins</div><div class="cval" id="m-logins">—</div></div>
+    <div class="card"><div class="ctitle">Total Missions</div><div class="cval" id="m-missions">—</div></div>
+    <div class="card"><div class="ctitle">GBUX Circulating</div><div class="cval" id="m-gbux">—</div></div>
+  </div>
+  <div class="grid g3">
+    <div class="card"><div class="ctitle">Service Health</div><div id="health-mini"><div class="empty">Loading…</div></div></div>
+    <div class="card"><div class="ctitle">WebSocket</div><div id="ws-mini"><div class="empty">Loading…</div></div></div>
+    <div class="card"><div class="ctitle">D1 Database</div><div id="d1-mini"><div class="empty">Loading…</div></div></div>
+  </div>
+</div>
 
-    <!-- SERVICES TAB -->
-    <div id="tab-services" class="tab-content">
-      <div style="display:flex;align-items:center;margin-bottom:16px">
-        <h2 style="margin:0">Services</h2>
-        <button class="refresh-btn" onclick="loadHealth()">↻ Refresh</button>
-      </div>
-      <div class="card">
-        <div id="health-detail"><div class="empty">Loading…</div></div>
-      </div>
-    </div>
+<!-- SERVERS -->
+<div id="tab-servers" class="tc">
+  <div class="shead"><h2>Live Services</h2><button class="rbtn" onclick="loadHealth();loadWs()">↻ Refresh</button></div>
+  <div class="card" style="margin-bottom:14px" id="health-detail"><div class="empty">Loading…</div></div>
+  <div class="card"><div class="ctitle">WebSocket Namespace Breakdown</div><div id="ws-detail"><div class="empty">Loading…</div></div></div>
+</div>
 
-    <!-- STORAGE TAB -->
-    <div id="tab-storage" class="tab-content">
-      <div style="display:flex;align-items:center;margin-bottom:16px">
-        <h2 style="margin:0">Storage</h2>
-        <button class="refresh-btn" onclick="loadR2()">↻ Refresh</button>
-      </div>
-      <div class="grid grid-2">
-        <div class="card">
-          <div class="card-title">R2 — grudge-assets</div>
-          <div id="r2-full"><div class="empty">Loading…</div></div>
-        </div>
-        <div class="card">
-          <div class="card-title">D1 — grudge-studio-db</div>
-          <div id="d1-full"><div class="empty">Loading…</div></div>
+<!-- PVP ARENA -->
+<div id="tab-pvp" class="tc">
+  <div class="shead"><h2>PvP Arena</h2><button class="rbtn" onclick="loadPvp()">↻ Refresh</button></div>
+  <div class="grid g3" style="margin-bottom:16px">
+    <div class="card"><div class="ctitle">Open Lobbies</div><div class="cval" id="pvp-open">—</div><div class="csub">Waiting</div></div>
+    <div class="card"><div class="ctitle">Active Matches</div><div class="cval" id="pvp-active">—</div><div class="csub">In Progress</div></div>
+    <div class="card"><div class="ctitle">Queue (Duel)</div><div class="cval" style="color:var(--purple)" id="pvp-queue">—</div><div class="csub">Matchmaking</div></div>
+  </div>
+  <div class="grid g2">
+    <div class="card"><div class="ctitle">Open Lobbies</div><div id="pvp-lobbies"><div class="empty">Loading…</div></div></div>
+    <div class="card">
+      <div class="ctitle" style="display:flex;align-items:center;gap:8px">ELO Leaderboard
+        <div class="mtabs" style="margin:0">
+          <span class="mtab active" onclick="switchLB('duel',this)">Duel</span>
+          <span class="mtab" onclick="switchLB('crew_battle',this)">Crew</span>
+          <span class="mtab" onclick="switchLB('arena_ffa',this)">FFA</span>
         </div>
       </div>
+      <div id="pvp-lb"><div class="empty">Loading…</div></div>
     </div>
+  </div>
+</div>
 
-    <!-- PLAYERS TAB -->
-    <div id="tab-players" class="tab-content">
-      <div style="display:flex;align-items:center;margin-bottom:16px">
-        <h2 style="margin:0">Players</h2>
-        <button class="refresh-btn" onclick="loadPlayers()">↻ Refresh</button>
-      </div>
-      <div class="card">
-        <table>
-          <thead><tr><th>Grudge ID</th><th>Username</th><th>Class</th><th>Faction</th><th>Level</th><th>Last Seen</th></tr></thead>
-          <tbody id="players-body"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
-        </table>
-      </div>
-    </div>
+<!-- PLAYERS -->
+<div id="tab-players" class="tc">
+  <div class="shead"><h2>Players</h2><button class="rbtn" onclick="loadPlayers()">↻ Refresh</button></div>
+  <div class="card">
+    <table><thead><tr><th>Grudge ID</th><th>Username</th><th>Class</th><th>Faction</th><th>Level</th><th>Last Seen</th></tr></thead>
+    <tbody id="players-body"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody></table>
+  </div>
+</div>
 
-    <!-- EVENTS TAB -->
-    <div id="tab-events" class="tab-content">
-      <div style="display:flex;align-items:center;margin-bottom:16px">
-        <h2 style="margin:0">Event Log</h2>
-        <button class="refresh-btn" onclick="loadEvents()">↻ Refresh</button>
-      </div>
-      <div class="card">
-        <table>
-          <thead><tr><th>Service</th><th>Event</th><th>Payload</th><th>Time</th></tr></thead>
-          <tbody id="events-body"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
-        </table>
-      </div>
-    </div>
+<!-- STORAGE -->
+<div id="tab-storage" class="tc">
+  <div class="shead"><h2>Storage</h2><button class="rbtn" onclick="loadStorage()">↻ Refresh</button></div>
+  <div class="grid g2">
+    <div class="card"><div class="ctitle">R2 — grudge-assets</div><div id="r2-full"><div class="empty">Loading…</div></div></div>
+    <div class="card"><div class="ctitle">D1 — Dashboard DB</div><div id="d1-full"><div class="empty">Loading…</div></div></div>
+  </div>
+</div>
 
-  </main>
+<!-- EVENTS -->
+<div id="tab-events" class="tc">
+  <div class="shead">
+    <h2>Event Log</h2>
+    <div id="evt-filters" style="display:flex;gap:4px;margin-left:10px;flex-wrap:wrap"></div>
+    <button class="rbtn" onclick="loadEvents()">↻ Refresh</button>
+  </div>
+  <div class="card">
+    <table><thead><tr><th>Service</th><th>Event</th><th>Payload</th><th>Time</th></tr></thead>
+    <tbody id="events-body"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody></table>
+  </div>
+</div>
 
-  <script>
-    const KEY = '${k}';
-    const api = path => fetch('/api/' + path + '?key=' + KEY).then(r => r.json());
+<!-- ECONOMY -->
+<div id="tab-economy" class="tc">
+  <div class="shead"><h2>Economy</h2><button class="rbtn" onclick="loadEconomy()">↻ Refresh</button></div>
+  <div id="economy-out"><div class="empty" style="padding:40px">Fetching from game-api…</div></div>
+</div>
 
-    function showTab(name, btn) {
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-      document.getElementById('tab-' + name).classList.add('active');
-      btn.classList.add('active');
-      if (name === 'services') loadHealth();
-      if (name === 'storage')  loadR2(), loadD1();
-      if (name === 'players')  loadPlayers();
-      if (name === 'events')   loadEvents();
-    }
+</main>
+<script>
+const A = (p,o={}) => fetch('/api/'+p,{credentials:'same-origin',...o}).then(r=>r.json());
 
-    async function loadHealth() {
-      const data = await api('health');
-      const mini = document.getElementById('health-mini');
-      const det  = document.getElementById('health-detail');
-      if (!Array.isArray(data)) return;
-      mini.innerHTML = data.map(s => \`
-        <div class="service-row">
-          <div class="dot \${s.status}" id="dot-\${s.name}"></div>
-          <div class="svc-name">\${s.name}</div>
-          <div class="svc-ms">\${s.ms}ms</div>
-          \${s.code ? \`<div class="svc-code">\${s.code}</div>\` : ''}
-        </div>\`).join('');
-      det.innerHTML = data.map(s => \`
-        <div class="service-row" style="padding:14px 0">
-          <div class="dot \${s.status}"></div>
-          <div class="svc-name" style="font-size:15px">\${s.name}</div>
-          <div style="flex:1"></div>
-          <div class="svc-ms" style="font-size:13px;color:\${s.status==='up'?'#4caf7d':s.status==='down'?'#e85555':'#e8c96f'}">\${s.status.toUpperCase()}</div>
-          <div class="svc-ms">&nbsp;•&nbsp;\${s.ms}ms</div>
-          \${s.code ? \`<div class="svc-code" style="margin-left:10px">HTTP \${s.code}</div>\` : ''}
-        </div>\`).join('');
-    }
-
-    async function loadD1() {
-      const data = await api('d1');
-      const mini = document.getElementById('d1-stats');
-      const full = document.getElementById('d1-full');
-      if (data.error) { mini.innerHTML = \`<div class="empty">\${data.error}</div>\`; return; }
-      const html = \`
-        <div class="service-row"><div class="svc-name">Players</div><div style="color:var(--gold);font-weight:700">\${data.tables?.players ?? 0}</div></div>
-        <div class="service-row"><div class="svc-name">Events</div><div style="color:var(--gold);font-weight:700">\${data.tables?.events ?? 0}</div></div>
-        <div class="service-row"><div class="svc-name">Metrics</div><div style="color:var(--gold);font-weight:700">\${data.tables?.metrics ?? 0}</div></div>
-        <div style="margin-top:8px;font-size:11px;color:#555">ID: \${data.database_id}</div>\`;
-      mini.innerHTML = html;
-      if (full) full.innerHTML = html;
-    }
-
-    async function loadR2() {
-      const data = await api('r2');
-      const mini = document.getElementById('r2-mini');
-      const full = document.getElementById('r2-full');
-      if (data.error) { mini.innerHTML = \`<div class="empty">\${data.error}</div>\`; return; }
-      const prefixes = Object.entries(data.byPrefix || {}).map(([k,v]) =>
-        \`<div class="service-row"><div class="svc-name">\${k}/</div><div style="color:var(--gold);\${''}">\${v} files</div></div>\`
-      ).join('');
-      const html = \`
-        <div class="service-row"><div class="svc-name">Total Objects</div><div style="color:var(--gold);font-weight:700">\${data.totalObjects}</div></div>
-        <div class="service-row"><div class="svc-name">Total Size</div><div style="color:var(--gold);font-weight:700">\${data.totalSizeMB} MB</div></div>
-        <hr style="border-color:#1e1e2e;margin:8px 0">
-        \${prefixes || '<div class="empty">No objects</div>'}\`;
-      mini.innerHTML = html;
-      if (full) full.innerHTML = html;
-    }
-
-    async function loadMetrics() {
-      const data = await api('metrics');
-      document.getElementById('m-active').textContent    = data.active_players ?? '0';
-      document.getElementById('m-logins').textContent    = data.total_logins   ?? '0';
-      document.getElementById('m-missions').textContent  = data.total_missions ?? '0';
-      document.getElementById('m-gbux').textContent      = data.gbux_circulating ?? '0';
-    }
-
-    async function loadPlayers() {
-      const data = await api('players');
-      const tbody = document.getElementById('players-body');
-      if (!Array.isArray(data) || !data.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty">No players tracked yet</td></tr>';
-        return;
-      }
-      tbody.innerHTML = data.map(p => \`<tr>
-        <td><code>\${p.grudge_id}</code></td>
-        <td>\${p.username || '—'}</td>
-        <td><span class="tag">\${p.class || '—'}</span></td>
-        <td><span class="tag">\${p.faction || '—'}</span></td>
-        <td>\${p.level}</td>
-        <td class="ts">\${p.last_seen ? new Date(p.last_seen*1000).toLocaleString() : '—'}</td>
-      </tr>\`).join('');
-    }
-
-    async function loadEvents() {
-      const data = await api('events');
-      const tbody = document.getElementById('events-body');
-      if (!Array.isArray(data) || !data.length) {
-        tbody.innerHTML = '<tr><td colspan="4" class="empty">No events logged yet</td></tr>';
-        return;
-      }
-      tbody.innerHTML = data.map(e => \`<tr>
-        <td><span class="event-service">\${e.service}</span></td>
-        <td>\${e.event}</td>
-        <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#666;font-size:11px">\${e.payload ?? ''}</td>
-        <td class="ts">\${new Date(e.ts*1000).toLocaleString()}</td>
-      </tr>\`).join('');
-    }
-
-    async function loadAll() {
-      loadHealth();
-      loadMetrics();
-      loadD1();
-      loadR2();
-    }
-
-    loadAll();
-    // Auto-refresh every 30s
-    setInterval(loadAll, 30000);
-  </script>
-</body>
-</html>`);
+function tab(name,btn){
+  document.querySelectorAll('.tc').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+  ({overview:loadAll,servers:()=>{loadHealth();loadWs()},pvp:loadPvp,players:loadPlayers,storage:loadStorage,events:loadEvents,economy:loadEconomy})[name]?.();
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-// ─── Security headers applied to every response ──────────────────────────────
-const SECURITY_HEADERS = {
-  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
-  'X-Content-Type-Options':    'nosniff',
-  'X-Frame-Options':           'SAMEORIGIN',
-  'Referrer-Policy':           'strict-origin-when-cross-origin',
-  'Permissions-Policy':        'camera=(), microphone=(), geolocation=(), interest-cohort=()',
-  'Content-Security-Policy':   [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https://assets.grudge-studio.com",
-    "connect-src 'self' https://cloudflareinsights.com https://*.grudge-studio.com https://*.grudgestudio.com",
-    "frame-ancestors 'none'",
-  ].join('; '),
+async function logout(){await fetch('/logout',{method:'POST',credentials:'same-origin'});window.location.href='/';}
+
+async function loadHealth(){
+  const d=await A('health');
+  if(!Array.isArray(d))return;
+  document.getElementById('health-mini').innerHTML=d.map(s=>\`<div class="row"><div class="dot \${s.status}"></div><div class="sname">\${s.name}</div><div class="sms">\${s.ms}ms</div></div>\`).join('');
+  document.getElementById('health-detail').innerHTML=\`<table><thead><tr><th>Service</th><th>Status</th><th>Response</th><th>Version</th></tr></thead><tbody>\${
+    d.map(s=>\`<tr><td><div style="display:flex;align-items:center;gap:8px"><div class="dot \${s.status}"></div>\${s.name}</div></td><td><span class="stag \${s.status}">\${s.status}</span></td><td>\${s.ms}ms\${s.code?' <span class=\\"tag\\">'+s.code+'</span>':''}</td><td style="color:#555">\${s.body?.version||s.error||'—'}</td></tr>\`).join('')
+  }</tbody></table>\`;
+}
+
+async function loadWs(){
+  const d=await A('ws/stats');const c=d?.connected||{};
+  const tot=Object.values(c).reduce((a,b)=>a+(Number(b)||0),0);
+  document.getElementById('ws-mini').innerHTML=\`<div class="row"><div class="sname" style="font-weight:700">Total</div><div style="color:var(--gold);font-weight:700">\${tot}</div></div>\`+Object.entries(c).map(([k,v])=>\`<div class="row"><div class="sname" style="color:#888">/\${k}</div><div style="color:var(--blue)">\${v}</div></div>\`).join('');
+  document.getElementById('ws-detail').innerHTML=\`<div class="grid g4" style="margin-top:8px">\${Object.entries(c).map(([ns,cnt])=>\`<div style="text-align:center;padding:16px;background:#0d0d18;border-radius:8px"><div style="font-size:22px;font-weight:700;color:var(--blue)">\${cnt}</div><div style="font-size:10px;color:#444;margin-top:4px">/\${ns}</div></div>\`).join('')}</div>\`;
+}
+
+async function loadD1(){
+  const d=await A('d1');
+  if(d.error)return;
+  const h=Object.entries(d.tables||{}).map(([k,v])=>\`<div class="row"><div class="sname">\${k}</div><div style="color:var(--gold);font-weight:700">\${v}</div></div>\`).join('');
+  document.getElementById('d1-mini').innerHTML=h;
+  document.getElementById('d1-full').innerHTML=h;
+}
+
+async function loadR2(){
+  const d=await A('r2');const el=document.getElementById('r2-full');
+  if(d.error){el.innerHTML=\`<div class="empty">\${d.error}</div>\`;return;}
+  el.innerHTML=\`<div class="row"><div class="sname">Total Objects</div><div style="color:var(--gold);font-weight:700">\${d.totalObjects}</div></div><div class="row"><div class="sname">Total Size</div><div style="color:var(--gold);font-weight:700">\${d.totalSizeMB} MB</div></div>\${Object.entries(d.byPrefix||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>\`<div class="row"><div class="sname" style="color:#666">\${k}/</div><div style="color:var(--blue)">\${v}</div></div>\`).join('')}\`;
+}
+
+async function loadMetrics(){
+  const d=await A('metrics');
+  document.getElementById('m-active').textContent=d.active_players??'0';
+  document.getElementById('m-logins').textContent=d.total_logins??'0';
+  document.getElementById('m-missions').textContent=d.total_missions??'0';
+  document.getElementById('m-gbux').textContent=d.gbux_circulating??'0';
+}
+
+async function loadPlayers(){
+  const d=await A('players');const tb=document.getElementById('players-body');
+  if(!Array.isArray(d)||!d.length){tb.innerHTML='<tr><td colspan="6" class="empty">No players yet</td></tr>';return;}
+  tb.innerHTML=d.map(p=>\`<tr><td><code style="color:#333;font-size:10px">\${p.grudge_id.slice(0,8)}…</code></td><td>\${p.username||'—'}</td><td><span class="tag">\${p.class||'—'}</span></td><td><span class="tag">\${p.faction||'—'}</span></td><td>\${p.level}</td><td class="ts">\${p.last_seen?new Date(p.last_seen*1000).toLocaleString():'—'}</td></tr>\`).join('');
+}
+
+let evtSvc='';
+const EVT_SVCS=['grudge-id','game-api','account-api','launcher-api','ws-service','ai-agent'];
+async function loadEvents(){
+  const path=evtSvc?'events?service='+evtSvc:'events';
+  const d=await A(path);const tb=document.getElementById('events-body');
+  const sf=document.getElementById('evt-filters');
+  if(!sf.children.length)sf.innerHTML=\`<span class="mtab active" onclick="fltEvt('',this)">All</span>\`+EVT_SVCS.map(s=>\`<span class="mtab" onclick="fltEvt('\${s}',this)">\${s}</span>\`).join('');
+  if(!Array.isArray(d)||!d.length){tb.innerHTML='<tr><td colspan="4" class="empty">No events yet</td></tr>';return;}
+  tb.innerHTML=d.map(e=>\`<tr><td style="color:var(--blue)">\${e.service}</td><td>\${e.event}</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333;font-size:10px">\${e.payload||''}</td><td class="ts">\${new Date(e.ts*1000).toLocaleString()}</td></tr>\`).join('');
+}
+function fltEvt(s,btn){evtSvc=s;document.querySelectorAll('#evt-filters .mtab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');loadEvents();}
+
+let lbMode='duel';
+async function loadPvp(){
+  const [lobbies,lb]=await Promise.all([A('pvp/lobbies'),A('pvp/leaderboard?mode='+lbMode)]);
+  const open=Array.isArray(lobbies)?lobbies.filter(l=>l.status==='waiting'):[];
+  const active=Array.isArray(lobbies)?lobbies.filter(l=>l.status==='in_progress'):[];
+  document.getElementById('pvp-open').textContent=open.length;
+  document.getElementById('pvp-active').textContent=active.length;
+  document.getElementById('pvp-queue').textContent='—';
+  const lt=document.getElementById('pvp-lobbies');
+  lt.innerHTML=!open.length?'<div class="empty">No open lobbies</div>':\`<table><thead><tr><th>Code</th><th>Mode</th><th>Island</th><th>Host</th><th>Players</th></tr></thead><tbody>\${open.map(l=>\`<tr><td><code style="color:var(--gold)">\${l.lobby_code}</code></td><td><span class="tag">\${l.mode}</span></td><td><span class="tag">\${l.island}</span></td><td>\${l.host_username||'—'}</td><td>\${l.player_count}/\${l.max_players}</td></tr>\`).join('')}</tbody></table>\`;
+  renderLB(lb);
+}
+function renderLB(data){
+  const el=document.getElementById('pvp-lb');const lb=data?.leaderboard||[];
+  if(!lb.length){el.innerHTML='<div class="empty">No ranked players yet</div>';return;}
+  el.innerHTML=\`<table><thead><tr><th>#</th><th>Player</th><th>ELO</th><th>W/L</th><th>Streak</th><th>Win%</th></tr></thead><tbody>\${lb.map((p,i)=>\`<tr><td style="color:#333">\${i+1}</td><td>\${p.username||'—'}\${p.faction?' <span class=\\"tag\\">\'+p.faction+\'</span>':''}</td><td style="color:var(--gold);font-weight:700">\${p.rating}</td><td><span style="color:var(--green)">\${p.wins}</span>/<span style="color:var(--red)">\${p.losses}</span></td><td style="color:\${p.streak>0?'var(--green)':p.streak<0?'var(--red)':'#555'}">\${p.streak>0?'+':''}\${p.streak}</td><td>\${p.win_rate}%</td></tr>\`).join('')}</tbody></table>\`;
+}
+async function switchLB(mode,btn){
+  lbMode=mode;
+  document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderLB(await A('pvp/leaderboard?mode='+mode));
+}
+
+async function loadEconomy(){
+  const d=await A('economy');const el=document.getElementById('economy-out');
+  if(d.error){el.innerHTML=\`<div class="card"><div class="empty">\${d.error}</div></div>\`;return;}
+  el.innerHTML=\`<div class="card"><pre style="color:#666;font-size:11px;overflow:auto;max-height:600px">\${JSON.stringify(d,null,2)}</pre></div>\`;
+}
+
+async function loadStorage(){loadR2();loadD1();}
+
+async function loadAll(){
+  await Promise.all([loadHealth(),loadMetrics(),loadD1(),loadWs()]);
+}
+
+loadAll();
+setInterval(loadAll,30000);
+</script>
+</body></html>`);
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+const SEC = {
+  'Strict-Transport-Security':'max-age=31536000; includeSubDomains; preload',
+  'X-Content-Type-Options':'nosniff','X-Frame-Options':'SAMEORIGIN',
+  'Referrer-Policy':'strict-origin-when-cross-origin',
 };
-
-function applySecurityHeaders(headers) {
-  for (const [k, v] of Object.entries(SECURITY_HEADERS)) headers.set(k, v);
+function json(data,status=200){
+  const h=new Headers({'Content-Type':'application/json','Cache-Control':'no-store'});
+  for(const[k,v]of Object.entries(SEC))h.set(k,v);
+  return new Response(JSON.stringify(data,null,2),{status,headers:h});
 }
-
-function json(data, status = 200) {
-  const headers = new Headers({
-    'Content-Type': 'application/json',
-    'Cache-Control': 'no-store',
-  });
-  applySecurityHeaders(headers);
-  return new Response(JSON.stringify(data, null, 2), { status, headers });
-}
-
-function html(content) {
-  const headers = new Headers({
-    'Content-Type': 'text/html;charset=UTF-8',
-    'Cache-Control': 'no-store',
-  });
-  applySecurityHeaders(headers);
-  return new Response(content, { headers });
+function html(content){
+  const h=new Headers({'Content-Type':'text/html;charset=UTF-8','Cache-Control':'no-store'});
+  for(const[k,v]of Object.entries(SEC))h.set(k,v);
+  return new Response(content,{headers:h});
 }

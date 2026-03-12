@@ -1,8 +1,9 @@
 require('dotenv').config();
-const express = require('express');
-const helmet = require('helmet');
-const cors = require('cors');
-const jwt = require('jsonwebtoken');
+const express    = require('express');
+const helmet     = require('helmet');
+const cors       = require('cors');
+const jwt        = require('jsonwebtoken');
+const rateLimit  = require('express-rate-limit');
 const { initDB } = require('./db');
 const { initRedis } = require('./redis');
 
@@ -17,6 +18,7 @@ const economyRoutes    = require('./routes/economy');
 const craftingRoutes   = require('./routes/crafting');
 const combatRoutes     = require('./routes/combat');
 const islandRoutes     = require('./routes/islands');
+const pvpRoutes        = require('./routes/pvp');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -34,6 +36,40 @@ if (process.env.NODE_ENV !== 'production') {
 app.use(helmet({ hsts: { maxAge: 31536000, includeSubDomains: true, preload: true } }));
 app.use(cors({ origin: CORS_ORIGINS, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
+
+// ── Rate limiting ──────────────────────────────────────────────
+// Skip for internal service calls (x-internal-key header)
+const isInternalReq = (req) => req.headers['x-internal-key'] === process.env.INTERNAL_API_KEY;
+
+// Global limiter — 200 req/min per IP
+app.use(rateLimit({
+  windowMs: 60_000,
+  max: 200,
+  skip: isInternalReq,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests — slow down' },
+}));
+
+// Strict limiter for economy write endpoints — 30 req/min
+const economyLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 30,
+  skip: isInternalReq,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Economy rate limit exceeded' },
+});
+
+// PvP queue limiter — 20 req/min (prevent queue spam)
+const pvpLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 60,
+  skip: isInternalReq,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'PvP rate limit exceeded' },
+});
 
 // ── Auth middleware — accepts Grudge JWT or internal API key ───
 // Ban check: if JWT payload has is_banned, reject. Full DB check via getDB() is available
@@ -79,10 +115,11 @@ app.use('/crews',       requireAuth, crewRoutes);
 app.use('/inventory',   requireAuth, inventoryRoutes);
 app.use('/professions', requireAuth, professionRoutes);
 app.use('/gouldstones', requireAuth, gouldstoneRoutes);
-app.use('/economy',     requireAuth, economyRoutes);
+app.use('/economy',     requireAuth, economyLimiter, economyRoutes);
 app.use('/crafting',    requireAuth, craftingRoutes);
 app.use('/combat',      requireAuth, combatRoutes);
 app.use('/islands',     requireAuth, islandRoutes);
+app.use('/pvp',         requireAuth, pvpLimiter, pvpRoutes);
 
 app.use((err, req, res, next) => {
   console.error('[game-api]', err.message);

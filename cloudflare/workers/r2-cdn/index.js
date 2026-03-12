@@ -54,6 +54,21 @@ export default {
       return corsPreflightResponse(origin);
     }
 
+    // ── Health check — used by dash.grudge-studio.com ─────────────────────────
+    if (url.pathname === '/health') {
+      return new Response(JSON.stringify({
+        status:  'ok',
+        service: 'r2-cdn',
+        bucket:  'grudge-assets',
+        ts:      Date.now(),
+      }), {
+        headers: {
+          'Content-Type':  'application/json',
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
+
     // Read-only CDN — reject mutations
     if (method !== 'GET' && method !== 'HEAD') {
       return new Response('Method Not Allowed', { status: 405 });

@@ -1,13 +1,39 @@
+# ─── SECRETS (NEVER COMMIT) ────────────────────────────────
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cert
+id_rsa*
+id_ed25519*
+
+# ─── DEPENDENCIES ─────────────────────────────────────────
 node_modules/
 services/*/node_modules/
+package-lock.json
+
+# ─── BUILD / OUTPUT ───────────────────────────────────────
 *.log
 *.pid
 dist/
+.cache/
+.wrangler/
+
+# ─── SERVER BINARIES ─────────────────────────────────────
 # Never commit the Linux server binary - deploy separately
 services/grudge-headless/bin/
-# Generated secrets
-.env.local
-# OS files
+
+# ─── HEALTH REPORTS ──────────────────────────────────────
+scripts/health-report.json
+
+# ─── OS FILES ────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~

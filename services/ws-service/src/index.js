@@ -4,6 +4,7 @@ const express = require('express');
 const { Server } = require('socket.io');
 const jwt     = require('jsonwebtoken');
 const Redis   = require('ioredis');
+const { setupPvP } = require('./pvp');
 
 const app    = express();
 const server = http.createServer(app);
@@ -154,6 +155,9 @@ crewNS.on('connection', (socket) => {
   });
 });
 
+// ── /pvp namespace ────────────────────────────────────────────
+const pvpHandler = setupPvP(io, redisSub, redisPub, authMiddleware);
+
 // ── /global namespace — faction standings + announcements ───
 const globalNS = io.of('/global');
 globalNS.use(authMiddleware);
@@ -168,6 +172,14 @@ globalNS.on('connection', (socket) => {
 
 // ── Redis → Socket.IO bridge ──────────────────
 // game-api and ai-agent publish events; we forward to connected clients.
+// PvP channels are handled by pvp.js (setupPvP subscribes them separately).
+const PVP_CHANNELS = new Set([
+  'grudge:event:pvp_lobby',
+  'grudge:event:pvp_start',
+  'grudge:event:pvp_result',
+  'grudge:event:pvp_queue',
+]);
+
 const CHANNEL_MAP = {
   'grudge:event:mission':     (data) => globalNS.emit('mission:complete', data),
   'grudge:event:faction':     (data) => globalNS.emit('faction:event',    data),
@@ -192,7 +204,12 @@ redisSub.subscribe(...Object.keys(CHANNEL_MAP), (err) => {
 
 redisSub.on('message', (channel, message) => {
   try {
-    const data    = JSON.parse(message);
+    const data = JSON.parse(message);
+    // Route PvP events to pvp handler
+    if (PVP_CHANNELS.has(channel)) {
+      pvpHandler.handleMessage(channel, data);
+      return;
+    }
     const handler = CHANNEL_MAP[channel];
     if (handler) handler(data);
   } catch (e) {
@@ -202,14 +219,16 @@ redisSub.on('message', (channel, message) => {
 
 // ── HTTP health endpoint ──────────────────────
 app.get('/health', (req, res) => {
+  const pvpNS = io.of('/pvp');
   res.json({
     status:    'ok',
     service:   'ws-service',
-    version:   '1.0.0',
+    version:   '2.0.0',
     connected: {
       game:   gameNS.sockets.size,
       crew:   crewNS.sockets.size,
       global: globalNS.sockets.size,
+      pvp:    pvpNS.sockets.size,
     },
   });
 });

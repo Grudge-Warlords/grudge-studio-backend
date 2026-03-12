@@ -145,6 +145,27 @@ GET  /combat/history?char_id=X       — Combat history for a character
 GET  /combat/leaderboard             — Top 25 by kills
 ```
 
+### PvP (v2)
+```
+GET  /pvp/lobbies                    — Open lobbies (?mode=duel|crew_battle|arena_ffa&limit=N)
+POST /pvp/lobbies                    — Create lobby { mode, island, is_private }
+GET  /pvp/lobbies/:code              — Lobby detail
+POST /pvp/lobbies/:code/join         — Join lobby
+POST /pvp/lobbies/:code/ready        — Toggle ready
+POST /pvp/lobbies/:code/leave        — Leave lobby
+POST /pvp/lobbies/:code/start [INT]  — Force-start lobby (internal)
+GET  /pvp/queue                      — Player's current queue status
+POST /pvp/queue                      — Join matchmaking queue { mode }
+DELETE /pvp/queue                    — Leave matchmaking queue
+GET  /pvp/leaderboard                — ELO rankings (?mode=duel&limit=10)
+GET  /pvp/match/:id                  — Match detail
+POST /pvp/match/:id/result [INT]     — Submit match result + ELO update
+
+Modes: duel (2p) · crew_battle (up to 10) · arena_ffa (up to 16)
+ELO:   K=32, default 1200, floor 100, queue range ±150, TTL 300s
+Codes: GRD-XXXX format
+```
+
 ### Islands (10 islands: island_1 through island_10)
 ```
 GET   /islands                       — All islands + current state
@@ -215,6 +236,30 @@ socket.on('island-claimed', (data) => { /* crew claimed an island */ });
 socket.on('combat-result', (data) => { /* PvP outcome */ });
 ```
 
+**`/pvp`** — PvP lobby & matchmaking (v2)
+```javascript
+const pvp = io('https://ws.grudge-studio.com/pvp', { auth: { token: '<JWT>' } });
+
+// Lobby
+pvp.emit('join_lobby',  { lobby_code });      // join via code
+pvp.emit('leave_lobby', { lobby_code });
+pvp.emit('ready',       { lobby_code });
+
+// Match events (server → client)
+pvp.on('lobby_update',   (data) => { /* player list, ready status */ });
+pvp.on('countdown',      ({ seconds }) => { /* 3-2-1 */ });
+pvp.on('match_start',    ({ match_id, players }) => { /* match begins */ });
+pvp.on('match_end',      ({ winner_id, elo_changes }) => { /* result */ });
+
+// Matchmaking queue
+pvp.emit('join_queue',  { mode: 'duel' });
+pvp.on('queue_matched', ({ lobby_code }) => { /* auto-join lobby code */ });
+
+// In-match action relay
+pvp.emit('action', { match_id, type, payload });
+pvp.on('opponent_action', (action) => { /* relay from opponent */ });
+```
+
 ### Redis Event Channels (pub/sub bridge)
 ```
 grudge:event:mission     — Mission completions
@@ -223,6 +268,13 @@ grudge:event:island      — Island state changes
 grudge:event:crew        — Crew events
 grudge:event:z-cry       — Z-key battle cry
 grudge:event:global      — Broadcast events
+grudge:event:pvp_lobby   — Lobby state changes (created/joined/ready/left)
+grudge:event:pvp_start   — Match started
+grudge:event:pvp_result  — Match result + ELO deltas
+grudge:event:pvp_queue   — Matchmaking pair found
+
+Matchmaking queue keys (Redis sorted sets, scored by ELO):
+  pvp:queue:duel · pvp:queue:crew_battle · pvp:queue:arena_ffa
 ```
 
 ---
@@ -552,6 +604,8 @@ Human, Orc, Elf, Undead, Barbarian, Dwarf
 - **Gouldstone:** Item that creates AI clone companion with original player stats (up to 15 allies)
 - **Z-key Combat:** Random chat bubble, stacking buffs, PvP trigger, WebSocket broadcast
 - **Hotbar:** Slots 1-4 skills, slot 5 empty, slots 6-8 consumables
+- **PvP Lobbies:** Duel (2p), Crew Battle (10p), Arena FFA (16p) — ELO rating, `GRD-XXXX` codes, `/pvp` Socket.IO namespace
+- **Dashboard v2:** Cookie-based session auth (`POST /login`), 7 tabs (Overview/Servers/PvP Arena/Players/Storage/Events/Economy)
 
 ### Weapon Types (17 total)
 Swords, 2H Swords, Axes (1H), Axes (2H), Daggers, Spears, Bows, Crossbows, Guns, Staffs, Wands, Tomes, Maces, Hammers, Shields, Relics, Capes
