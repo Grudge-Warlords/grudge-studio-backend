@@ -35,6 +35,7 @@ IDENTITY_API      = "https://id.grudge-studio.com"
 GAME_API          = "https://api.grudge-studio.com"
 ACCOUNT_API       = "https://account.grudge-studio.com"
 LAUNCHER_API      = "https://launcher.grudge-studio.com"
+WS_API            = "https://ws.grudge-studio.com"
 CDN_URL           = "https://assets.grudge-studio.com"
 
 # ── Secrets (set via wrangler secret put) ─────────────────────────────────────
