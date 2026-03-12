@@ -215,6 +215,37 @@ services:
       - coolify
 
   # ─────────────────────────────────────────────
+  # WS SERVICE — Real-time WebSocket (Socket.IO)
+  # Namespaces: /game (island rooms), /crew, /global
+  # ─────────────────────────────────────────────
+  ws-service:
+    build: ./services/ws-service
+    container_name: ws-service
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3007
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@grudge-redis:6379
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com}
+    depends_on:
+      redis:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ws-service.rule=Host(`ws.grudge-studio.com`)"
+      - "traefik.http.routers.ws-service.entrypoints=https"
+      - "traefik.http.routers.ws-service.tls.certresolver=letsencrypt"
+      - "traefik.http.services.ws-service.loadbalancer.server.port=3007"
+      - "traefik.http.services.ws-service.loadbalancer.sticky.cookie=true"
+      - "traefik.http.services.ws-service.loadbalancer.sticky.cookie.name=grudge_ws"
+      - "traefik.docker.network=coolify"
+    networks:
+      - grudge-net
+      - coolify
+
+  # ─────────────────────────────────────────────
   # GRUDGE HEADLESS — Unity Linux Game Server
   # Requires bin/ to be uploaded separately (not in git)
   # Start with: docker compose --profile gameserver up -d grudge-headless

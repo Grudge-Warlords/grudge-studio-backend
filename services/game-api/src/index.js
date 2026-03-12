@@ -13,6 +13,10 @@ const crewRoutes       = require('./routes/crews');
 const inventoryRoutes  = require('./routes/inventory');
 const professionRoutes = require('./routes/professions');
 const gouldstoneRoutes = require('./routes/gouldstones');
+const economyRoutes    = require('./routes/economy');
+const craftingRoutes   = require('./routes/crafting');
+const combatRoutes     = require('./routes/combat');
+const islandRoutes     = require('./routes/islands');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -32,7 +36,10 @@ app.use(cors({ origin: CORS_ORIGINS, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
 
 // ── Auth middleware — accepts Grudge JWT or internal API key ───
-function requireAuth(req, res, next) {
+// Ban check: if JWT payload has is_banned, reject. Full DB check via getDB() is available
+// but we rely on token re-issue on login to propagate bans quickly (7d token TTL).
+// For instant ban enforcement, internal services should call grudge-id /auth/verify.
+async function requireAuth(req, res, next) {
   // Game server / internal services use x-internal-key
   if (req.headers['x-internal-key'] === process.env.INTERNAL_API_KEY) {
     req.isInternal = true;
@@ -44,9 +51,22 @@ function requireAuth(req, res, next) {
   }
   try {
     req.user = jwt.verify(header.slice(7), process.env.JWT_SECRET);
+    // ── Instant ban check against DB ────────────────────────────
+    const { getDB } = require('./db');
+    const db = getDB();
+    const [[row]] = await db.query(
+      'SELECT is_banned, ban_reason FROM users WHERE grudge_id = ? LIMIT 1',
+      [req.user.grudge_id]
+    );
+    if (row?.is_banned) {
+      return res.status(403).json({ error: row.ban_reason || 'Account banned' });
+    }
     next();
-  } catch {
-    res.status(401).json({ error: 'Invalid or expired token' });
+  } catch (err) {
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+    next(err);
   }
 }
 
@@ -59,6 +79,10 @@ app.use('/crews',       requireAuth, crewRoutes);
 app.use('/inventory',   requireAuth, inventoryRoutes);
 app.use('/professions', requireAuth, professionRoutes);
 app.use('/gouldstones', requireAuth, gouldstoneRoutes);
+app.use('/economy',     requireAuth, economyRoutes);
+app.use('/crafting',    requireAuth, craftingRoutes);
+app.use('/combat',      requireAuth, combatRoutes);
+app.use('/islands',     requireAuth, islandRoutes);
 
 app.use((err, req, res, next) => {
   console.error('[game-api]', err.message);

@@ -108,6 +108,19 @@ router.patch('/:id/claim-base', async (req, res, next) => {
       return res.status(403).json({ error: 'Only the captain can plant a Pirate Claim flag' });
     }
     await db.query('UPDATE crews SET base_island = ? WHERE id = ?', [island, req.params.id]);
+    // Sync to island_state table
+    await db.query(
+      `INSERT INTO island_state (island_key, controlling_crew_id, claim_flag_planted_at)
+       VALUES (?, ?, NOW())
+       ON DUPLICATE KEY UPDATE controlling_crew_id = VALUES(controlling_crew_id), claim_flag_planted_at = NOW()`,
+      [island, req.params.id]
+    );
+    // Broadcast
+    try {
+      const redis = require('../redis').getRedis();
+      if (redis) await redis.publish('grudge:event:island',
+        JSON.stringify({ island, crew_id: req.params.id, event: 'claimed', ts: Date.now() }));
+    } catch {}
     res.json({ success: true, base_island: island, message: `Pirate Claim flag planted on ${island}!` });
   } catch (err) { next(err); }
 });

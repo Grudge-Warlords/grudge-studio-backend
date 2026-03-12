@@ -1,0 +1,23 @@
+name               = "grudge-studio-site"
+main               = "index.js"
+compatibility_date = "2025-02-04"
+account_id         = "ee475864561b02d4588180b8b9acf694"
+
+[observability]
+enabled = true
+
+# ── Custom domain ──────────────────────────────────────────────────────────────
+[[routes]]
+pattern = "grudge-studio.com/*"
+zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
+
+# ── Environment variables ──────────────────────────────────────────────────────
+[vars]
+ENVIRONMENT  = "production"
+IDENTITY_API = "https://id.grudge-studio.com"
+GAME_API     = "https://api.grudge-studio.com"
+ACCOUNT_API  = "https://account.grudge-studio.com"
+LAUNCHER_API = "https://launcher.grudge-studio.com"
+WS_API       = "https://ws.grudge-studio.com"
+CDN_URL      = "https://assets.grudge-studio.com"
+DASH_URL     = "https://dash.grudge-studio.com"

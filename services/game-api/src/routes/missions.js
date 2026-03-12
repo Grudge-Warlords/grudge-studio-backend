@@ -1,6 +1,14 @@
 const express = require('express');
-const router = express.Router();
+const router = require('express').Router();
 const { getDB } = require('../db');
+const { applyGold } = require('./economy');
+let _redis;
+function getRedis() {
+  if (!_redis) {
+    try { _redis = require('../redis').getRedis(); } catch {}
+  }
+  return _redis;
+}
 
 const MISSION_TYPES = ['harvesting', 'fighting', 'sailing', 'competing'];
 
@@ -116,7 +124,48 @@ router.patch('/:id/complete', async (req, res, next) => {
       }
     }
 
-    res.json({ success: true, reward_gold: mission.reward_gold, reward_xp: mission.reward_xp, xp_applied });
+    // ── Award gold ────────────────────────────────────────
+    let gold_balance = null;
+    if (mission.reward_gold > 0) {
+      const [chars] = await db.query(
+        'SELECT id FROM characters WHERE grudge_id = ? ORDER BY id ASC LIMIT 1',
+        [req.user.grudge_id]
+      );
+      if (chars.length) {
+        try {
+          gold_balance = await applyGold(
+            db, chars[0].id, req.user.grudge_id,
+            mission.reward_gold, 'mission_reward',
+            String(mission.id), mission.title
+          );
+        } catch (e) {
+          console.warn('[missions] gold award failed:', e.message);
+        }
+      }
+    }
+
+    // ── Publish real-time event ─────────────────────────
+    try {
+      const redis = getRedis();
+      if (redis) {
+        await redis.publish('grudge:event:mission', JSON.stringify({
+          grudge_id:   req.user.grudge_id,
+          mission_id:  mission.id,
+          type:        mission.type,
+          reward_gold: mission.reward_gold,
+          reward_xp:   mission.reward_xp,
+          ts:          Date.now(),
+        }));
+      }
+    } catch {}
+
+    res.json({
+      success:      true,
+      reward_gold:  mission.reward_gold,
+      reward_xp:    mission.reward_xp,
+      gold_balance,
+      xp_applied,
+    });
   } catch (err) { next(err); }
 });
 
