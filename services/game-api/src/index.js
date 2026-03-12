@@ -22,7 +22,7 @@ const pvpRoutes        = require('./routes/pvp');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
-app.set('trust proxy', true);
+app.set('trust proxy', 1); // Trust one proxy hop (Traefik/Coolify) — required by express-rate-limit v7
 
 // ── Dynamic CORS — supports GitHub Pages, puter apps, ObjectStore ────
 const CORS_ORIGINS = (

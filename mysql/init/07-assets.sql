@@ -9,7 +9,7 @@ USE grudge_game;
 CREATE TABLE IF NOT EXISTS assets (
   id                BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   uuid              VARCHAR(36) NOT NULL UNIQUE,             -- public-facing ID
-  r2_key            VARCHAR(1024) NOT NULL UNIQUE,           -- R2 object key
+  r2_key            VARCHAR(512) NOT NULL UNIQUE,            -- R2 object key (512 chars = 2KB max, well within index limit)
   filename          VARCHAR(256) NOT NULL,                   -- original upload filename
   mime              VARCHAR(128) DEFAULT NULL,
   size              BIGINT UNSIGNED DEFAULT 0,               -- bytes
@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS asset_bundles (
   name              VARCHAR(128) NOT NULL,
   description       TEXT DEFAULT NULL,
   owner_grudge_id   VARCHAR(36) DEFAULT NULL,
-  r2_key            VARCHAR(1024) DEFAULT NULL,              -- zip file in R2 (populated after export)
+  r2_key            VARCHAR(512)  DEFAULT NULL,              -- zip file in R2 (populated after export)
   size              BIGINT UNSIGNED DEFAULT 0,
   status            ENUM('building','ready','failed') DEFAULT 'building',
   created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

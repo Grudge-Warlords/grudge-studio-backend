@@ -4,54 +4,165 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      services:
+        description: "Comma-separated services to rebuild (or 'all')"
+        default: "all"
+        required: false
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false   # never cancel a running deploy
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
+      # ── 1. Checkout ───────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── Copy files to VPS via SSH ─────────────
+      # ── 2. SSH setup ──────────────────────────
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
+      # ── 3. Sync code (never sync .env) ────────
       - name: Sync project to VPS
         run: |
-          rsync -avz --delete \
+          rsync -az --delete \
             --exclude='.git/' \
             --exclude='node_modules/' \
             --exclude='services/grudge-headless/bin/' \
             --exclude='.env' \
+            --exclude='*.log' \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/grudge-studio-backend/
 
-      # ── Remote: pull & restart services ──────
-      - name: Deploy on VPS
+      # ── 4. Run SQL migrations (idempotent) ────
+      - name: Run SQL migrations
         run: |
-          ssh -i ~/.ssh/deploy_key \
-              -o StrictHostKeyChecking=no \
-              ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-              'cd /opt/grudge-studio-backend && \
-               docker compose pull 2>/dev/null || true && \
-               docker compose build --no-cache grudge-id wallet-service game-api ai-agent account-api launcher-api && \
-               docker compose up -d --remove-orphans && \
-               docker system prune -f'
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            'bash /opt/grudge-studio-backend/scripts/migrate.sh'
 
-      - name: Health check
+      # ── 5. Rolling service rebuild ────────────
+      #   Order: infrastructure-free → data → api → realtime
+      #   Each service is built and restarted independently so
+      #   other services stay up during the rolling update.
+      - name: Rolling deploy
         run: |
-          sleep 15
-          ssh -i ~/.ssh/deploy_key \
-              -o StrictHostKeyChecking=no \
-              ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-              'curl -sf http://localhost:3001/health && \
-               curl -sf http://localhost:3003/health && \
-               curl -sf http://localhost:3004/health && \
-               curl -sf http://localhost:3005/health && \
-               curl -sf http://localhost:3006/health && \
-               echo "All services healthy!"'
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          BASE="/opt/grudge-studio-backend"
+          SERVICES="${{ github.event.inputs.services || 'all' }}"
+
+          # Decide which services to rebuild
+          if [ "$SERVICES" = "all" ]; then
+            REBUILD="ai-agent wallet-service account-api launcher-api asset-service game-api grudge-id ws-service"
+          else
+            REBUILD=$(echo $SERVICES | tr ',' ' ')
+          fi
+
+          for SVC in $REBUILD; do
+            echo "▶ Building $SVC ..."
+            $SSH "cd $BASE && \
+              DOCKER_BUILDKIT=1 docker compose build \
+                --build-arg BUILDKIT_INLINE_CACHE=1 \
+                $SVC && \
+              docker compose up -d --no-deps $SVC"
+            echo "✓ $SVC restarted"
+            sleep 3
+          done
+
+      # ── 6. Remove dangling images/containers ──
+      - name: Prune docker
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            'docker image prune -f && docker container prune -f'
+
+      # ── 7. Health checks with retry ───────────
+      - name: Health check
+        id: health
+        run: |
+          sleep 12
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          FAIL=0
+          declare -A ENDPOINTS=(
+            [grudge-id]=3001
+            [game-api]=3003
+            [ai-agent]=3004
+            [account-api]=3005
+            [launcher-api]=3006
+            [ws-service]=3007
+            [asset-service]=3008
+          )
+          for SVC in "${!ENDPOINTS[@]}"; do
+            PORT=${ENDPOINTS[$SVC]}
+            for ATTEMPT in 1 2 3; do
+              if $SSH "curl -sf http://localhost:$PORT/health" > /dev/null 2>&1; then
+                echo "  ✅ $SVC (port $PORT)"
+                break
+              fi
+              if [ $ATTEMPT -eq 3 ]; then
+                echo "  ❌ $SVC FAILED after 3 attempts"
+                FAIL=$((FAIL+1))
+              else
+                echo "  ⏳ $SVC attempt $ATTEMPT failed, retrying..."
+                sleep 5
+              fi
+            done
+          done
+          if [ $FAIL -gt 0 ]; then
+            echo "health_ok=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          echo "health_ok=true" >> $GITHUB_OUTPUT
+          echo "All services healthy!"
+
+      # ── 8. Discord deploy notification ────────
+      - name: Notify Discord (success)
+        if: success() && secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN != ''
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          curl -sf -X POST "${{ secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"embeds\": [{
+                \"title\": \"✅ Grudge Studio — Deploy Succeeded\",
+                \"color\": 4978687,
+                \"fields\": [
+                  {\"name\": \"Commit\", \"value\": \"[$SHORT_SHA](https://github.com/${{ github.repository }}/commit/${{ github.sha }})\", \"inline\": true},
+                  {\"name\": \"Branch\", \"value\": \"${{ github.ref_name }}\", \"inline\": true},
+                  {\"name\": \"Triggered by\", \"value\": \"${{ github.actor }}\", \"inline\": true}
+                ],
+                \"description\": \"${{ github.event.head_commit.message }}\",
+                \"footer\": {\"text\": \"VPS: ${{ secrets.VPS_HOST }}\"}
+              }]
+            }"
+
+      - name: Notify Discord (failure)
+        if: failure()
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          curl -sf -X POST "${{ secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"embeds\": [{
+                \"title\": \"🚨 Grudge Studio — Deploy FAILED\",
+                \"color\": 15158332,
+                \"fields\": [
+                  {\"name\": \"Commit\", \"value\": \"[$SHORT_SHA](https://github.com/${{ github.repository }}/commit/${{ github.sha }})\", \"inline\": true},
+                  {\"name\": \"Branch\", \"value\": \"${{ github.ref_name }}\", \"inline\": true},
+                  {\"name\": \"Actor\", \"value\": \"${{ github.actor }}\", \"inline\": true}
+                ],
+                \"description\": \"Check: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\",
+                \"footer\": {\"text\": \"VPS: ${{ secrets.VPS_HOST }}\"}
+              }]
+            }"
+          exit 1
