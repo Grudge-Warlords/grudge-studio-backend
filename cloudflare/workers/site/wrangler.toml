@@ -14,6 +14,8 @@ zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
 # ── Environment variables ──────────────────────────────────────────────────────
 [vars]
 ENVIRONMENT  = "production"
+# App Public Key from: Developer Portal → General Information → Public Key
+DISCORD_PUBLIC_KEY = ""
 IDENTITY_API = "https://id.grudge-studio.com"
 GAME_API     = "https://api.grudge-studio.com"
 ACCOUNT_API  = "https://account.grudge-studio.com"

@@ -20,6 +20,9 @@ export default {
 
     if (path === '/api/status') return handleStatus(request);
     if (path === '/api/docs.json') return handleDocsJson();
+    if (path === '/discord/events') return handleDiscordWebhookEvent(request, env);
+    if (path === '/tos') return handleTos();
+    if (path === '/privacy') return handlePrivacy();
     return handlePage(env);
   },
 };
@@ -419,6 +422,10 @@ function handlePage(env) {
     <a href="https://assets.grudge-studio.com" target="_blank">CDN</a>
     <div class="f-divider"></div>
     <a href="https://grudgewarlords.com" target="_blank">Play the Game</a>
+    <div class="f-divider"></div>
+    <a href="/tos">Terms of Service</a>
+    <div class="f-divider"></div>
+    <a href="/privacy">Privacy Policy</a>
   </div>
 </footer>
 
@@ -464,4 +471,184 @@ setInterval(loadStatus, 30000);
       'X-Content-Type-Options': 'nosniff',
     },
   });
+}
+
+// ── Discord Webhook Events endpoint ─────────────────────────────────────────
+// Configured under: Developer Portal → (your app) → Webhooks page → Endpoint
+// This is SEPARATE from Interactions Endpoint URL and coexists with Gateway bot
+async function handleDiscordWebhookEvent(request, env) {
+  if (request.method !== 'POST') {
+    return new Response('Method Not Allowed', { status: 405 });
+  }
+
+  const signature = request.headers.get('x-signature-ed25519');
+  const timestamp  = request.headers.get('x-signature-timestamp');
+  if (!signature || !timestamp) return new Response('Unauthorized', { status: 401 });
+
+  const body      = await request.text();
+  const publicKey = env.DISCORD_PUBLIC_KEY;
+  if (!publicKey) return new Response('Server misconfigured — DISCORD_PUBLIC_KEY not set', { status: 500 });
+
+  try {
+    const valid = await verifyDiscordEd25519(publicKey, signature, timestamp, body);
+    if (!valid) return new Response('Invalid signature', { status: 401 });
+  } catch {
+    return new Response('Signature verification failed', { status: 401 });
+  }
+
+  let payload;
+  try { payload = JSON.parse(body); } catch { return new Response('Bad Request', { status: 400 }); }
+
+  // PING (type 0) — sent by Discord when you save the endpoint URL in the portal
+  if (payload.type === 0) return new Response(null, { status: 204 });
+
+  // Webhook Event (type 1) — real application lifecycle events
+  if (payload.type === 1 && payload.event) {
+    const { type, data } = payload.event;
+    switch (type) {
+      case 'APPLICATION_AUTHORIZED':
+        // Fired when someone installs or authorizes ALE
+        console.log(`[ALE] APPLICATION_AUTHORIZED — user: ${data?.user?.id ?? '?'} guild: ${data?.guild?.id ?? 'DM'}`);
+        break;
+      case 'ENTITLEMENT_CREATE':
+        // Fired when a user purchases a SKU (future monetization)
+        console.log(`[ALE] ENTITLEMENT_CREATE — sku: ${data?.sku_id}`);
+        break;
+      case 'QUEST_USER_ENROLLMENT':
+        console.log(`[ALE] QUEST_USER_ENROLLMENT`);
+        break;
+      default:
+        console.log(`[ALE] Unhandled webhook event: ${type}`);
+    }
+  }
+
+  return new Response(null, { status: 204 });
+}
+
+async function verifyDiscordEd25519(publicKeyHex, signatureHex, timestamp, body) {
+  const enc   = new TextEncoder();
+  const pk    = hexToBytes(publicKeyHex);
+  const sig   = hexToBytes(signatureHex);
+  const msg   = enc.encode(timestamp + body);
+  const key   = await crypto.subtle.importKey('raw', pk, { name: 'Ed25519' }, false, ['verify']);
+  return crypto.subtle.verify('Ed25519', key, sig, msg);
+}
+
+function hexToBytes(hex) {
+  const out = new Uint8Array(hex.length >>> 1);
+  for (let i = 0; i < hex.length; i += 2) out[i >>> 1] = parseInt(hex.slice(i, i + 2), 16);
+  return out;
+}
+
+// ── Terms of Service ─────────────────────────────────────────────────────────
+function handleTos() {
+  const html = `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Terms of Service — Grudge Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Roboto:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Roboto',sans-serif;background:#0a0a0f;color:#e8e8e8;padding:80px 32px;max-width:860px;margin:0 auto;line-height:1.7}
+  h1{font-family:'Cinzel',serif;color:#d4af37;font-size:2rem;margin-bottom:8px}
+  .subtitle{color:#888;margin-bottom:48px;font-size:.9rem}
+  h2{font-family:'Cinzel',serif;color:#d4af37;font-size:1.1rem;margin:36px 0 12px}
+  p{color:#ccc;margin-bottom:12px}
+  a{color:#d4af37;text-decoration:none}
+  a:hover{text-decoration:underline}
+  .back{display:inline-block;margin-bottom:40px;color:#888;font-size:.85rem}
+</style></head>
+<body>
+<a class="back" href="/">← grudge-studio.com</a>
+<h1>Terms of Service</h1>
+<p class="subtitle">Last updated: March 2026</p>
+
+<h2>1. Acceptance</h2>
+<p>By accessing or using any Grudge Studio service — including the Grudge Warlords game, the ALE Discord bot, and associated APIs — you agree to be bound by these Terms of Service.</p>
+
+<h2>2. Eligibility</h2>
+<p>You must be at least 13 years of age to use Grudge Studio services. By using our services you represent that you meet this requirement.</p>
+
+<h2>3. Game Rules</h2>
+<p>You agree not to exploit bugs, use unauthorised third-party tools to gain an advantage, harass other players, or engage in any activity that disrupts the game experience for others. Violations may result in account suspension or permanent ban.</p>
+
+<h2>4. In-Game Economy</h2>
+<p>Virtual currency (Gold) and items within Grudge Warlords have no real-world monetary value and cannot be exchanged for real currency. Grudge Studio reserves the right to modify, reset, or remove in-game assets at any time.</p>
+
+<h2>5. NFT &amp; Wallet Features</h2>
+<p>Where NFT or Solana wallet features are available, you acknowledge that blockchain transactions are irreversible. Grudge Studio is not liable for lost assets resulting from user error or third-party wallet issues.</p>
+
+<h2>6. Intellectual Property</h2>
+<p>All game content, artwork, code, and branding are the property of Grudge Studio. You may not reproduce, distribute, or create derivative works without express written permission.</p>
+
+<h2>7. Modifications</h2>
+<p>We reserve the right to update these Terms at any time. Continued use of our services after changes constitutes acceptance of the updated Terms.</p>
+
+<h2>8. Limitation of Liability</h2>
+<p>Grudge Studio services are provided "as is." To the maximum extent permitted by law, we disclaim all warranties and limit liability to the fullest extent allowed.</p>
+
+<h2>9. Contact</h2>
+<p>Questions? Reach us via the <a href="https://grudgewarlords.com" target="_blank">Grudge Warlords</a> community or through <a href="https://dash.grudge-studio.com" target="_blank">the dashboard</a>.</p>
+</body></html>`;
+  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+}
+
+// ── Privacy Policy ────────────────────────────────────────────────────────────
+function handlePrivacy() {
+  const html = `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacy Policy — Grudge Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Roboto:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Roboto',sans-serif;background:#0a0a0f;color:#e8e8e8;padding:80px 32px;max-width:860px;margin:0 auto;line-height:1.7}
+  h1{font-family:'Cinzel',serif;color:#d4af37;font-size:2rem;margin-bottom:8px}
+  .subtitle{color:#888;margin-bottom:48px;font-size:.9rem}
+  h2{font-family:'Cinzel',serif;color:#d4af37;font-size:1.1rem;margin:36px 0 12px}
+  p{color:#ccc;margin-bottom:12px}
+  ul{color:#ccc;margin:0 0 12px 20px}
+  li{margin-bottom:6px}
+  a{color:#d4af37;text-decoration:none}
+  a:hover{text-decoration:underline}
+  .back{display:inline-block;margin-bottom:40px;color:#888;font-size:.85rem}
+</style></head>
+<body>
+<a class="back" href="/">← grudge-studio.com</a>
+<h1>Privacy Policy</h1>
+<p class="subtitle">Last updated: March 2026</p>
+
+<h2>1. Information We Collect</h2>
+<p>When you use Grudge Studio services we may collect:</p>
+<ul>
+  <li>Discord user ID and username (via Discord OAuth or bot interaction)</li>
+  <li>Solana wallet address (if you connect a wallet)</li>
+  <li>In-game actions: combat logs, crafting history, island activity</li>
+  <li>IP address and browser metadata for security and rate-limiting</li>
+</ul>
+
+<h2>2. How We Use It</h2>
+<p>Collected data is used solely to operate the game, deliver in-game features, prevent abuse, and improve the experience. We do not sell personal data to third parties.</p>
+
+<h2>3. Discord Integration</h2>
+<p>The ALE Discord bot reads message content only where the Message Content Intent is active and only to respond to commands or conversation. We do not store message content beyond the duration of a session.</p>
+
+<h2>4. Data Retention</h2>
+<p>Account and game data is retained for as long as your account is active. You may request deletion by contacting us. Blockchain data (wallet transactions) is inherently immutable and cannot be deleted.</p>
+
+<h2>5. Third-Party Services</h2>
+<p>We use the following third-party services which have their own privacy policies:</p>
+<ul>
+  <li>Discord — for authentication and bot functionality</li>
+  <li>Solana / Web3Auth — for wallet authentication</li>
+  <li>Cloudflare — for CDN, DDoS protection, and DNS</li>
+</ul>
+
+<h2>6. Security</h2>
+<p>We use industry-standard security measures including JWT authentication, TLS encryption, and rate limiting. No security system is perfect; use strong passwords and protect your wallet seed phrases.</p>
+
+<h2>7. Contact</h2>
+<p>For privacy requests or questions contact us through <a href="https://dash.grudge-studio.com" target="_blank">the dashboard</a> or the <a href="https://grudgewarlords.com" target="_blank">Grudge Warlords</a> community.</p>
+</body></html>`;
+  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
 }
