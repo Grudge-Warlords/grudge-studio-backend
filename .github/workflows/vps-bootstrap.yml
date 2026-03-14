@@ -1,0 +1,216 @@
+name: Bootstrap VPS + Deploy All Services
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/vps-bootstrap.yml'
+
+concurrency:
+  group: vps-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+
+      # ── 1. Install Docker on VPS ──────────────────────────────────
+      - name: Install Docker
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST || '74.208.174.62' }}
+          username: ${{ secrets.VPS_USER || 'Administrator' }}
+          password: ${{ secrets.VPS_PASSWORD || 'Hf8vBjMC' }}
+          port: 22
+          command_timeout: 20m
+          script: |
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -qq
+            apt-get install -y -qq curl git rsync jq ca-certificates gnupg lsb-release
+            if ! command -v docker &>/dev/null; then
+              curl -fsSL https://get.docker.com | sh
+              systemctl enable docker
+              systemctl start docker
+            fi
+            docker --version
+            docker compose version || apt-get install -y -qq docker-compose-plugin
+
+      # ── 2. Clone / update repo ────────────────────────────────────
+      - name: Clone repo
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST || '74.208.174.62' }}
+          username: ${{ secrets.VPS_USER || 'Administrator' }}
+          password: ${{ secrets.VPS_PASSWORD || 'Hf8vBjMC' }}
+          port: 22
+          command_timeout: 5m
+          script: |
+            REPO_URL="https://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@github.com/MolochDaGod/grudge-studio-backend.git"
+            DEPLOY_DIR="/opt/grudge-studio-backend"
+            if [ -d "$DEPLOY_DIR/.git" ]; then
+              cd "$DEPLOY_DIR"
+              git remote set-url origin "$REPO_URL"
+              git fetch origin
+              git reset --hard origin/main
+              echo "Repo updated: $(git rev-parse --short HEAD)"
+            else
+              mkdir -p "$DEPLOY_DIR"
+              git clone "$REPO_URL" "$DEPLOY_DIR"
+              echo "Repo cloned: $(cd $DEPLOY_DIR && git rev-parse --short HEAD)"
+            fi
+
+      # ── 3. Create .env if not present ────────────────────────────
+      - name: Setup .env
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST || '74.208.174.62' }}
+          username: ${{ secrets.VPS_USER || 'Administrator' }}
+          password: ${{ secrets.VPS_PASSWORD || 'Hf8vBjMC' }}
+          port: 22
+          command_timeout: 3m
+          script: |
+            DEPLOY_DIR="/opt/grudge-studio-backend"
+            cd "$DEPLOY_DIR"
+            if [ ! -f ".env" ]; then
+              echo "Generating .env with random secrets..."
+              # Install Node.js if needed
+              if ! command -v node &>/dev/null; then
+                curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+                apt-get install -y -qq nodejs
+              fi
+              node scripts/gen-secrets.js > .env
+              # Patch env with correct values
+              sed -i 's|NODE_ENV=development|NODE_ENV=production|' .env
+              sed -i 's|SOLANA_RPC_URL=.*|SOLANA_RPC_URL=https://api.mainnet-beta.solana.com|' .env
+              echo "CORS_ORIGINS=https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com,https://app.puter.com" >> .env
+              echo ".env created"
+            else
+              echo ".env already exists — keeping it"
+            fi
+            # Show which vars are set (no values)
+            grep -E "^[A-Z_]+=.+" .env | cut -d= -f1 | sort
+
+      # ── 4. Generate SSH deploy key for GitHub Actions ─────────────
+      - name: Generate deploy SSH key
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST || '74.208.174.62' }}
+          username: ${{ secrets.VPS_USER || 'Administrator' }}
+          password: ${{ secrets.VPS_PASSWORD || 'Hf8vBjMC' }}
+          port: 22
+          command_timeout: 2m
+          script: |
+            KEY_FILE="$HOME/.ssh/grudge_deploy"
+            mkdir -p ~/.ssh
+            chmod 700 ~/.ssh
+            if [ ! -f "$KEY_FILE" ]; then
+              ssh-keygen -t ed25519 -C "grudge-deploy@74.208.174.62" -f "$KEY_FILE" -N ""
+              cat "${KEY_FILE}.pub" >> ~/.ssh/authorized_keys
+              chmod 600 ~/.ssh/authorized_keys
+              echo "SSH deploy key generated"
+            else
+              echo "SSH deploy key already exists"
+            fi
+            echo ""
+            echo "=== DEPLOY_SSH_KEY (add to GitHub Actions secrets) ==="
+            cat "$KEY_FILE"
+            echo "=== END DEPLOY_SSH_KEY ==="
+
+      # ── 5. Build + start infrastructure ──────────────────────────
+      - name: Start infrastructure (MySQL + Redis)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST || '74.208.174.62' }}
+          username: ${{ secrets.VPS_USER || 'Administrator' }}
+          password: ${{ secrets.VPS_PASSWORD || 'Hf8vBjMC' }}
+          port: 22
+          command_timeout: 10m
+          script: |
+            cd /opt/grudge-studio-backend
+            docker compose up -d mysql redis
+            echo "Waiting for MySQL..."
+            for i in $(seq 1 30); do
+              if docker compose exec -T mysql mysqladmin ping -h localhost --silent 2>/dev/null; then
+                echo "MySQL ready"
+                break
+              fi
+              sleep 2
+            done
+
+      # ── 6. Build + start all app services ────────────────────────
+      - name: Build and start all services
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST || '74.208.174.62' }}
+          username: ${{ secrets.VPS_USER || 'Administrator' }}
+          password: ${{ secrets.VPS_PASSWORD || 'Hf8vBjMC' }}
+          port: 22
+          command_timeout: 20m
+          script: |
+            cd /opt/grudge-studio-backend
+            DOCKER_BUILDKIT=1 docker compose build \
+              --build-arg BUILDKIT_INLINE_CACHE=1 \
+              grudge-id wallet-service game-api ai-agent account-api launcher-api asset-service ws-service
+            docker compose up -d --no-deps \
+              grudge-id wallet-service game-api ai-agent account-api launcher-api asset-service ws-service
+            echo "All services started"
+            docker compose ps
+
+      # ── 7. Run SQL migrations ─────────────────────────────────────
+      - name: Run SQL migrations
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST || '74.208.174.62' }}
+          username: ${{ secrets.VPS_USER || 'Administrator' }}
+          password: ${{ secrets.VPS_PASSWORD || 'Hf8vBjMC' }}
+          port: 22
+          command_timeout: 5m
+          script: |
+            cd /opt/grudge-studio-backend
+            bash scripts/migrate.sh
+
+      # ── 8. Health checks ──────────────────────────────────────────
+      - name: Health checks
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST || '74.208.174.62' }}
+          username: ${{ secrets.VPS_USER || 'Administrator' }}
+          password: ${{ secrets.VPS_PASSWORD || 'Hf8vBjMC' }}
+          port: 22
+          command_timeout: 3m
+          script: |
+            sleep 10
+            FAIL=0
+            for SVC_PORT in "grudge-id:3001" "game-api:3003" "ai-agent:3004" "account-api:3005" "launcher-api:3006" "ws-service:3007" "asset-service:3008"; do
+              SVC="${SVC_PORT%%:*}"
+              PORT="${SVC_PORT##*:}"
+              if curl -sf "http://localhost:$PORT/health" > /dev/null 2>&1; then
+                echo "  ✅ $SVC (port $PORT)"
+              else
+                echo "  ❌ $SVC (port $PORT) - check: docker logs $SVC --tail 20"
+                FAIL=$((FAIL+1))
+              fi
+            done
+            echo ""
+            docker compose ps
+            [ $FAIL -eq 0 ] && echo "ALL SERVICES HEALTHY 🎉" || echo "$FAIL service(s) need attention"
+
+      # ── 9. Discord notification ───────────────────────────────────
+      - name: Notify Discord (success)
+        if: success() && secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN != ''
+        run: |
+          curl -sf -X POST "${{ secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"embeds":[{"title":"✅ Grudge Studio VPS Bootstrap Complete","color":4978687,"description":"All services deployed and healthy on 74.208.174.62"}]}'
+
+      - name: Notify Discord (failure)
+        if: failure()
+        run: |
+          curl -sf -X POST "${{ secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"embeds":[{"title":"🚨 Grudge Studio VPS Bootstrap FAILED","color":15158332,"description":"Check: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}]}' || true
+          exit 1
