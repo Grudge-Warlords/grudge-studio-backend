@@ -1,0 +1,42 @@
+name: Bootstrap VPS SSH Access
+
+on:
+  workflow_dispatch:
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Install SSH key and unban local IP
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PASS: ${{ secrets.VPS_PASSWORD }}
+          DEPLOY_PUB_KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINOzm8uC8DKYeDQdKu7CNRhGixSwLH+knApThPRp+7Jr grudge-studio-deploy"
+        run: |
+          sshpass -p "$VPS_PASS" ssh -o StrictHostKeyChecking=no ${VPS_USER}@${VPS_HOST} bash -s <<'REMOTE'
+            set -e
+
+            # Install the deploy SSH key
+            mkdir -p ~/.ssh
+            chmod 700 ~/.ssh
+            PUBKEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINOzm8uC8DKYeDQdKu7CNRhGixSwLH+knApThPRp+7Jr grudge-studio-deploy"
+            grep -qF "$PUBKEY" ~/.ssh/authorized_keys 2>/dev/null || echo "$PUBKEY" >> ~/.ssh/authorized_keys
+            chmod 600 ~/.ssh/authorized_keys
+            echo "✅ SSH key installed"
+
+            # Unban local IP from fail2ban
+            fail2ban-client set sshd unbanip 76.31.186.50 2>/dev/null && echo "✅ Unbanned 76.31.186.50" || echo "ℹ️  76.31.186.50 was not banned"
+
+            # Show status
+            echo "--- fail2ban status ---"
+            fail2ban-client status sshd || true
+            echo "--- authorized_keys ---"
+            cat ~/.ssh/authorized_keys
+            echo "--- done ---"
+          REMOTE
