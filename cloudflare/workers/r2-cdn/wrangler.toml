@@ -35,3 +35,13 @@ zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
 # ── Dev preview (local) ──────────────────────────────────────────────────────
 # npx wrangler dev  →  http://localhost:8787
 # Uses real R2 bucket in preview mode.
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STAGING ENVIRONMENT
+# Deploy: npx wrangler deploy --env staging
+# ══════════════════════════════════════════════════════════════════════════════
+[env.staging]
+name = "grudge-r2-cdn-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"

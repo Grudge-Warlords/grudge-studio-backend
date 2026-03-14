@@ -1,0 +1,40 @@
+name               = "grudge-health-ping"
+main               = "index.js"
+compatibility_date = "2025-02-04"
+account_id         = "ee475864561b02d4588180b8b9acf694"
+
+[observability]
+enabled = true
+
+# ── Cron trigger: every 5 minutes ──────────────────────────────────────────────
+[triggers]
+crons = ["*/5 * * * *"]
+
+# ── D1 Database (shared with dashboard) ────────────────────────────────────────
+[[d1_databases]]
+binding       = "DB"
+database_name = "grudge-studio-db"
+database_id   = "8fcb111b-fcee-4f4e-b0d5-59ad416ee3b9"
+
+# ── KV (for consecutive failure tracking) ──────────────────────────────────────
+[[kv_namespaces]]
+binding = "KV"
+id      = "35be1828b2124f82abdc770293177165"
+
+# ── Environment variables ──────────────────────────────────────────────────────
+[vars]
+ENVIRONMENT = "production"
+
+# ── Secrets (set via wrangler secret put) ──────────────────────────────────────
+# wrangler secret put DISCORD_SYSTEM_WEBHOOK
+# → paste your Discord system webhook URL
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STAGING ENVIRONMENT
+# Deploy: npx wrangler deploy --env staging
+# ══════════════════════════════════════════════════════════════════════════════
+[env.staging]
+name = "grudge-health-ping-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"

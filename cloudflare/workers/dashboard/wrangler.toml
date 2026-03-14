@@ -42,3 +42,20 @@ CDN_URL           = "https://assets.grudge-studio.com"
 # wrangler secret put DASH_API_KEY
 # → paste your INTERNAL_API_KEY value
 # This key gates all dashboard access.
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STAGING ENVIRONMENT
+# Deploy: npx wrangler deploy --env staging
+# ══════════════════════════════════════════════════════════════════════════════
+[env.staging]
+name = "grudge-dashboard-staging"
+
+[env.staging.vars]
+ENVIRONMENT       = "staging"
+VPS_IP            = "74.208.155.229"
+IDENTITY_API      = "http://74.208.155.229:4001"
+GAME_API          = "http://74.208.155.229:4003"
+ACCOUNT_API       = "http://74.208.155.229:4004"
+LAUNCHER_API      = "http://74.208.155.229:4005"
+WS_API            = "http://74.208.155.229:4006"
+CDN_URL           = "https://assets.grudge-studio.com"

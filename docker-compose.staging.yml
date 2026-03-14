@@ -1,0 +1,111 @@
+version: "3.9"
+
+# ── Grudge Studio Staging Stack ────────────────────────────────────────────────
+# Runs alongside production on the same VPS with offset ports (4001-4008).
+# Uses a separate MySQL database (grudge_game_staging) and Redis DB 1.
+#
+# Start:  docker compose -f docker-compose.staging.yml up -d
+# Stop:   docker compose -f docker-compose.staging.yml down
+
+networks:
+  grudge-staging:
+    driver: bridge
+
+services:
+  grudge-id-staging:
+    build: ./services/grudge-id
+    container_name: grudge-id-staging
+    restart: unless-stopped
+    ports: ["4001:3001"]
+    env_file: .env.staging
+    environment:
+      SERVICE_NAME: grudge-id
+      PORT: 3001
+      MYSQL_DATABASE: grudge_game_staging
+      REDIS_DB: 1
+    networks: [grudge-staging]
+    depends_on: [mysql-staging]
+
+  game-api-staging:
+    build: ./services/game-api
+    container_name: game-api-staging
+    restart: unless-stopped
+    ports: ["4003:3003"]
+    env_file: .env.staging
+    environment:
+      SERVICE_NAME: game-api
+      PORT: 3003
+      MYSQL_DATABASE: grudge_game_staging
+      REDIS_DB: 1
+    networks: [grudge-staging]
+    depends_on: [mysql-staging]
+
+  account-api-staging:
+    build: ./services/account-api
+    container_name: account-api-staging
+    restart: unless-stopped
+    ports: ["4005:3005"]
+    env_file: .env.staging
+    environment:
+      SERVICE_NAME: account-api
+      PORT: 3005
+      MYSQL_DATABASE: grudge_game_staging
+      REDIS_DB: 1
+    networks: [grudge-staging]
+    depends_on: [mysql-staging]
+
+  launcher-api-staging:
+    build: ./services/launcher-api
+    container_name: launcher-api-staging
+    restart: unless-stopped
+    ports: ["4006:3006"]
+    env_file: .env.staging
+    environment:
+      SERVICE_NAME: launcher-api
+      PORT: 3006
+      MYSQL_DATABASE: grudge_game_staging
+      REDIS_DB: 1
+    networks: [grudge-staging]
+    depends_on: [mysql-staging]
+
+  ws-service-staging:
+    build: ./services/ws-service
+    container_name: ws-service-staging
+    restart: unless-stopped
+    ports: ["4007:3007"]
+    env_file: .env.staging
+    environment:
+      SERVICE_NAME: ws-service
+      PORT: 3007
+      MYSQL_DATABASE: grudge_game_staging
+      REDIS_DB: 1
+    networks: [grudge-staging]
+    depends_on: [mysql-staging]
+
+  ai-agent-staging:
+    build: ./services/ai-agent
+    container_name: ai-agent-staging
+    restart: unless-stopped
+    ports: ["4004:3004"]
+    env_file: .env.staging
+    environment:
+      SERVICE_NAME: ai-agent
+      PORT: 3004
+      MYSQL_DATABASE: grudge_game_staging
+      REDIS_DB: 1
+    networks: [grudge-staging]
+
+  mysql-staging:
+    image: mysql:8.0
+    container_name: grudge-mysql-staging
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-grudge_staging_dev}
+      MYSQL_DATABASE: grudge_game_staging
+    volumes:
+      - mysql-staging-data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    networks: [grudge-staging]
+
+volumes:
+  mysql-staging-data:

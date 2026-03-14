@@ -221,8 +221,30 @@ async function apiLogEvent(request, env) {
   try {
     const { service, event, payload } = await request.json();
     if (!service || !event) return json({ error: 'service and event required' }, 400);
+    const payloadStr = JSON.stringify(payload ?? null);
     await env.DB.prepare('INSERT INTO dash_events (service, event, payload) VALUES (?, ?, ?)')
-      .bind(service, event, JSON.stringify(payload ?? null)).run();
+      .bind(service, event, payloadStr).run();
+
+    // Forward error/crash events to Discord
+    if (env.DISCORD_SYSTEM_WEBHOOK && (event === 'error' || event === 'crash' || event === 'shutdown')) {
+      const color = event === 'error' ? 0xe85555 : event === 'crash' ? 0xff0000 : 0xffa500;
+      const emoji = event === 'error' ? '⚠️' : event === 'crash' ? '💀' : '🔌';
+      const msg = payload?.message || payloadStr?.slice(0, 200) || event;
+      fetch(env.DISCORD_SYSTEM_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          embeds: [{
+            title: `${emoji} ${service} — ${event}`,
+            color,
+            description: msg,
+            fields: payload?.stack ? [{ name: 'Stack', value: '```\n' + payload.stack.slice(0, 500) + '\n```' }] : [],
+            footer: { text: `Dashboard Event Logger • ${new Date().toISOString().slice(0, 16)}Z` },
+          }],
+        }),
+      }).catch(() => {});
+    }
+
     return json({ ok: true });
   } catch (e) { return json({ error: e.message }, 500); }
 }

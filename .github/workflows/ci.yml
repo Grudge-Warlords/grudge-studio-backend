@@ -1,0 +1,94 @@
+name: CI — Lint & Smoke Tests
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root deps
+        run: npm ci --ignore-scripts || npm install
+
+      - name: Install service deps
+        run: |
+          for svc in services/grudge-id services/game-api services/account-api services/launcher-api services/ws-service services/ai-agent services/wallet-service services/asset-service; do
+            if [ -f "$svc/package.json" ]; then
+              echo "▶ Installing $svc"
+              (cd "$svc" && npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts)
+            fi
+          done
+
+      - name: Lint check (syntax validation)
+        run: |
+          FAIL=0
+          for svc in services/*/src/index.js; do
+            echo "  Checking $svc ..."
+            node --check "$svc" 2>&1 || FAIL=$((FAIL+1))
+          done
+          for worker in cloudflare/workers/*/index.js; do
+            echo "  Checking $worker ..."
+            node --check "$worker" 2>&1 || FAIL=$((FAIL+1))
+          done
+          if [ $FAIL -gt 0 ]; then
+            echo "❌ $FAIL files have syntax errors"
+            exit 1
+          fi
+          echo "✅ All files pass syntax check"
+
+      - name: Smoke test — external health endpoints
+        run: |
+          FAIL=0
+          ENDPOINTS=(
+            "https://id.grudge-studio.com/health"
+            "https://api.grudge-studio.com/health"
+            "https://account.grudge-studio.com/health"
+            "https://launcher.grudge-studio.com/health"
+            "https://ws.grudge-studio.com/health"
+            "https://assets.grudge-studio.com/health"
+          )
+          for url in "${ENDPOINTS[@]}"; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 "$url" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "  ✅ $url ($STATUS)"
+            else
+              echo "  ⚠️  $url ($STATUS)"
+              # Don't fail on external checks — just warn
+            fi
+          done
+
+      - name: Validate .env.example completeness
+        run: |
+          if [ -f .env.example ]; then
+            MISSING=0
+            # Check that every service's referenced env vars exist in .env.example
+            for svc in services/*/src/index.js; do
+              VARS=$(grep -oE 'process\.env\.\w+' "$svc" 2>/dev/null | sed 's/process\.env\.//' | sort -u)
+              for var in $VARS; do
+                case "$var" in
+                  NODE_ENV|PORT|HOME|PATH|PWD) continue ;;
+                esac
+                if ! grep -q "^${var}=" .env.example 2>/dev/null && ! grep -q "^#.*${var}" .env.example 2>/dev/null; then
+                  echo "  ⚠️  $var used in $svc but missing from .env.example"
+                fi
+              done
+            done
+          fi
