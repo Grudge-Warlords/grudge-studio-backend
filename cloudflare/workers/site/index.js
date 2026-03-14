@@ -24,7 +24,7 @@ const SERVICES = [
 const KV_STATUS_KEY  = 'status:latest';
 const KV_LAST_OK_KEY = 'status:lastAllOk';
 const KV_MODE_KEY    = 'status:mode';
-const STATUS_TTL     = 120;  // KV expiration (seconds) — safety net if cron stops
+const STATUS_TTL     = 300;  // KV expiration (seconds) — safety net if cron stops
 const STALE_THRESHOLD = 90;  // if cache older than this, trigger live refresh
 
 // ── Route dispatcher ────────────────────────────────────────────────────────
