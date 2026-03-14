@@ -149,12 +149,12 @@ router.get('/', async (req, res, next) => {
     const [[{ total }]] = await db.execute(
       `SELECT COUNT(*) as total FROM assets WHERE ${where}`, params
     );
-    const [rows] = await db.execute(
+    const [rows] = await db.query(
       `SELECT uuid, r2_key, filename, mime, size, sha256, category, tags, visibility,
               owner_grudge_id, metadata, created_at, updated_at
        FROM assets WHERE ${where}
-       ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-      [...params, safeLimit, offset]
+       ORDER BY created_at DESC LIMIT ${Number(safeLimit)} OFFSET ${Number(offset)}`,
+      params
     );
 
     // Resolve CDN URLs
