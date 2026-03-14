@@ -276,26 +276,51 @@ function loginPage() {
 <html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Grudge Studio — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Spectral+SC:wght@400;600&family=IM+Fell+English+SC&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#0a0a0f;font-family:'Segoe UI',system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh}
-.card{background:#12121a;border:1px solid #2a2a3a;border-radius:12px;padding:40px;width:360px;text-align:center}
-.logo{font-size:30px;font-weight:800;letter-spacing:2px;color:#e8c96f;text-transform:uppercase;margin-bottom:4px}
-.sub{color:#555;font-size:11px;margin-bottom:28px;text-transform:uppercase;letter-spacing:1px}
-input{width:100%;background:#0a0a0f;border:1px solid #2a2a3a;border-radius:8px;color:#e8c96f;padding:12px 14px;font-size:14px;margin-bottom:14px;outline:none}
-input:focus{border-color:#e8c96f}
-button{width:100%;background:#e8c96f;color:#0a0a0f;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:1px;text-transform:uppercase}
-button:hover{background:#f0d880}
-.err{color:#e85555;font-size:12px;margin-top:10px;display:none}
+body{background:hsl(225 30% 8%);font-family:'Spectral SC','Segoe UI',serif;display:flex;align-items:center;justify-content:center;min-height:100vh;
+  background-image:radial-gradient(ellipse at top,hsl(225 30% 12%) 0%,transparent 50%),radial-gradient(ellipse at bottom,hsl(225 25% 6%) 0%,transparent 50%),radial-gradient(circle at 25% 25%,rgba(212,175,55,0.06) 0%,transparent 40%),radial-gradient(circle at 75% 75%,rgba(180,130,40,0.04) 0%,transparent 40%);background-attachment:fixed}
+.card{position:relative;background:linear-gradient(180deg,hsl(225 25% 14%) 0%,hsl(225 28% 10%) 50%,hsl(225 25% 8%) 100%);
+  border:2px solid hsl(43 60% 35%);border-radius:4px;padding:48px 40px 40px;width:380px;text-align:center;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),inset 0 -1px 0 rgba(0,0,0,0.3),0 8px 32px rgba(0,0,0,0.6),0 0 0 1px rgba(0,0,0,0.3)}
+.card::before{content:'';position:absolute;inset:0;border-radius:2px;padding:1px;
+  background:linear-gradient(180deg,rgba(212,175,55,0.3) 0%,rgba(160,120,40,0.1) 50%,rgba(100,80,30,0.2) 100%);
+  mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude;pointer-events:none}
+.corner{position:absolute;font-size:14px;color:hsl(43 70% 50%);text-shadow:0 0 6px rgba(212,175,55,0.5)}
+.corner.tl{top:-8px;left:-8px}.corner.tr{top:-8px;right:-8px}.corner.bl{bottom:-8px;left:-8px}.corner.br{bottom:-8px;right:-8px}
+.logo{font-family:'Cinzel Decorative',serif;font-size:28px;font-weight:900;letter-spacing:3px;text-transform:uppercase;margin-bottom:4px;
+  background:linear-gradient(180deg,hsl(43 90% 75%) 0%,hsl(43 85% 55%) 40%,hsl(35 70% 40%) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5))}
+.sub{color:hsl(45 15% 50%);font-family:'IM Fell English SC',serif;font-size:12px;margin-bottom:32px;text-transform:uppercase;letter-spacing:2px}
+input{width:100%;background:hsl(225 28% 8%);border:1px solid hsl(220 15% 25%);border-radius:2px;color:hsl(43 85% 65%);padding:13px 16px;font-size:14px;font-family:'Spectral SC',serif;margin-bottom:16px;outline:none;
+  box-shadow:inset 0 2px 8px rgba(0,0,0,0.5),inset 0 0 0 1px rgba(0,0,0,0.3)}
+input:focus{border-color:hsl(43 60% 40%);box-shadow:inset 0 2px 8px rgba(0,0,0,0.5),0 0 8px rgba(212,175,55,0.2)}
+input::placeholder{color:hsl(220 15% 35%);font-family:'IM Fell English SC',serif}
+button{width:100%;background:linear-gradient(180deg,hsl(43 70% 45%) 0%,hsl(38 65% 35%) 50%,hsl(35 60% 28%) 100%);
+  border:2px solid hsl(43 50% 50%);border-radius:4px;padding:14px;font-family:'Cinzel Decorative',serif;font-size:13px;font-weight:700;color:hsl(225 30% 10%);
+  cursor:pointer;letter-spacing:2px;text-transform:uppercase;text-shadow:0 1px 0 rgba(255,255,255,0.3);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.3),inset 0 -2px 4px rgba(0,0,0,0.2),0 2px 4px rgba(0,0,0,0.4);transition:all .15s}
+button:hover{background:linear-gradient(180deg,hsl(43 80% 55%) 0%,hsl(43 70% 45%) 50%,hsl(38 65% 35%) 100%);
+  border-color:hsl(43 60% 60%);box-shadow:inset 0 1px 0 rgba(255,255,255,0.4),0 0 16px rgba(212,175,55,0.4),0 4px 8px rgba(0,0,0,0.4)}
+button:active{background:linear-gradient(180deg,hsl(35 60% 30%) 0%,hsl(38 65% 35%) 100%);box-shadow:inset 0 2px 4px rgba(0,0,0,0.4)}
+.err{color:hsl(0 65% 55%);font-size:12px;margin-top:12px;display:none;font-family:'IM Fell English SC',serif}
+.divider{width:60px;height:2px;background:linear-gradient(90deg,transparent,hsl(43 60% 40%),transparent);margin:0 auto 28px}
 </style></head>
 <body>
 <div class="card">
+  <span class="corner tl">◆</span><span class="corner tr">◆</span>
+  <span class="corner bl">◆</span><span class="corner br">◆</span>
   <div class="logo">⚔ GRUDGE</div>
   <div class="sub">Backend Dashboard</div>
+  <div class="divider"></div>
   <form id="f">
-    <input type="password" id="key" placeholder="API Key" autocomplete="current-password">
-    <button type="submit">Enter</button>
-    <div class="err" id="err">Invalid key — check INTERNAL_API_KEY</div>
+    <input type="password" id="key" placeholder="Enter thy key…" autocomplete="current-password">
+    <button type="submit">Enter the Forge</button>
+    <div class="err" id="err">Invalid key — the gates remain sealed</div>
   </form>
 </div>
 <script>
@@ -317,59 +342,86 @@ function dashboardPage() {
 <html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Grudge Studio — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;600;700&family=Spectral+SC:wght@400;600&family=IM+Fell+English+SC&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--gold:#e8c96f;--bg:#0a0a0f;--surface:#12121a;--border:#1e1e2e;--text:#ddd;--sub:#555;--green:#4caf7d;--red:#e85555;--blue:#4a9eff;--purple:#9d4dff}
-body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px}
-header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
-.logo{font-size:17px;font-weight:800;color:var(--gold);letter-spacing:2px;text-transform:uppercase}
-.badge{background:#1a1a2a;border:1px solid var(--border);border-radius:20px;padding:2px 10px;font-size:10px;color:#666;text-transform:uppercase;letter-spacing:1px}
-nav{display:flex;gap:2px;margin-left:auto;flex-wrap:wrap}
-nav button{background:none;border:1px solid transparent;border-radius:6px;color:#555;padding:5px 11px;cursor:pointer;font-size:11px;text-transform:uppercase;letter-spacing:.5px;transition:all .15s}
-nav button.active,nav button:hover{background:#1a1a2a;border-color:var(--border);color:var(--gold)}
-.logout{background:none;border:1px solid #222;border-radius:6px;color:#444;padding:5px 10px;cursor:pointer;font-size:10px;margin-left:6px}
-.logout:hover{color:var(--red);border-color:var(--red)}
+:root{
+  --gold:hsl(43 85% 55%);--gold-light:hsl(43 90% 70%);--gold-dark:hsl(43 70% 35%);
+  --bg:hsl(225 30% 8%);--surface:hsl(225 25% 12%);--surface-raised:hsl(225 25% 14%);
+  --border:hsl(43 60% 30%);--border-dim:hsl(225 20% 20%);
+  --text:hsl(45 30% 90%);--sub:hsl(45 15% 50%);
+  --green:hsl(142 50% 45%);--red:hsl(0 65% 50%);--blue:hsl(220 70% 60%);--purple:hsl(271 70% 60%);
+  --obsidian:hsl(225 30% 8%);--stone:hsl(220 15% 25%);--crimson:hsl(0 65% 40%);
+  --font-heading:'Cinzel Decorative','Cinzel',serif;--font-body:'Spectral SC','Segoe UI',serif;--font-label:'IM Fell English SC',serif
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:13px;
+  background-image:radial-gradient(ellipse at top,hsl(225 30% 12%) 0%,transparent 50%),radial-gradient(ellipse at bottom,hsl(225 25% 6%) 0%,transparent 50%),radial-gradient(circle at 25% 25%,rgba(212,175,55,0.05) 0%,transparent 40%);
+  background-attachment:fixed}
+header{position:relative;background:linear-gradient(180deg,hsl(225 25% 14%) 0%,hsl(225 28% 10%) 100%);
+  border-bottom:2px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;
+  box-shadow:0 4px 16px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.05)}
+.logo{font-family:var(--font-heading);font-size:16px;font-weight:900;letter-spacing:3px;text-transform:uppercase;
+  background:linear-gradient(180deg,var(--gold-light) 0%,var(--gold) 40%,var(--gold-dark) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5))}
+.badge{background:hsl(225 25% 15%);border:1px solid var(--border);border-radius:2px;padding:2px 10px;font-size:9px;font-family:var(--font-label);color:hsl(43 60% 55%);text-transform:uppercase;letter-spacing:1px}
+nav{display:flex;gap:3px;margin-left:auto;flex-wrap:wrap}
+nav button{background:none;border:1px solid transparent;border-radius:2px;color:var(--sub);padding:5px 11px;cursor:pointer;font-size:10px;font-family:var(--font-label);text-transform:uppercase;letter-spacing:.5px;transition:all .15s}
+nav button.active,nav button:hover{background:linear-gradient(180deg,hsl(225 25% 18%) 0%,hsl(225 28% 14%) 100%);border-color:var(--border);color:var(--gold);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 0 6px rgba(212,175,55,0.15)}
+.logout{background:none;border:1px solid var(--stone);border-radius:2px;color:hsl(45 15% 40%);padding:5px 10px;cursor:pointer;font-size:9px;font-family:var(--font-label);margin-left:6px;text-transform:uppercase;letter-spacing:1px;transition:all .15s}
+.logout:hover{color:var(--crimson);border-color:var(--crimson);box-shadow:0 0 6px rgba(200,50,50,0.3)}
 main{padding:20px;max-width:1440px;margin:0 auto}
-h2{color:var(--gold);font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px}
+h2{font-family:var(--font-heading);color:var(--gold);font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;
+  text-shadow:0 1px 2px rgba(0,0,0,0.5)}
 .grid{display:grid;gap:12px}
 .g4{grid-template-columns:repeat(4,1fr)}
 .g3{grid-template-columns:repeat(3,1fr)}
 .g2{grid-template-columns:repeat(2,1fr)}
 @media(max-width:900px){.g4,.g3{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:580px){.g4,.g3,.g2{grid-template-columns:1fr}}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px}
-.ctitle{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
-.cval{font-size:26px;font-weight:700;color:var(--gold)}
-.csub{font-size:10px;color:var(--sub);margin-top:4px}
-.row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)}
+.card{position:relative;background:linear-gradient(180deg,var(--surface-raised) 0%,var(--surface) 100%);
+  border:1px solid var(--border);border-radius:3px;padding:18px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.04),inset 0 -1px 0 rgba(0,0,0,0.2),0 4px 12px rgba(0,0,0,0.4),0 0 0 1px rgba(0,0,0,0.2)}
+.ctitle{font-size:10px;font-family:var(--font-label);color:var(--sub);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px}
+.cval{font-size:26px;font-weight:700;font-family:'Cinzel',serif;
+  background:linear-gradient(180deg,var(--gold-light),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.csub{font-size:10px;color:var(--sub);margin-top:4px;font-family:var(--font-label)}
+.row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border-dim)}
 .row:last-child{border:none}
-.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-.dot.up{background:var(--green);box-shadow:0 0 6px var(--green)}
-.dot.down{background:var(--red);box-shadow:0 0 6px var(--red)}
-.dot.degraded{background:var(--gold);box-shadow:0 0 6px var(--gold)}
-.dot.checking{background:#333;animation:p 1s infinite}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot.up{background:var(--green);box-shadow:0 0 6px var(--green),0 0 12px rgba(76,175,80,0.3)}
+.dot.down{background:var(--red);box-shadow:0 0 6px var(--red),0 0 12px rgba(232,85,85,0.3)}
+.dot.degraded{background:var(--gold);box-shadow:0 0 6px var(--gold),0 0 12px rgba(212,175,55,0.3)}
+.dot.checking{background:var(--stone);animation:p 1.5s infinite}
 @keyframes p{0%,100%{opacity:.3}50%{opacity:1}}
-.sname{flex:1;font-weight:600;font-size:12px;color:#ccc}
-.sms{font-size:10px;color:var(--sub)}
-.stag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;text-transform:uppercase}
-.stag.up{background:#0d2a1a;color:var(--green)}
-.stag.down{background:#2a0d0d;color:var(--red)}
-.stag.degraded{background:#2a2200;color:var(--gold)}
+.sname{flex:1;font-weight:600;font-size:12px;color:hsl(45 30% 80%)}
+.sms{font-size:10px;color:var(--sub);font-family:var(--font-label)}
+.stag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:2px;text-transform:uppercase;font-family:var(--font-label);letter-spacing:.5px}
+.stag.up{background:hsl(142 40% 12%);color:var(--green);border:1px solid hsl(142 30% 25%)}
+.stag.down{background:hsl(0 40% 12%);color:var(--red);border:1px solid hsl(0 30% 25%)}
+.stag.degraded{background:hsl(43 40% 12%);color:var(--gold);border:1px solid hsl(43 30% 25%)}
 .tc{display:none}.tc.active{display:block}
 table{width:100%;border-collapse:collapse}
-th{text-align:left;font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;padding:7px 10px;border-bottom:1px solid var(--border)}
-td{padding:7px 10px;border-bottom:1px solid #0d0d18;font-size:12px}
-tr:hover td{background:#0d0d18}
-.tag{display:inline-block;background:#1a1a2a;border-radius:4px;padding:1px 7px;font-size:10px;color:#aaa}
-.rbtn{background:none;border:1px solid var(--border);border-radius:5px;color:var(--sub);padding:4px 10px;cursor:pointer;font-size:10px;float:right;text-transform:uppercase;letter-spacing:1px}
-.rbtn:hover{color:var(--gold);border-color:var(--gold)}
-.ts{color:#3a3a5a;font-size:10px}
-.empty{color:#2a2a3a;text-align:center;padding:28px;font-size:12px}
+th{text-align:left;font-size:10px;font-family:var(--font-label);color:var(--sub);text-transform:uppercase;letter-spacing:1.5px;padding:8px 10px;border-bottom:2px solid var(--border)}
+td{padding:8px 10px;border-bottom:1px solid var(--border-dim);font-size:12px}
+tr:hover td{background:rgba(212,175,55,0.03)}
+.tag{display:inline-block;background:hsl(225 20% 16%);border:1px solid var(--border-dim);border-radius:2px;padding:1px 7px;font-size:10px;color:hsl(45 25% 65%);font-family:var(--font-label)}
+.rbtn{background:linear-gradient(180deg,hsl(225 25% 18%) 0%,hsl(225 28% 14%) 100%);border:1px solid var(--border);border-radius:2px;color:var(--sub);padding:5px 12px;cursor:pointer;font-size:9px;font-family:var(--font-label);float:right;text-transform:uppercase;letter-spacing:1px;transition:all .15s}
+.rbtn:hover{color:var(--gold);border-color:var(--gold);box-shadow:0 0 8px rgba(212,175,55,0.2)}
+.ts{color:hsl(225 15% 30%);font-size:10px;font-family:var(--font-label)}
+.empty{color:hsl(225 15% 25%);text-align:center;padding:28px;font-size:12px;font-family:var(--font-label)}
 .mtabs{display:flex;gap:4px;margin-bottom:12px}
-.mtab{background:#1a1a2a;border:1px solid var(--border);border-radius:5px;padding:3px 10px;cursor:pointer;font-size:10px;color:#666;text-transform:uppercase}
-.mtab.active{border-color:var(--gold);color:var(--gold)}
+.mtab{background:hsl(225 20% 16%);border:1px solid var(--border-dim);border-radius:2px;padding:3px 10px;cursor:pointer;font-size:10px;font-family:var(--font-label);color:hsl(45 15% 45%);text-transform:uppercase;letter-spacing:.5px;transition:all .15s}
+.mtab.active{border-color:var(--gold);color:var(--gold);box-shadow:0 0 6px rgba(212,175,55,0.15)}
 .shead{display:flex;align-items:center;margin-bottom:12px}
 .shead h2{margin:0}
+::-webkit-scrollbar{width:10px}
+::-webkit-scrollbar-track{background:hsl(225 25% 10%);border-left:1px solid hsl(43 40% 25%)}
+::-webkit-scrollbar-thumb{background:linear-gradient(180deg,hsl(43 50% 35%),hsl(35 45% 25%));border:1px solid hsl(43 40% 40%);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,hsl(43 60% 45%),hsl(35 50% 30%))}
 </style>
 </head>
 <body>
