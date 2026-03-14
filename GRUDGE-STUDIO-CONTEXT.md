@@ -643,16 +643,45 @@ services:
 
 ---
 
-## 14. Useful Links
+## 14. Frontend → Backend Integration Status
+
+All frontends should authenticate via `id.grudge-studio.com` and call `api.grudge-studio.com` for game data.
+
+| Frontend | Auth Backend | Game Data Backend | Status |
+|----------|-------------|-------------------|--------|
+| grudge-platform.vercel.app | Own Vercel functions (`/api/login`) | N/A | ⚠ Should forward to `id.grudge-studio.com` |
+| grudgewarlords.com | Own Vercel API (`/api/auth/*`) | Own Vercel API | ⚠ Should connect to VPS for game data |
+| warlord-crafting-suite.vercel.app | auth-gateway-flax.vercel.app (Neon) | `grudge-crafting.replit.app` (DEAD) | ❌ Needs VPS migration |
+| gdevelop-assistant.vercel.app | auth-gateway-flax.vercel.app (Neon) | `gruda-legion-production.up.railway.app` (DEAD) | ❌ Needs VPS migration |
+| grudachain.grudgestudio.com | N/A | Static links only | ✅ OK |
+| dash.grudge-studio.com | Cloudflare Worker + `DASH_API_KEY` | VPS APIs | ✅ OK |
+
+### Required CORS_ORIGINS (VPS .env)
+```
+https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudachain.grudgestudio.com,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://app.puter.com
+```
+
+### Dead Service References to Replace
+| Old URL (DEAD) | Replace With | Affected Projects |
+|----------------|-------------|--------------------|
+| `gruda-legion-production.up.railway.app` | `api.grudge-studio.com` | GDevelopAssistant (`shared/grudachain.ts`) |
+| `grudge-crafting.replit.app` | `api.grudge-studio.com` | WCS (`client/src/lib/api.ts`) |
+| `auth-gateway-flax.vercel.app` (Neon) | `id.grudge-studio.com` (VPS MySQL) | GDevelopAssistant, WCS |
+
+---
+
+## 15. Useful Links
 
 | Resource | URL |
 |----------|-----|
 | GitHub Repo | https://github.com/MolochDaGod/grudge-studio-backend |
 | Live Site | https://grudge-studio.com |
+| Platform Hub | https://grudge-platform.vercel.app |
 | Dashboard | https://dash.grudge-studio.com |
 | API Health | https://api.grudge-studio.com/health |
 | WS Health | https://ws.grudge-studio.com/health |
 | ObjectStore | https://molochdagod.github.io/ObjectStore |
 | Coolify Docs (SSH) | https://coolify.io/docs/knowledge-base/server/openssh |
 | Warlord Crafting Suite | https://warlord-crafting-suite.vercel.app |
+| GDevelop Assistant | https://gdevelop-assistant.vercel.app |
 | Grudge Warlords Game | https://grudgewarlords.com |
