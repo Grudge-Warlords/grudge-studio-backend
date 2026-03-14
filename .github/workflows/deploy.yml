@@ -29,13 +29,36 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           KEY_RAW='${{ secrets.DEPLOY_SSH_KEY }}'
-          if echo "$KEY_RAW" | grep -q '\\n'; then
-            printf "%b" "$KEY_RAW" | tr -d '\r' > ~/.ssh/deploy_key
-          else
-            printf "%s" "$KEY_RAW" | tr -d '\r' > ~/.ssh/deploy_key
+          VALID=0
+
+          # Method 1: raw multiline secret
+          printf "%s" "$KEY_RAW" | tr -d '\r' > ~/.ssh/deploy_key
+          if ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null 2>&1; then
+            VALID=1
           fi
+
+          # Method 2: escaped newlines (\n)
+          if [ $VALID -eq 0 ]; then
+            printf "%b" "$KEY_RAW" | tr -d '\r' > ~/.ssh/deploy_key
+            if ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null 2>&1; then
+              VALID=1
+            fi
+          fi
+
+          # Method 3: base64-encoded key
+          if [ $VALID -eq 0 ]; then
+            echo "$KEY_RAW" | tr -d '\r' | base64 -d > ~/.ssh/deploy_key 2>/dev/null || true
+            if ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null 2>&1; then
+              VALID=1
+            fi
+          fi
+
+          if [ $VALID -eq 0 ]; then
+            echo "DEPLOY_SSH_KEY is not a valid private key in raw, escaped, or base64 format."
+            exit 1
+          fi
+
           chmod 600 ~/.ssh/deploy_key
-          ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
       # ── 3. Sync code (never sync .env) ────────
