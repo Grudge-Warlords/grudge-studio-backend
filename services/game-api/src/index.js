@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path       = require('path');
 const express    = require('express');
 const helmet     = require('helmet');
 const cors       = require('cors');
@@ -33,9 +34,23 @@ if (process.env.NODE_ENV !== 'production') {
   CORS_ORIGINS.push('http://localhost:3000', 'http://localhost:5173', 'http://localhost:4173');
 }
 
-app.use(helmet({ hsts: { maxAge: 31536000, includeSubDomains: true, preload: true } }));
+app.use(helmet({
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc:   ["'self'", "'unsafe-inline'"],
+      imgSrc:     ["'self'", 'data:'],
+      scriptSrc:  ["'self'"],
+      fontSrc:    ["'self'"],
+    },
+  },
+}));
 app.use(cors({ origin: CORS_ORIGINS, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
+
+// ── Static assets (favicon, etc.) ──────────────────────────────
+app.use(express.static(path.join(__dirname, '..', 'public'), { maxAge: '7d' }));
 
 // ── Rate limiting ──────────────────────────────────────────────
 // Skip for internal service calls (x-internal-key header)
@@ -107,6 +122,32 @@ async function requireAuth(req, res, next) {
 }
 
 // ── Routes ────────────────────────────
+app.get('/', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Grudge Studio — Game API</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{min-height:100vh;display:flex;align-items:center;justify-content:center;
+         background:#0a0e17;color:#c9a44a;font-family:system-ui,sans-serif}
+    .card{text-align:center;padding:2rem}
+    img{width:96px;height:96px;margin-bottom:1rem}
+    h1{font-size:1.5rem;margin-bottom:.5rem;color:#e2c563}
+    p{color:#8892a4;font-size:.9rem}
+    a{color:#c9a44a;text-decoration:none}
+    a:hover{text-decoration:underline}
+  </style>
+</head><body>
+  <div class="card">
+    <img src="/favicon.png" alt="Grudge Studio">
+    <h1>Grudge Studio — Game API</h1>
+    <p>v2.0.0 &bull; <a href="/health">/health</a></p>
+  </div>
+</body></html>`);
+});
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'game-api', version: '2.0.0' }));
 app.use('/characters',  requireAuth, characterRoutes);
 app.use('/factions',    requireAuth, factionRoutes);
