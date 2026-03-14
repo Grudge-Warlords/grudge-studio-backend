@@ -1,6 +1,15 @@
 /**
- * Grudge Studio — Main Site Worker
+ * Grudge Studio — Main Site Worker  v2.0
  * Serves grudge-studio.com — landing page, API status, docs, tools
+ *
+ * Status system:
+ *   - Health checks run via Cron Trigger every 60s (not per-visitor)
+ *   - Results cached in KV with lastChecked / lastAllOk timestamps
+ *   - /api/status serves from KV — instant, zero outbound fetches
+ *   - Maintenance mode via KV key  status:mode = "maintenance"
+ *
+ * Deploy:  npx wrangler deploy  (from cloudflare/workers/site/)
+ * KV:     npx wrangler kv namespace create "STATUS_KV"
  */
 
 const SERVICES = [
@@ -12,42 +21,148 @@ const SERVICES = [
   { key: 'assets',   label: 'Asset CDN',       url: 'https://assets.grudge-studio.com/health' },
 ];
 
+const KV_STATUS_KEY  = 'status:latest';
+const KV_LAST_OK_KEY = 'status:lastAllOk';
+const KV_MODE_KEY    = 'status:mode';
+const STATUS_TTL     = 120;  // KV expiration (seconds) — safety net if cron stops
+const STALE_THRESHOLD = 90;  // if cache older than this, trigger live refresh
+
 // ── Route dispatcher ────────────────────────────────────────────────────────
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    if (path === '/api/status') return handleStatus(request);
+    if (path === '/api/status') return handleStatus(env, ctx);
     if (path === '/api/docs.json') return handleDocsJson();
     if (path === '/discord/events') return handleDiscordWebhookEvent(request, env);
     if (path === '/tos') return handleTos();
     if (path === '/privacy') return handlePrivacy();
     return handlePage(env);
   },
+
+  // Cron Trigger — runs every minute, refreshes health checks in KV
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(refreshStatus(env));
+  },
 };
 
-// ── Live service status (parallel health checks) ────────────────────────────
-async function handleStatus(request) {
+// ── Core health-check runner (used by cron AND fallback) ─────────────────────
+async function runHealthChecks() {
   const checks = await Promise.allSettled(
     SERVICES.map(async (svc) => {
       const start = Date.now();
       try {
-        const r = await fetch(svc.url, { signal: AbortSignal.timeout(4000) });
+        const r = await fetch(svc.url, {
+          signal: AbortSignal.timeout(5000),
+          headers: { 'User-Agent': 'GrudgeStudio-StatusCheck/2.0' },
+        });
         const body = await r.json().catch(() => ({}));
-        return { key: svc.key, label: svc.label, status: r.ok ? 'ok' : 'degraded', latency: Date.now() - start, detail: body };
-      } catch {
-        return { key: svc.key, label: svc.label, status: 'down', latency: null, detail: null };
+        return {
+          key: svc.key,
+          label: svc.label,
+          status: r.ok ? 'ok' : 'degraded',
+          latency: Date.now() - start,
+          code: r.status,
+        };
+      } catch (e) {
+        return {
+          key: svc.key,
+          label: svc.label,
+          status: 'down',
+          latency: null,
+          code: null,
+          error: e?.message || 'timeout',
+        };
       }
     })
   );
+  return checks.map(r => r.value ?? r.reason);
+}
 
-  const results = checks.map(r => r.value ?? r.reason);
-  const allOk = results.every(r => r.status === 'ok');
-  return Response.json(
-    { ok: allOk, services: results, ts: new Date().toISOString() },
-    { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } }
-  );
+// ── Refresh status and persist to KV ─────────────────────────────────────────
+async function refreshStatus(env) {
+  const services = await runHealthChecks();
+  const allOk = services.every(s => s.status === 'ok');
+  const now = new Date().toISOString();
+
+  // Preserve lastAllOk from previous run if not all ok now
+  let lastAllOk = null;
+  if (allOk) {
+    lastAllOk = now;
+  } else if (env.STATUS_KV) {
+    lastAllOk = await env.STATUS_KV.get(KV_LAST_OK_KEY);
+  }
+
+  const payload = {
+    ok: allOk,
+    mode: 'live',
+    services,
+    lastChecked: now,
+    lastAllOk,
+    cached: false,
+  };
+
+  if (env.STATUS_KV) {
+    await Promise.all([
+      env.STATUS_KV.put(KV_STATUS_KEY, JSON.stringify(payload), { expirationTtl: STATUS_TTL }),
+      allOk ? env.STATUS_KV.put(KV_LAST_OK_KEY, now) : Promise.resolve(),
+    ]);
+  }
+
+  return payload;
+}
+
+// ── /api/status handler (KV-first, live fallback) ────────────────────────────
+async function handleStatus(env, ctx) {
+  // Check maintenance mode
+  if (env.STATUS_KV) {
+    const mode = await env.STATUS_KV.get(KV_MODE_KEY);
+    if (mode === 'maintenance') {
+      return Response.json(
+        {
+          ok: false,
+          mode: 'maintenance',
+          message: 'Scheduled maintenance in progress',
+          services: SERVICES.map(s => ({ key: s.key, label: s.label, status: 'maintenance', latency: null })),
+          lastChecked: new Date().toISOString(),
+          lastAllOk: await env.STATUS_KV.get(KV_LAST_OK_KEY),
+          cached: false,
+        },
+        { headers: statusHeaders() }
+      );
+    }
+  }
+
+  // Serve from KV cache
+  if (env.STATUS_KV) {
+    const raw = await env.STATUS_KV.get(KV_STATUS_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      const age = (Date.now() - new Date(data.lastChecked).getTime()) / 1000;
+
+      // If cache is getting stale, trigger a background refresh (non-blocking)
+      if (age > STALE_THRESHOLD) {
+        ctx.waitUntil(refreshStatus(env));
+      }
+
+      data.cached = true;
+      data.cacheAge = Math.round(age);
+      return Response.json(data, { headers: statusHeaders() });
+    }
+  }
+
+  // No KV or empty cache — run live (first request after deploy)
+  const payload = await refreshStatus(env);
+  return Response.json(payload, { headers: statusHeaders() });
+}
+
+function statusHeaders() {
+  return {
+    'Cache-Control': 'no-store',
+    'Access-Control-Allow-Origin': '*',
+    'X-Status-Version': '2.0',
+  };
 }
 
 // ── Minimal OpenAPI reference ────────────────────────────────────────────────
@@ -205,6 +320,10 @@ function handlePage(env) {
   #overall-status{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--text-dim)}
   #overall-status .big-dot{width:14px;height:14px;border-radius:50%;background:#555;transition:background .4s}
   #overall-status .big-dot.ok{background:var(--green);box-shadow:0 0 10px var(--green)}
+  #overall-status .big-dot.maintenance{background:var(--blue);box-shadow:0 0 10px var(--blue)}
+  .status-item .s-dot.maintenance{background:var(--blue);box-shadow:0 0 6px var(--blue)}
+  .status-meta{font-size:11px;color:var(--text-dim);margin-top:12px;display:flex;gap:16px;flex-wrap:wrap}
+  .maintenance-banner{background:rgba(51,136,204,0.1);border:1px solid rgba(51,136,204,0.3);border-radius:8px;padding:14px 20px;margin-bottom:20px;color:var(--blue);font-size:.9rem;display:none}
 
   /* ── API Docs preview ───────────────────────── */
   .endpoints{display:flex;flex-direction:column;gap:12px}
@@ -265,7 +384,7 @@ function handlePage(env) {
 
 <!-- HERO -->
 <div class="hero">
-  <div class="hero-badge"><span></span>All systems operational</div>
+  <div class="hero-badge"><span style="background:#888"></span>Checking status…</div>
   <h1>Build the<br><span>Grudge Universe</span></h1>
   <p>A full-stack game development platform for Grudge Warlords — identity, economy, crafting, combat, islands, and real-time WebSocket infrastructure.</p>
   <div class="hero-actions">
@@ -329,6 +448,7 @@ function handlePage(env) {
   <div class="inner">
     <div class="section-label">Live Status</div>
     <h2 class="section-title">Service Health</h2>
+    <div class="maintenance-banner" id="maint-banner">🔧 Scheduled maintenance in progress — services will return shortly.</div>
     <div id="overall-status">
       <div class="big-dot" id="overall-dot"></div>
       <span id="overall-text">Checking services…</span>
@@ -341,6 +461,7 @@ function handlePage(env) {
         <div class="s-latency" id="lat-${s.key}"></div>
       </div>`).join('')}
     </div>
+    <div class="status-meta" id="status-meta"></div>
   </div>
 </div>
 
@@ -502,29 +623,71 @@ function handlePage(env) {
 </footer>
 
 <script>
+const STATUS_LABELS = { ok: 'Operational', degraded: 'Degraded', down: 'Down', maintenance: 'Maintenance' };
+
 async function loadStatus() {
   try {
     const r = await fetch('/api/status');
     const data = await r.json();
+    const isMaint = data.mode === 'maintenance';
+
+    // Maintenance banner
+    const banner = document.getElementById('maint-banner');
+    if (banner) banner.style.display = isMaint ? 'block' : 'none';
+
+    // Per-service dots
     data.services.forEach(svc => {
       const dot = document.getElementById('dot-' + svc.key);
       const st  = document.getElementById('st-' + svc.key);
       const lat = document.getElementById('lat-' + svc.key);
       if (!dot) return;
       dot.className = 's-dot ' + svc.status;
-      st.textContent = svc.status === 'ok' ? 'Operational' : svc.status === 'degraded' ? 'Degraded' : 'Down';
+      st.textContent = STATUS_LABELS[svc.status] || svc.status;
       lat.textContent = svc.latency ? svc.latency + 'ms' : '';
     });
-    const allOk = data.services.every(s => s.status === 'ok');
+
+    // Overall indicator
     const overall = document.getElementById('overall-dot');
     const overallText = document.getElementById('overall-text');
-    overall.className = 'big-dot ' + (allOk ? 'ok' : '');
-    overallText.textContent = allOk
-      ? 'All systems operational'
-      : 'Some services degraded — check below';
-    // Update hero badge
+    if (isMaint) {
+      overall.className = 'big-dot maintenance';
+      overallText.textContent = 'Scheduled maintenance in progress';
+    } else if (data.ok) {
+      overall.className = 'big-dot ok';
+      overallText.textContent = 'All systems operational';
+    } else {
+      overall.className = 'big-dot';
+      const downCount = data.services.filter(s => s.status === 'down').length;
+      overallText.textContent = downCount === data.services.length
+        ? 'All services unreachable'
+        : downCount + ' service' + (downCount !== 1 ? 's' : '') + ' down — check below';
+    }
+
+    // Hero badge
     const badge = document.querySelector('.hero-badge');
-    if (badge) badge.childNodes[1].textContent = allOk ? ' All systems operational' : ' Partial outage';
+    if (badge) {
+      const span = badge.querySelector('span');
+      if (isMaint) {
+        span.style.background = 'var(--blue)';
+        badge.childNodes[1].textContent = ' Maintenance';
+      } else if (data.ok) {
+        span.style.background = 'var(--green)';
+        badge.childNodes[1].textContent = ' All systems operational';
+      } else {
+        span.style.background = 'var(--red)';
+        badge.childNodes[1].textContent = ' Partial outage';
+      }
+    }
+
+    // Meta info (timestamps)
+    const meta = document.getElementById('status-meta');
+    if (meta) {
+      let parts = [];
+      if (data.lastChecked) parts.push('Last checked: ' + new Date(data.lastChecked).toLocaleTimeString());
+      if (data.cacheAge != null) parts.push('Cache age: ' + data.cacheAge + 's');
+      if (data.lastAllOk) parts.push('Last all-ok: ' + new Date(data.lastAllOk).toLocaleString());
+      meta.textContent = parts.join('  ·  ');
+    }
   } catch(e) {
     document.getElementById('overall-text').textContent = 'Status check failed';
   }

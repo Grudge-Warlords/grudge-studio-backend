@@ -33,7 +33,17 @@ if (process.env.NODE_ENV !== 'production') {
   CORS_ORIGINS.push('http://localhost:3000', 'http://localhost:5173', 'http://localhost:4173');
 }
 
-app.use(helmet({ hsts: { maxAge: 31536000, includeSubDomains: true, preload: true } }));
+app.use(helmet({
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc:  ["'self'", "https://static.cloudflareinsights.com"],
+      connectSrc: ["'self'", "https://cloudflareinsights.com"],
+      styleSrc:   ["'self'", "'unsafe-inline'"],
+    },
+  },
+}));
 app.use(cors({ origin: CORS_ORIGINS, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
 
@@ -107,7 +117,9 @@ async function requireAuth(req, res, next) {
 }
 
 // ── Routes ────────────────────────────
+app.get('/', (req, res) => res.json({ service: 'game-api', version: '2.0.0', docs: '/health', status: 'running' }));
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'game-api', version: '2.0.0' }));
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.use('/characters',  requireAuth, characterRoutes);
 app.use('/factions',    requireAuth, factionRoutes);
 app.use('/missions',    requireAuth, missionRoutes);

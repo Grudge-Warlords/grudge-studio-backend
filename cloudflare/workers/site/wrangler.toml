@@ -11,6 +11,17 @@ enabled = true
 pattern = "grudge-studio.com/*"
 zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
 
+# ── KV namespace for status caching ────────────────────────────────────────────
+# Create with:  npx wrangler kv namespace create "STATUS_KV"
+# Then paste the returned id below.
+[[kv_namespaces]]
+binding = "STATUS_KV"
+id      = "4831aa73571e4078a648e109bcaaf440"
+
+# ── Cron trigger — refresh health checks every minute ──────────────────────────
+[triggers]
+crons = ["* * * * *"]
+
 # ── Environment variables ──────────────────────────────────────────────────────
 [vars]
 ENVIRONMENT  = "production"
