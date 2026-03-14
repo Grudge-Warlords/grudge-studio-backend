@@ -201,7 +201,7 @@ jobs:
 
       # ── 9. Discord notification ───────────────────────────────────
       - name: Notify Discord (success)
-        if: success() && secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN != ''
+        if: success()
         run: |
           curl -sf -X POST "${{ secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN }}" \
             -H "Content-Type: application/json" \
