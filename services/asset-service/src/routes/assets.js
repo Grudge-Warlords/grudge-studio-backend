@@ -10,7 +10,7 @@ const {
   deleteObject,
   sha256: computeSha256,
   getPublicUrl,
-} = require('../../../shared/storage');
+} = require('../storage');
 
 const router = express.Router();
 
