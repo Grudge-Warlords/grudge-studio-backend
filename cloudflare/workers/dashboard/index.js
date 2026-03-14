@@ -128,6 +128,9 @@ export default {
     if (p === '/api/ws/stats')        return apiWsStats(env);
     if (p === '/api/economy')         return apiEconomy(env);
     if (p === '/api/event' && method === 'POST') return apiLogEvent(request, env);
+    if (p === '/api/health-history')    return apiHealthHistory(env, url);
+    if (p === '/api/vps/sync' && method === 'POST') return apiVpsSync(env);
+    if (p === '/api/system')            return apiSystem(env);
 
     if (p === '/' || p === '/dashboard') return dashboardPage();
     return new Response('Not Found', { status: 404 });
@@ -290,6 +293,130 @@ async function apiEconomy(env) {
     if (!r.ok) return json({ error: `game-api ${r.status}` }, r.status);
     return json(await r.json());
   } catch (e) { return json({ error: e.message }, 500); }
+}
+
+// ── Health History (from D1 health_pings) ─────────────────────
+async function apiHealthHistory(env, url) {
+  if (!env.DB) return json({ error: 'D1 not bound' }, 503);
+  const hours = parseInt(url.searchParams.get('hours') || '24', 10);
+  const service = url.searchParams.get('service') || null;
+  const cutoff = Math.floor(Date.now() / 1000) - (hours * 3600);
+  try {
+    let q, args;
+    if (service) {
+      q = 'SELECT service, status, code, ms, ts FROM health_pings WHERE ts > ? AND service = ? ORDER BY ts DESC LIMIT 500';
+      args = [cutoff, service];
+    } else {
+      q = 'SELECT service, status, code, ms, ts FROM health_pings WHERE ts > ? ORDER BY ts DESC LIMIT 500';
+      args = [cutoff];
+    }
+    const stmt = env.DB.prepare(q);
+    const { results } = await (args.length === 2 ? stmt.bind(...args) : stmt.bind(args[0])).all();
+
+    // Compute uptime percentages per service
+    const byService = {};
+    for (const r of results || []) {
+      if (!byService[r.service]) byService[r.service] = { up: 0, total: 0, pings: [] };
+      byService[r.service].total++;
+      if (r.status === 'up') byService[r.service].up++;
+      byService[r.service].pings.push(r);
+    }
+    const uptime = {};
+    for (const [svc, d] of Object.entries(byService)) {
+      uptime[svc] = { pct: d.total ? ((d.up / d.total) * 100).toFixed(1) : '0.0', up: d.up, total: d.total };
+    }
+    return json({ hours, uptime, pings: results || [] });
+  } catch (e) { return json({ error: e.message }, 500); }
+}
+
+// ── VPS Sync (pull metrics from VPS services into KV) ─────────
+async function apiVpsSync(env) {
+  if (!env.KV) return json({ error: 'KV not bound' }, 503);
+  const base = env.GAME_API || 'https://api.grudge-studio.com';
+  const idBase = env.IDENTITY_API || 'https://id.grudge-studio.com';
+  const results = {};
+  const key = env.DASH_API_KEY || '';
+
+  // Pull player count from identity service
+  try {
+    const r = await fetch(`${idBase}/stats`, { headers: { 'x-internal-key': key }, signal: AbortSignal.timeout(5000) });
+    if (r.ok) {
+      const d = await r.json();
+      if (d.active_players != null) { await env.KV.put('active_players', String(d.active_players)); results.active_players = d.active_players; }
+      if (d.total_logins != null)   { await env.KV.put('total_logins', String(d.total_logins)); results.total_logins = d.total_logins; }
+    }
+  } catch {}
+
+  // Pull mission/economy stats from game-api
+  try {
+    const r = await fetch(`${base}/stats`, { headers: { 'x-internal-key': key }, signal: AbortSignal.timeout(5000) });
+    if (r.ok) {
+      const d = await r.json();
+      if (d.total_missions != null)    { await env.KV.put('total_missions', String(d.total_missions)); results.total_missions = d.total_missions; }
+      if (d.gbux_circulating != null)  { await env.KV.put('gbux_circulating', String(d.gbux_circulating)); results.gbux_circulating = d.gbux_circulating; }
+    }
+  } catch {}
+
+  // Sync players to D1 from game-api
+  if (env.DB) {
+    try {
+      const r = await fetch(`${base}/players?limit=50`, { headers: { 'x-internal-key': key }, signal: AbortSignal.timeout(5000) });
+      if (r.ok) {
+        const players = await r.json();
+        if (Array.isArray(players)) {
+          const stmt = env.DB.prepare('INSERT OR REPLACE INTO dash_players (grudge_id, username, class, faction, level, last_seen) VALUES (?, ?, ?, ?, ?, ?)');
+          if (players.length > 0) {
+            await env.DB.batch(players.map(p => stmt.bind(
+              p.grudge_id, p.username || null, p.class || null,
+              p.faction || null, p.level || 1, p.last_seen || Math.floor(Date.now()/1000)
+            )));
+            results.players_synced = players.length;
+          }
+        }
+      }
+    } catch {}
+  }
+
+  return json({ ok: true, synced: results, ts: Math.floor(Date.now()/1000) });
+}
+
+// ── System overview ───────────────────────────────────────────
+async function apiSystem(env) {
+  const data = {
+    workers: [
+      { name: 'grudge-dashboard', domain: 'dash.grudge-studio.com', status: 'deployed' },
+      { name: 'grudge-health-ping', domain: 'grudge-health-ping.grudge.workers.dev', status: 'deployed', cron: '*/5 * * * *' },
+      { name: 'grudge-r2-cdn', domain: 'assets.grudge-studio.com', status: 'deployed' },
+    ],
+    vps: {
+      ip: env.VPS_IP || '74.208.155.229',
+      services: [
+        { name: 'grudge-id', port: 3001, domain: 'id.grudge-studio.com' },
+        { name: 'wallet-service', port: 3002, domain: null },
+        { name: 'game-api', port: 3003, domain: 'api.grudge-studio.com' },
+        { name: 'ai-agent', port: 3004, domain: null },
+        { name: 'account-api', port: 3005, domain: 'account.grudge-studio.com' },
+        { name: 'launcher-api', port: 3006, domain: 'launcher.grudge-studio.com' },
+        { name: 'ws-service', port: 3007, domain: 'ws.grudge-studio.com' },
+        { name: 'asset-service', port: 3008, domain: null },
+      ],
+    },
+    cloudflare: {
+      d1: 'grudge-studio-db (8fcb111b)',
+      kv: 'grudge-kv (35be1828)',
+      r2: 'grudge-assets',
+    },
+    dns: [
+      { sub: 'dash', target: 'Worker', proxied: true },
+      { sub: 'assets', target: 'Worker', proxied: true },
+      { sub: 'id', target: 'VPS', proxied: true },
+      { sub: 'api', target: 'VPS', proxied: true },
+      { sub: 'account', target: 'VPS', proxied: true },
+      { sub: 'launcher', target: 'VPS', proxied: true },
+      { sub: 'ws', target: 'VPS', proxied: true },
+    ],
+  };
+  return json(data);
 }
 
 // ── Login page ────────────────────────────────────────────────
@@ -458,6 +585,8 @@ tr:hover td{background:rgba(212,175,55,0.03)}
     <button onclick="tab('storage',this)">Storage</button>
     <button onclick="tab('events',this)">Events</button>
     <button onclick="tab('economy',this)">Economy</button>
+    <button onclick="tab('uptime',this)">Uptime</button>
+    <button onclick="tab('system',this)">System</button>
   </nav>
   <button class="logout" onclick="logout()">Logout</button>
 </header>
@@ -546,6 +675,36 @@ tr:hover td{background:rgba(212,175,55,0.03)}
   <div id="economy-out"><div class="empty" style="padding:40px">Fetching from game-api…</div></div>
 </div>
 
+<!-- UPTIME -->
+<div id="tab-uptime" class="tc">
+  <div class="shead">
+    <h2>Uptime Monitor</h2>
+    <div class="mtabs" style="margin-left:10px" id="uptime-range">
+      <span class="mtab active" onclick="loadUptime(6,this)">6h</span>
+      <span class="mtab" onclick="loadUptime(24,this)">24h</span>
+      <span class="mtab" onclick="loadUptime(72,this)">3d</span>
+      <span class="mtab" onclick="loadUptime(168,this)">7d</span>
+    </div>
+    <button class="rbtn" onclick="loadUptime()">↻ Refresh</button>
+  </div>
+  <div class="grid g3" style="margin-bottom:16px" id="uptime-cards"><div class="empty">Loading…</div></div>
+  <div class="card"><div class="ctitle">Health Check Timeline</div><div id="uptime-timeline" style="overflow-x:auto"><div class="empty">Loading…</div></div></div>
+</div>
+
+<!-- SYSTEM -->
+<div id="tab-system" class="tc">
+  <div class="shead"><h2>System Map</h2><button class="rbtn" onclick="loadSystem()">↻ Refresh</button></div>
+  <div class="grid g2" style="margin-bottom:14px">
+    <div class="card"><div class="ctitle">Cloudflare Workers</div><div id="sys-workers"><div class="empty">Loading…</div></div></div>
+    <div class="card"><div class="ctitle">Cloudflare Resources</div><div id="sys-cf"><div class="empty">Loading…</div></div></div>
+  </div>
+  <div class="grid g2" style="margin-bottom:14px">
+    <div class="card"><div class="ctitle">VPS Services (74.208.155.229)</div><div id="sys-vps"><div class="empty">Loading…</div></div></div>
+    <div class="card"><div class="ctitle">DNS Records</div><div id="sys-dns"><div class="empty">Loading…</div></div></div>
+  </div>
+  <div class="card"><div class="ctitle">Sync VPS → Dashboard</div><p style="color:var(--sub);font-size:11px;margin:8px 0">Pull latest metrics, players, and economy data from VPS into D1/KV</p><button class="rbtn" style="float:none" onclick="syncVps()">⚡ Sync Now</button><div id="sync-result" style="margin-top:10px"></div></div>
+</div>
+
 </main>
 <script>
 const A = (p,o={}) => fetch('/api/'+p,{credentials:'same-origin',...o}).then(r=>r.json());
@@ -555,7 +714,7 @@ function tab(name,btn){
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   btn.classList.add('active');
-  ({overview:loadAll,servers:()=>{loadHealth();loadWs()},pvp:loadPvp,players:loadPlayers,storage:loadStorage,events:loadEvents,economy:loadEconomy})[name]?.();
+  ({overview:loadAll,servers:()=>{loadHealth();loadWs()},pvp:loadPvp,players:loadPlayers,storage:loadStorage,events:loadEvents,economy:loadEconomy,uptime:()=>loadUptime(),system:loadSystem})[name]?.();
 }
 
 async function logout(){await fetch('/logout',{method:'POST',credentials:'same-origin'});window.location.href='/';}
@@ -650,6 +809,58 @@ async function loadStorage(){loadR2();loadD1();}
 
 async function loadAll(){
   await Promise.all([loadHealth(),loadMetrics(),loadD1(),loadWs()]);
+}
+
+let uptimeHours=6;
+async function loadUptime(hours,btn){
+  if(hours)uptimeHours=hours;
+  if(btn){document.querySelectorAll('#uptime-range .mtab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');}
+  const d=await A('health-history?hours='+uptimeHours);
+  if(d.error){document.getElementById('uptime-cards').innerHTML='<div class="empty">'+d.error+'</div>';return;}
+  const u=d.uptime||{};
+  const cards=document.getElementById('uptime-cards');
+  cards.innerHTML=Object.entries(u).map(([svc,v])=>{
+    const pct=parseFloat(v.pct);
+    const clr=pct>=99?'var(--green)':pct>=90?'var(--gold)':'var(--red)';
+    return '<div class="card"><div class="ctitle">'+svc+'</div><div class="cval" style="background:none;-webkit-text-fill-color:'+clr+'">'+v.pct+'%</div><div class="csub">'+v.up+'/'+v.total+' checks passed</div></div>';
+  }).join('')||'<div class="empty">No data yet</div>';
+  const pings=d.pings||[];
+  const svcs=[...new Set(pings.map(p=>p.service))];
+  const tl=document.getElementById('uptime-timeline');
+  if(!pings.length){tl.innerHTML='<div class="empty">No pings recorded</div>';return;}
+  tl.innerHTML=svcs.map(svc=>{
+    const sp=pings.filter(p=>p.service===svc).reverse();
+    const dots=sp.map(p=>{
+      const c=p.status==='up'?'var(--green)':p.status==='degraded'?'var(--gold)':'var(--red)';
+      const t=new Date(p.ts*1000).toLocaleTimeString();
+      return '<div title="'+t+' '+p.status+' '+p.ms+'ms" style="width:6px;height:20px;background:'+c+';border-radius:1px;flex-shrink:0"></div>';
+    }).join('');
+    return '<div style="display:flex;align-items:center;gap:6px;margin:4px 0"><div style="width:100px;font-size:10px;color:var(--sub);flex-shrink:0">'+svc+'</div><div style="display:flex;gap:2px;overflow-x:auto">'+dots+'</div></div>';
+  }).join('');
+}
+
+async function loadSystem(){
+  const d=await A('system');
+  if(d.error)return;
+  document.getElementById('sys-workers').innerHTML=(d.workers||[]).map(w=>'<div class="row"><div class="dot up"></div><div class="sname">'+w.name+'</div><div class="sms">'+w.domain+(w.cron?' <span class="tag">'+w.cron+'</span>':'')+'</div></div>').join('');
+  document.getElementById('sys-cf').innerHTML=[
+    '<div class="row"><div class="sname">D1</div><div style="color:var(--blue)">'+(d.cloudflare?.d1||'\u2014')+'</div></div>',
+    '<div class="row"><div class="sname">KV</div><div style="color:var(--blue)">'+(d.cloudflare?.kv||'\u2014')+'</div></div>',
+    '<div class="row"><div class="sname">R2</div><div style="color:var(--blue)">'+(d.cloudflare?.r2||'\u2014')+'</div></div>',
+  ].join('');
+  document.getElementById('sys-vps').innerHTML=(d.vps?.services||[]).map(s=>'<div class="row"><div class="sname">'+s.name+'</div><div class="sms">:'+s.port+'</div><div style="margin-left:auto">'+(s.domain?'<span class="tag">'+s.domain+'</span>':'<span style="color:#333;font-size:9px">internal</span>')+'</div></div>').join('');
+  document.getElementById('sys-dns').innerHTML=(d.dns||[]).map(r=>'<div class="row"><div class="sname">'+r.sub+'.grudge-studio.com</div><div class="tag">'+r.target+'</div><div class="sms" style="margin-left:auto">'+(r.proxied?'\uD83D\uDFE0 proxied':'\u26AA dns-only')+'</div></div>').join('');
+}
+
+async function syncVps(){
+  const el=document.getElementById('sync-result');
+  el.innerHTML='<div style="color:var(--sub);font-size:11px">Syncing...</div>';
+  const d=await A('vps/sync',{method:'POST'});
+  if(d.error){el.innerHTML='<div style="color:var(--red);font-size:11px">'+d.error+'</div>';return;}
+  const synced=d.synced||{};
+  const items=Object.entries(synced).map(([k,v])=>'<span class="tag">'+k+': '+v+'</span>').join(' ');
+  el.innerHTML=items?'<div style="font-size:11px;color:var(--green)">\u2705 Synced: '+items+'</div>':'<div style="font-size:11px;color:var(--gold)">\u26A0\uFE0F VPS unreachable \u2014 no data synced</div>';
+  loadMetrics();
 }
 
 loadAll();
