@@ -29,12 +29,13 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           KEY_RAW='${{ secrets.DEPLOY_SSH_KEY }}'
-          if echo "$KEY_RAW" | grep -q 'BEGIN OPENSSH PRIVATE KEY'; then
-            printf "%s" "$KEY_RAW" | tr -d '\r' > ~/.ssh/deploy_key
-          else
+          if echo "$KEY_RAW" | grep -q '\\n'; then
             printf "%b" "$KEY_RAW" | tr -d '\r' > ~/.ssh/deploy_key
+          else
+            printf "%s" "$KEY_RAW" | tr -d '\r' > ~/.ssh/deploy_key
           fi
           chmod 600 ~/.ssh/deploy_key
+          ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
       # ── 3. Sync code (never sync .env) ────────
