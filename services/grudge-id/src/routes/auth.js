@@ -265,7 +265,7 @@ router.post('/login', verifyTurnstile, async (req, res, next) => {
         email: user.email,
         isPremium: false,
         isGuest: !!user.is_guest,
-        gold: user.gold || 1000,
+        gold: user.gold ?? 1000,
         gbuxBalance: user.gbux_balance || 0,
         walletAddress: user.wallet_address,
         serverWalletAddress: user.server_wallet_address,
