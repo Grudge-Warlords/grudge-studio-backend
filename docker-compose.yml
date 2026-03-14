@@ -10,6 +10,7 @@ volumes:
   mysql-data:
   redis-data:
   server-data:
+  kuma-data:
 
 # ── Shared CORS origins (DRY) ──────────────────────────────────
 # All externally-exposed services share this default.
@@ -284,6 +285,29 @@ services:
       - "traefik.http.services.ws-service.loadbalancer.server.port=3007"
       - "traefik.http.services.ws-service.loadbalancer.sticky.cookie=true"
       - "traefik.http.services.ws-service.loadbalancer.sticky.cookie.name=grudge_ws"
+      - "traefik.docker.network=coolify"
+    networks:
+      - grudge-net
+      - coolify
+
+  # ─────────────────────────────────────────────
+  # UPTIME KUMA — Self-hosted monitoring dashboard
+  # Dashboard: https://status.grudge-studio.com
+  # Monitors all service /health endpoints internally
+  # Alerts to Discord on downtime
+  # ─────────────────────────────────────────────
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    volumes:
+      - kuma-data:/app/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.kuma.rule=Host(`status.grudge-studio.com`)"
+      - "traefik.http.routers.kuma.entrypoints=https"
+      - "traefik.http.routers.kuma.tls.certresolver=letsencrypt"
+      - "traefik.http.services.kuma.loadbalancer.server.port=3001"
       - "traefik.docker.network=coolify"
     networks:
       - grudge-net
