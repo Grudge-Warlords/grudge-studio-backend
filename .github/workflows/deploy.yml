@@ -127,7 +127,8 @@ jobs:
 
       # ── 8. Discord deploy notification ────────
       - name: Notify Discord (success)
-        if: success() && secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN != ''
+        if: success()
+        continue-on-error: true
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           curl -sf -X POST "${{ secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN }}" \

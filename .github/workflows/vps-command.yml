@@ -1,0 +1,32 @@
+name: VPS Maintenance Command
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "Shell command to run on VPS"
+        required: true
+        default: "echo 'connected' && uptime"
+
+concurrency:
+  group: vps-maintenance
+  cancel-in-progress: false
+
+jobs:
+  run-command:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Run command on VPS
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            '${{ github.event.inputs.command }}'
