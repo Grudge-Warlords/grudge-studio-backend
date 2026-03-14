@@ -415,4 +415,467 @@ router.post('/guest', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── Helper: standard auth response ────────────
+function formatAuthResponse(user, token, isNewUser = false) {
+  return {
+    success: true,
+    token,
+    grudgeId: user.grudge_id,
+    userId: user.id,
+    username: user.username,
+    displayName: user.display_name || user.username,
+    email: user.email || null,
+    avatarUrl: user.avatar_url || null,
+    isPremium: false,
+    gold: user.gold || 1000,
+    gbuxBalance: user.gbux_balance || 0,
+    walletAddress: user.wallet_address || null,
+    isNewAccount: isNewUser,
+    isNewUser,
+    user: {
+      id: user.id,
+      grudgeId: user.grudge_id,
+      username: user.username,
+      displayName: user.display_name || user.username,
+      email: user.email || null,
+      isPremium: false,
+      isGuest: !!user.is_guest,
+      gold: user.gold || 1000,
+      gbuxBalance: user.gbux_balance || 0,
+      walletAddress: user.wallet_address || null,
+      serverWalletAddress: user.server_wallet_address || null,
+      avatarUrl: user.avatar_url || null,
+      faction: user.faction || null,
+      race: user.race || null,
+      class: user.class || null,
+    },
+  };
+}
+
+// ── POST /auth/discord/exchange ───────────────
+// Direct code exchange (used by platform proxy)
+router.post('/discord/exchange', async (req, res, next) => {
+  try {
+    const { code, redirect_uri } = req.body;
+    if (!code) return res.status(400).json({ error: 'No code provided' });
+
+    const tokenResp = await axios.post(
+      'https://discord.com/api/oauth2/token',
+      new URLSearchParams({
+        client_id: process.env.DISCORD_CLIENT_ID,
+        client_secret: process.env.DISCORD_CLIENT_SECRET,
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: redirect_uri || process.env.DISCORD_REDIRECT_URI,
+      }),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+
+    const { access_token } = tokenResp.data;
+    if (!access_token) return res.status(401).json({ error: 'Discord token exchange failed' });
+
+    const userResp = await axios.get('https://discord.com/api/users/@me', {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+    const du = userResp.data;
+    if (!du.id) return res.status(401).json({ error: 'Failed to fetch Discord user' });
+
+    const discord_tag = du.discriminator !== '0' ? `${du.username}#${du.discriminator}` : du.username;
+    const avatarUrl = du.avatar
+      ? `https://cdn.discordapp.com/avatars/${du.id}/${du.avatar}.png`
+      : `https://cdn.discordapp.com/embed/avatars/0.png`;
+
+    const db = getDB();
+    const user = await getOrCreateUser(db, 'discord_id', du.id, {
+      discord_tag,
+      ...(du.email ? { email: du.email } : {}),
+    });
+
+    // Update avatar
+    await db.query('UPDATE users SET avatar_url = ? WHERE grudge_id = ?', [avatarUrl, user.grudge_id]).catch(() => {});
+    user.avatar_url = avatarUrl;
+
+    const token = issueToken(user);
+    res.json(formatAuthResponse(user, token, !user.last_login));
+  } catch (err) {
+    if (err.banned) return res.status(403).json({ error: err.message });
+    next(err);
+  }
+});
+
+// ── POST /auth/puter ──────────────────────────
+// Puter UUID login/register
+router.post('/puter', async (req, res, next) => {
+  try {
+    const { puterUuid, puterUsername, username } = req.body;
+    if (!puterUuid) return res.status(400).json({ error: 'Puter UUID required' });
+
+    const db = getDB();
+
+    // Check if user exists by puter_uuid
+    let [rows] = await db.query('SELECT * FROM users WHERE puter_uuid = ? LIMIT 1', [puterUuid]);
+    let user = rows[0];
+    let isNewUser = false;
+
+    if (user) {
+      if (user.is_banned) return res.status(403).json({ error: user.ban_reason || 'Account banned' });
+      await db.query('UPDATE users SET last_login = NOW() WHERE grudge_id = ?', [user.grudge_id]);
+    } else {
+      // Create new user
+      isNewUser = true;
+      const grudge_id = uuidv4();
+      const puter_id = `GRUDGE-${grudge_id.split('-')[0].toUpperCase()}`;
+      const finalUsername = username || puterUsername || `puter_${puterUuid.slice(0, 8)}`;
+      const displayName = puterUsername || finalUsername;
+
+      // Server wallet
+      let server_wallet_address = null;
+      let server_wallet_index = null;
+      try {
+        const resp = await axios.post(
+          `${WALLET_SERVICE_URL}/wallet/create`,
+          { grudge_id },
+          { headers: { 'x-internal-key': INTERNAL_API_KEY } }
+        );
+        server_wallet_address = resp.data.address;
+        server_wallet_index = resp.data.index;
+      } catch (e) {
+        console.warn('[grudge-id] wallet-service unavailable:', e.message);
+      }
+
+      await db.query(
+        `INSERT INTO users
+          (grudge_id, puter_id, puter_uuid, puter_username, username, display_name,
+           server_wallet_address, server_wallet_index, is_guest, gold, gbux_balance, last_login)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, FALSE, 1000, 100, NOW())`,
+        [grudge_id, puter_id, puterUuid, puterUsername || null, finalUsername, displayName,
+         server_wallet_address, server_wallet_index]
+      );
+
+      [rows] = await db.query('SELECT * FROM users WHERE grudge_id = ? LIMIT 1', [grudge_id]);
+      user = rows[0];
+    }
+
+    const token = issueToken(user);
+    res.status(isNewUser ? 201 : 200).json(formatAuthResponse(user, token, isNewUser));
+  } catch (err) {
+    if (err.banned) return res.status(403).json({ error: err.message });
+    next(err);
+  }
+});
+
+// ── POST /auth/puter-link ─────────────────────
+// Link Puter UUID to an existing authenticated account
+router.post('/puter-link', async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization required' });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(authHeader.substring(7), JWT_SECRET);
+    } catch {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    const { puterUuid, puterUsername } = req.body;
+    if (!puterUuid) return res.status(400).json({ error: 'puterUuid required' });
+
+    const db = getDB();
+
+    // Check for conflicts
+    const [conflict] = await db.query(
+      'SELECT id FROM users WHERE puter_uuid = ? AND grudge_id != ? LIMIT 1',
+      [puterUuid, decoded.grudge_id]
+    );
+    if (conflict.length > 0) {
+      return res.status(409).json({ error: 'Puter account already linked to another Grudge ID' });
+    }
+
+    await db.query(
+      'UPDATE users SET puter_uuid = ?, puter_username = ? WHERE grudge_id = ?',
+      [puterUuid, puterUsername || null, decoded.grudge_id]
+    );
+
+    res.json({ success: true, message: 'Puter cloud ID linked to your account' });
+  } catch (err) { next(err); }
+});
+
+// ── POST /auth/google/exchange ────────────────
+// Google OAuth code exchange (used by platform proxy)
+router.post('/google/exchange', async (req, res, next) => {
+  try {
+    const { code, redirect_uri } = req.body;
+    if (!code) return res.status(400).json({ error: 'No code provided' });
+
+    const tokenResp = await axios.post(
+      'https://oauth2.googleapis.com/token',
+      new URLSearchParams({
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: redirect_uri || process.env.GOOGLE_REDIRECT_URI || '',
+        grant_type: 'authorization_code',
+      }),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+    const { access_token } = tokenResp.data;
+    if (!access_token) return res.status(401).json({ error: 'Google token exchange failed' });
+
+    const userResp = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+    const gu = userResp.data;
+    if (!gu.id) return res.status(401).json({ error: 'Failed to get Google user info' });
+
+    const db = getDB();
+
+    // Check by google_id first, then by email
+    let [rows] = await db.query(
+      'SELECT * FROM users WHERE google_id = ? LIMIT 1', [gu.id]
+    );
+    let user = rows[0];
+    let isNewUser = false;
+
+    if (!user && gu.email) {
+      [rows] = await db.query('SELECT * FROM users WHERE email = ? LIMIT 1', [gu.email]);
+      user = rows[0];
+      if (user) {
+        await db.query('UPDATE users SET google_id = ? WHERE grudge_id = ?', [gu.id, user.grudge_id]).catch(() => {});
+      }
+    }
+
+    if (user) {
+      if (user.is_banned) return res.status(403).json({ error: user.ban_reason || 'Account banned' });
+      await db.query(
+        'UPDATE users SET last_login = NOW(), avatar_url = COALESCE(avatar_url, ?) WHERE grudge_id = ?',
+        [gu.picture || null, user.grudge_id]
+      );
+    } else {
+      isNewUser = true;
+      const grudge_id = uuidv4();
+      const puter_id = `GRUDGE-${grudge_id.split('-')[0].toUpperCase()}`;
+      let username = `g_${(gu.name || '').replace(/\s+/g, '').slice(0, 16)}` || `google_${gu.id.slice(0, 8)}`;
+
+      const [taken] = await db.query('SELECT id FROM users WHERE username = ? LIMIT 1', [username]);
+      if (taken.length > 0) username = `google_${gu.id.slice(0, 10)}`;
+
+      const password_hash = await bcrypt.hash(uuidv4(), 10);
+
+      let server_wallet_address = null;
+      let server_wallet_index = null;
+      try {
+        const resp = await axios.post(
+          `${WALLET_SERVICE_URL}/wallet/create`, { grudge_id },
+          { headers: { 'x-internal-key': INTERNAL_API_KEY } }
+        );
+        server_wallet_address = resp.data.address;
+        server_wallet_index = resp.data.index;
+      } catch (e) { console.warn('[grudge-id] wallet-service unavailable:', e.message); }
+
+      await db.query(
+        `INSERT INTO users
+          (grudge_id, puter_id, username, display_name, email, avatar_url,
+           google_id, password_hash, server_wallet_address, server_wallet_index,
+           is_guest, gold, gbux_balance, last_login)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE, 1000, 0, NOW())`,
+        [grudge_id, puter_id, username, gu.name || username, gu.email || null,
+         gu.picture || null, gu.id, password_hash,
+         server_wallet_address, server_wallet_index]
+      );
+
+      [rows] = await db.query('SELECT * FROM users WHERE grudge_id = ? LIMIT 1', [grudge_id]);
+      user = rows[0];
+    }
+
+    const token = issueToken(user);
+    res.json(formatAuthResponse(user, token, isNewUser));
+  } catch (err) {
+    if (err.banned) return res.status(403).json({ error: err.message });
+    next(err);
+  }
+});
+
+// ── POST /auth/github/exchange ────────────────
+// GitHub OAuth code exchange (used by platform proxy)
+router.post('/github/exchange', async (req, res, next) => {
+  try {
+    const { code, redirect_uri } = req.body;
+    if (!code) return res.status(400).json({ error: 'No code provided' });
+
+    const tokenResp = await axios.post(
+      'https://github.com/login/oauth/access_token',
+      {
+        client_id: process.env.GITHUB_CLIENT_ID,
+        client_secret: process.env.GITHUB_CLIENT_SECRET,
+        code,
+        redirect_uri: redirect_uri || process.env.GITHUB_REDIRECT_URI || '',
+      },
+      { headers: { Accept: 'application/json', 'Content-Type': 'application/json' } }
+    );
+    const { access_token } = tokenResp.data;
+    if (!access_token) return res.status(401).json({ error: 'GitHub token exchange failed' });
+
+    const [userResp, emailResp] = await Promise.all([
+      axios.get('https://api.github.com/user', {
+        headers: { Authorization: `Bearer ${access_token}`, 'User-Agent': 'GrudgeStudio/1.0' },
+      }),
+      axios.get('https://api.github.com/user/emails', {
+        headers: { Authorization: `Bearer ${access_token}`, 'User-Agent': 'GrudgeStudio/1.0' },
+      }).catch(() => ({ data: [] })),
+    ]);
+
+    const gh = userResp.data;
+    if (!gh.id) return res.status(401).json({ error: 'Failed to get GitHub user info' });
+
+    let primaryEmail = gh.email;
+    try {
+      const primary = emailResp.data.find(e => e.primary && e.verified);
+      if (primary) primaryEmail = primary.email;
+    } catch (_) {}
+
+    const db = getDB();
+    const ghIdStr = String(gh.id);
+
+    let [rows] = await db.query('SELECT * FROM users WHERE github_id = ? LIMIT 1', [ghIdStr]);
+    let user = rows[0];
+    let isNewUser = false;
+
+    if (!user && primaryEmail) {
+      [rows] = await db.query('SELECT * FROM users WHERE email = ? LIMIT 1', [primaryEmail]);
+      user = rows[0];
+      if (user) {
+        await db.query('UPDATE users SET github_id = ? WHERE grudge_id = ?', [ghIdStr, user.grudge_id]).catch(() => {});
+      }
+    }
+
+    if (user) {
+      if (user.is_banned) return res.status(403).json({ error: user.ban_reason || 'Account banned' });
+      await db.query(
+        'UPDATE users SET last_login = NOW(), avatar_url = COALESCE(avatar_url, ?) WHERE grudge_id = ?',
+        [gh.avatar_url || null, user.grudge_id]
+      );
+    } else {
+      isNewUser = true;
+      const grudge_id = uuidv4();
+      const puter_id = `GRUDGE-${grudge_id.split('-')[0].toUpperCase()}`;
+      let username = `gh_${(gh.login || '').slice(0, 16)}` || `github_${ghIdStr.slice(0, 8)}`;
+
+      const [taken] = await db.query('SELECT id FROM users WHERE username = ? LIMIT 1', [username]);
+      if (taken.length > 0) username = `github_${ghIdStr.slice(0, 10)}`;
+
+      const password_hash = await bcrypt.hash(uuidv4(), 10);
+
+      let server_wallet_address = null;
+      let server_wallet_index = null;
+      try {
+        const resp = await axios.post(
+          `${WALLET_SERVICE_URL}/wallet/create`, { grudge_id },
+          { headers: { 'x-internal-key': INTERNAL_API_KEY } }
+        );
+        server_wallet_address = resp.data.address;
+        server_wallet_index = resp.data.index;
+      } catch (e) { console.warn('[grudge-id] wallet-service unavailable:', e.message); }
+
+      await db.query(
+        `INSERT INTO users
+          (grudge_id, puter_id, username, display_name, email, avatar_url,
+           github_id, password_hash, server_wallet_address, server_wallet_index,
+           is_guest, gold, gbux_balance, last_login)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE, 1000, 0, NOW())`,
+        [grudge_id, puter_id, username, gh.name || username, primaryEmail || null,
+         gh.avatar_url || null, ghIdStr, password_hash,
+         server_wallet_address, server_wallet_index]
+      );
+
+      [rows] = await db.query('SELECT * FROM users WHERE grudge_id = ? LIMIT 1', [grudge_id]);
+      user = rows[0];
+    }
+
+    const token = issueToken(user);
+    res.json(formatAuthResponse(user, token, isNewUser));
+  } catch (err) {
+    if (err.banned) return res.status(403).json({ error: err.message });
+    next(err);
+  }
+});
+
+// ── POST /auth/phone-verify ───────────────────
+// Verify SMS OTP via Twilio, login/register
+router.post('/phone-verify', async (req, res, next) => {
+  try {
+    const { phone, code } = req.body;
+    if (!phone || !code) return res.status(400).json({ error: 'Phone and code required' });
+
+    const normalized = phone.startsWith('+') ? phone : `+1${phone.replace(/\D/g, '')}`;
+
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken  = process.env.TWILIO_AUTH_TOKEN;
+    const verifySid  = process.env.TWILIO_VERIFY_SID;
+    if (!accountSid || !authToken || !verifySid) {
+      return res.status(503).json({ error: 'Phone auth not configured' });
+    }
+
+    // Verify OTP
+    const twilioResp = await axios.post(
+      `https://verify.twilio.com/v2/Services/${verifySid}/VerificationCheck`,
+      new URLSearchParams({ To: normalized, Code: code }),
+      {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        auth: { username: accountSid, password: authToken },
+      }
+    );
+    if (twilioResp.data.status !== 'approved') {
+      return res.status(401).json({ error: 'Invalid or expired code' });
+    }
+
+    const db = getDB();
+    let [rows] = await db.query('SELECT * FROM users WHERE phone = ? LIMIT 1', [normalized]);
+    let user = rows[0];
+    let isNewUser = false;
+
+    if (user) {
+      if (user.is_banned) return res.status(403).json({ error: user.ban_reason || 'Account banned' });
+      await db.query('UPDATE users SET last_login = NOW() WHERE grudge_id = ?', [user.grudge_id]);
+    } else {
+      isNewUser = true;
+      const grudge_id = uuidv4();
+      const puter_id = `GRUDGE-${grudge_id.split('-')[0].toUpperCase()}`;
+      const username = `ph_${normalized.replace(/\+/g, '').slice(-8)}`;
+      const password_hash = await bcrypt.hash(uuidv4(), 10);
+
+      let server_wallet_address = null;
+      let server_wallet_index = null;
+      try {
+        const resp = await axios.post(
+          `${WALLET_SERVICE_URL}/wallet/create`, { grudge_id },
+          { headers: { 'x-internal-key': INTERNAL_API_KEY } }
+        );
+        server_wallet_address = resp.data.address;
+        server_wallet_index = resp.data.index;
+      } catch (e) { console.warn('[grudge-id] wallet-service unavailable:', e.message); }
+
+      await db.query(
+        `INSERT INTO users
+          (grudge_id, puter_id, username, display_name, phone, password_hash,
+           server_wallet_address, server_wallet_index, is_guest, gold, gbux_balance, last_login)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, FALSE, 1000, 0, NOW())`,
+        [grudge_id, puter_id, username, 'Phone User', normalized, password_hash,
+         server_wallet_address, server_wallet_index]
+      );
+
+      [rows] = await db.query('SELECT * FROM users WHERE grudge_id = ? LIMIT 1', [grudge_id]);
+      user = rows[0];
+    }
+
+    const token = issueToken(user);
+    res.json(formatAuthResponse(user, token, isNewUser));
+  } catch (err) {
+    if (err.banned) return res.status(403).json({ error: err.message });
+    next(err);
+  }
+});
+
 module.exports = router;
