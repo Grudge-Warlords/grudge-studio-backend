@@ -354,4 +354,162 @@ router.get('/conversion/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// POST /assets/sync-objectstore — Sync assets from ObjectStore manifest
+// Fetches gdevelop-assets.json and upserts into MySQL
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const OBJECTSTORE_MANIFEST = 'https://molochdagod.github.io/ObjectStore/api/v1/gdevelop-assets.json';
+
+router.post('/sync-objectstore', internalAuth, async (req, res, next) => {
+  try {
+    const response = await fetch(OBJECTSTORE_MANIFEST);
+    if (!response.ok) {
+      return res.status(502).json({ error: `Failed to fetch manifest: ${response.status}` });
+    }
+    const manifest = await response.json();
+    if (!manifest.assets?.length) {
+      return res.status(400).json({ error: 'Manifest has no assets' });
+    }
+
+    const db = getDB();
+
+    // Ensure source column exists (safe to run multiple times)
+    try {
+      await db.execute(
+        `ALTER TABLE assets ADD COLUMN IF NOT EXISTS source VARCHAR(50) DEFAULT 'upload'`
+      );
+      await db.execute(
+        `ALTER TABLE assets ADD COLUMN IF NOT EXISTS objectstore_id VARCHAR(100) DEFAULT NULL`
+      );
+      await db.execute(
+        `ALTER TABLE assets ADD UNIQUE INDEX IF NOT EXISTS idx_objectstore_id (objectstore_id)`
+      );
+    } catch { /* columns may already exist */ }
+
+    let inserted = 0, updated = 0, skipped = 0;
+
+    for (const asset of manifest.assets) {
+      const cat = sanitizeCategory(asset.type) || 'other';
+      const tags = JSON.stringify(asset.tags || []);
+      const meta = JSON.stringify({
+        category: asset.category,
+        subcategory: asset.subcategory,
+        format: asset.format,
+        previewUrl: asset.previewUrl,
+        ...(asset.metadata || {}),
+      });
+
+      try {
+        const [existing] = await db.execute(
+          'SELECT id FROM assets WHERE objectstore_id = ? AND is_deleted = FALSE',
+          [asset.id]
+        );
+
+        if (existing.length) {
+          await db.execute(
+            `UPDATE assets SET filename = ?, category = ?, tags = ?, metadata = ?, r2_key = ?, size = ?
+             WHERE objectstore_id = ?`,
+            [asset.name, cat, tags, meta, asset.url, asset.sizeBytes || 0, asset.id]
+          );
+          updated++;
+        } else {
+          const assetUuid = uuidv4();
+          await db.execute(
+            `INSERT INTO assets (uuid, r2_key, filename, mime, category, tags, visibility, metadata, size, source, objectstore_id)
+             VALUES (?, ?, ?, ?, ?, ?, 'public', ?, ?, 'objectstore', ?)`,
+            [
+              assetUuid,
+              asset.url,
+              asset.name,
+              asset.format || 'application/octet-stream',
+              cat,
+              tags,
+              meta,
+              asset.sizeBytes || 0,
+              asset.id,
+            ]
+          );
+          inserted++;
+        }
+      } catch {
+        skipped++;
+      }
+    }
+
+    res.json({
+      synced: true,
+      manifestVersion: manifest.version,
+      totalInManifest: manifest.totalAssets,
+      inserted,
+      updated,
+      skipped,
+    });
+  } catch (err) { next(err); }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// GET /assets/catalog — Public catalog (no auth)
+// Query: ?type=&category=&search=&page=&limit=
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+router.get('/catalog', async (req, res, next) => {
+  try {
+    const db = getDB();
+    const { type, category, search, page = 1, limit = 100 } = req.query;
+    const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 100, 1), 500);
+    const offset = (Math.max(parseInt(page, 10) || 1, 1) - 1) * safeLimit;
+
+    let where = "is_deleted = FALSE AND visibility = 'public'";
+    const params = [];
+
+    if (type && VALID_CATEGORIES.includes(type)) {
+      where += ' AND category = ?';
+      params.push(type);
+    }
+    if (category) {
+      where += ' AND JSON_UNQUOTE(JSON_EXTRACT(metadata, "$.category")) = ?';
+      params.push(category);
+    }
+    if (search) {
+      where += ' AND (filename LIKE ? OR tags LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`);
+    }
+
+    const [[{ total }]] = await db.execute(
+      `SELECT COUNT(*) as total FROM assets WHERE ${where}`, params
+    );
+    const [rows] = await db.query(
+      `SELECT uuid, filename AS name, category AS type, r2_key AS url, size AS sizeBytes,
+              tags, metadata, source, objectstore_id, created_at
+       FROM assets WHERE ${where}
+       ORDER BY created_at DESC LIMIT ${Number(safeLimit)} OFFSET ${Number(offset)}`,
+      params
+    );
+
+    for (const row of rows) {
+      if (typeof row.tags === 'string') row.tags = JSON.parse(row.tags);
+      if (typeof row.metadata === 'string') row.metadata = JSON.parse(row.metadata);
+    }
+
+    res.json({ total, page: parseInt(page, 10) || 1, limit: safeLimit, assets: rows });
+  } catch (err) { next(err); }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// GET /assets/catalog/categories — List categories with counts
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+router.get('/catalog/categories', async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [rows] = await db.execute(
+      `SELECT category, COUNT(*) as count
+       FROM assets
+       WHERE is_deleted = FALSE AND visibility = 'public'
+       GROUP BY category
+       ORDER BY count DESC`
+    );
+    const total = rows.reduce((s, r) => s + r.count, 0);
+    res.json({ total, categories: rows });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;
