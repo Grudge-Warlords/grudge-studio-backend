@@ -1,22 +1,40 @@
 # Grudge Studio — VPS Reconnection Guide
 Last updated: 2026-03-14
 
+## System Status Overview
+
+### Working (5/11)
+- Cloudflare Workers: Main Site, Dashboard, Assets CDN — all healthy
+- External: ObjectStore, Warlord Suite — OK
+- DNS: All resolving correctly through Cloudflare proxy (IPv6 = Cloudflare edge)
+
+### Down (6/11)
+- **VPS: UNREACHABLE — root cause of all API outages**
+- Identity API (id.grudge-studio.com) — timeout (VPS offline)
+- Game API (api.grudge-studio.com) — timeout (VPS offline)
+- Account API (account.grudge-studio.com) — timeout (VPS offline)
+- Launcher API (launcher.grudge-studio.com) — timeout (VPS offline)
+- WebSocket (ws.grudge-studio.com) — timeout (VPS offline)
+
+### Separate Issues
+- grudgewarlords.com — 404 (domain/hosting expired, unrelated to VPS)
+- Local Docker Desktop — not running (expected, backend runs on VPS)
+
+### Single Blocker
+The IONOS VPS being offline. Everything else is properly configured.
+Once powered on from my.ionos.com, all 5 API endpoints should come back
+since Docker is set to `restart: unless-stopped`.
+
 ## VPS Inventory
 
-### VPS1: 74.208.155.229 (Linux)
+### VPS1: 74.208.155.229 (Linux) — PRIMARY BACKEND
 - **Provider**: IONOS
 - **OS**: Linux (Ubuntu — confirmed via SSH host keys)
 - **Purpose**: Primary backend — Coolify, Traefik, Docker stack
-- **Status**: COMPLETELY UNREACHABLE
-  - SSH (22): Timeout
-  - HTTP (80): Timeout
-  - HTTPS (443): Timeout
-  - RDP (3389): Timeout
-  - Coolify (8000): Timeout
-  - Ping: No response
-- **Diagnosis**: Server is likely powered off, suspended, or has a network/firewall issue at the provider level
+- **Status**: COMPLETELY UNREACHABLE (all ports timeout, no ping)
+- **Diagnosis**: Server powered off or suspended at IONOS level
 - **SSH Keys**: Previously accepted connections (in known_hosts)
-- **Recovery**: Must use IONOS control panel → Server Management → Power On / KVM Console
+- **Recovery**: Power on via IONOS control panel → all services auto-restart
 
 ### VPS2: 74.208.174.62 (Windows)
 - **Provider**: IONOS
