@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const axios = require('axios');
 const { getDB } = require('../db');
 const { verifyTurnstile } = require('../middleware/turnstile');
@@ -217,6 +218,201 @@ router.post('/verify', (req, res) => {
   } catch {
     res.status(401).json({ valid: false, error: 'Invalid or expired token' });
   }
+});
+
+// ── POST /auth/login ──────────────────────────
+// Username/email/grudge_id + password login
+router.post('/login', verifyTurnstile, async (req, res, next) => {
+  try {
+    const { username, identifier, password } = req.body;
+    const loginId = identifier || username;
+    if (!loginId || !password) {
+      return res.status(400).json({ error: 'Username and password required' });
+    }
+
+    const db = getDB();
+    const [rows] = await db.query(
+      `SELECT * FROM users
+       WHERE username = ? OR email = ? OR grudge_id = ?
+       LIMIT 1`,
+      [loginId, loginId, loginId]
+    );
+
+    const user = rows[0];
+    if (!user || !user.password_hash) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    if (user.is_banned) {
+      return res.status(403).json({ error: user.ban_reason || 'Account banned' });
+    }
+
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+
+    await db.query('UPDATE users SET last_login = NOW() WHERE grudge_id = ?', [user.grudge_id]);
+    const token = issueToken(user);
+
+    res.json({
+      success: true,
+      token,
+      grudgeId: user.grudge_id,
+      username: user.username,
+      user: {
+        id: user.id,
+        grudgeId: user.grudge_id,
+        username: user.username,
+        displayName: user.display_name || user.username,
+        email: user.email,
+        isPremium: false,
+        isGuest: !!user.is_guest,
+        gold: user.gold || 1000,
+        gbuxBalance: user.gbux_balance || 0,
+        walletAddress: user.wallet_address,
+        serverWalletAddress: user.server_wallet_address,
+        faction: user.faction,
+        race: user.race,
+        class: user.class,
+      },
+    });
+  } catch (err) { next(err); }
+});
+
+// ── POST /auth/register ───────────────────────
+router.post('/register', verifyTurnstile, async (req, res, next) => {
+  try {
+    const { username, email, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password required' });
+    }
+    if (username.length < 3 || username.length > 20) {
+      return res.status(400).json({ error: 'Username must be 3-20 characters' });
+    }
+    if (password.length < 4) {
+      return res.status(400).json({ error: 'Password must be at least 4 characters' });
+    }
+
+    const db = getDB();
+
+    // Check uniqueness
+    const [existing] = await db.query(
+      'SELECT id FROM users WHERE username = ? OR (email IS NOT NULL AND email = ?) LIMIT 1',
+      [username, email || '']
+    );
+    if (existing.length > 0) {
+      return res.status(409).json({ error: 'Username or email already taken' });
+    }
+
+    const grudge_id = uuidv4();
+    const puter_id = `GRUDGE-${grudge_id.split('-')[0].toUpperCase()}`;
+    const password_hash = await bcrypt.hash(password, 10);
+
+    // Server wallet
+    let server_wallet_address = null;
+    let server_wallet_index = null;
+    try {
+      const resp = await axios.post(
+        `${WALLET_SERVICE_URL}/wallet/create`,
+        { grudge_id },
+        { headers: { 'x-internal-key': INTERNAL_API_KEY } }
+      );
+      server_wallet_address = resp.data.address;
+      server_wallet_index = resp.data.index;
+    } catch (e) {
+      console.warn('[grudge-id] wallet-service unavailable:', e.message);
+    }
+
+    await db.query(
+      `INSERT INTO users
+        (grudge_id, puter_id, username, email, password_hash, display_name,
+         server_wallet_address, server_wallet_index, is_guest, gold, gbux_balance, last_login)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, FALSE, 1000, 0, NOW())`,
+      [grudge_id, puter_id, username, email || null, password_hash, username,
+       server_wallet_address, server_wallet_index]
+    );
+
+    const [rows] = await db.query('SELECT * FROM users WHERE grudge_id = ? LIMIT 1', [grudge_id]);
+    const user = rows[0];
+    const token = issueToken(user);
+
+    res.status(201).json({
+      success: true,
+      token,
+      grudgeId: user.grudge_id,
+      username: user.username,
+      message: `Welcome to GRUDGE Warlords! Your GRUDGE ID: ${user.grudge_id}`,
+      user: {
+        id: user.id,
+        grudgeId: user.grudge_id,
+        username: user.username,
+        displayName: user.display_name || user.username,
+        email: user.email,
+        isPremium: false,
+        isGuest: false,
+        gold: user.gold || 1000,
+        gbuxBalance: user.gbux_balance || 0,
+        walletAddress: user.wallet_address,
+        serverWalletAddress: user.server_wallet_address,
+      },
+    });
+  } catch (err) { next(err); }
+});
+
+// ── POST /auth/guest ──────────────────────────
+router.post('/guest', async (req, res, next) => {
+  try {
+    const { deviceId } = req.body;
+    if (!deviceId) return res.status(400).json({ error: 'Device ID required' });
+
+    const guestUsername = `guest_${deviceId.slice(0, 12)}`;
+    const db = getDB();
+
+    const [existing] = await db.query(
+      'SELECT * FROM users WHERE username = ? LIMIT 1',
+      [guestUsername]
+    );
+
+    let user = existing[0];
+    let isNewUser = false;
+
+    if (!user) {
+      const grudge_id = uuidv4();
+      const puter_id = `GRUDGE-${grudge_id.split('-')[0].toUpperCase()}`;
+
+      await db.query(
+        `INSERT INTO users
+          (grudge_id, puter_id, username, display_name, password_hash, is_guest, gold, gbux_balance, last_login)
+         VALUES (?, ?, ?, ?, 'guest', TRUE, 500, 0, NOW())`,
+        [grudge_id, puter_id, guestUsername, `Guest ${deviceId.slice(0, 6)}`]
+      );
+
+      const [rows] = await db.query('SELECT * FROM users WHERE grudge_id = ? LIMIT 1', [grudge_id]);
+      user = rows[0];
+      isNewUser = true;
+    } else {
+      await db.query('UPDATE users SET last_login = NOW() WHERE grudge_id = ?', [user.grudge_id]);
+    }
+
+    const token = issueToken(user);
+
+    res.status(isNewUser ? 201 : 200).json({
+      success: true,
+      token,
+      grudgeId: user.grudge_id,
+      username: user.username,
+      isGuest: true,
+      isNewUser,
+      user: {
+        id: user.id,
+        grudgeId: user.grudge_id,
+        username: user.username,
+        displayName: user.display_name || user.username,
+        isPremium: false,
+        isGuest: true,
+        gold: user.gold || 500,
+        gbuxBalance: user.gbux_balance || 0,
+      },
+    });
+  } catch (err) { next(err); }
 });
 
 module.exports = router;
