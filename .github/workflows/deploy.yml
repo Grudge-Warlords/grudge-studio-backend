@@ -28,7 +28,12 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          KEY_RAW='${{ secrets.DEPLOY_SSH_KEY }}'
+          if echo "$KEY_RAW" | grep -q 'BEGIN OPENSSH PRIVATE KEY'; then
+            printf "%s" "$KEY_RAW" | tr -d '\r' > ~/.ssh/deploy_key
+          else
+            printf "%b" "$KEY_RAW" | tr -d '\r' > ~/.ssh/deploy_key
+          fi
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
@@ -153,7 +158,12 @@ jobs:
 
       - name: Notify Discord (failure)
         if: failure()
+        continue-on-error: true
         run: |
+          if [ -z "${{ secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN }}" ]; then
+            echo "DISCORD_SYSTEM_WEBHOOK_TOKEN not set; skipping failure notification."
+            exit 0
+          fi
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           curl -sf -X POST "${{ secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN }}" \
             -H "Content-Type: application/json" \
