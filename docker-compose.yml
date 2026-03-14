@@ -38,7 +38,7 @@ services:
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       CF_TURNSTILE_SECRET_KEY: ${CF_TURNSTILE_SECRET_KEY}
       CF_TURNSTILE_SITE_KEY: ${CF_TURNSTILE_SITE_KEY}
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com,https://app.puter.com}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudachain.grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://app.puter.com,https://molochdagod.github.io}
     depends_on:
       mysql:
         condition: service_healthy
@@ -97,7 +97,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       AI_AGENT_URL: http://ai-agent:3004
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudachain.grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://app.puter.com,https://molochdagod.github.io}
     depends_on:
       mysql:
         condition: service_healthy
@@ -160,7 +160,7 @@ services:
       OBJECT_STORAGE_SECRET: ${OBJECT_STORAGE_SECRET}
       OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-auto}
       OBJECT_STORAGE_PUBLIC_URL: ${OBJECT_STORAGE_PUBLIC_URL}
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://account.grudge-studio.com,https://dash.grudge-studio.com,https://app.puter.com}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudachain.grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://app.puter.com,https://molochdagod.github.io,https://account.grudge-studio.com}
     depends_on:
       mysql:
         condition: service_healthy
@@ -199,7 +199,7 @@ services:
       OBJECT_STORAGE_SECRET: ${OBJECT_STORAGE_SECRET}
       OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-auto}
       OBJECT_STORAGE_PUBLIC_URL: ${OBJECT_STORAGE_PUBLIC_URL}
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://launcher.grudge-studio.com}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudachain.grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://app.puter.com,https://molochdagod.github.io,https://launcher.grudge-studio.com}
     depends_on:
       mysql:
         condition: service_healthy
@@ -237,7 +237,7 @@ services:
       OBJECT_STORAGE_SECRET: ${OBJECT_STORAGE_SECRET}
       OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-auto}
       OBJECT_STORAGE_PUBLIC_URL: ${OBJECT_STORAGE_PUBLIC_URL}
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudachain.grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://app.puter.com,https://molochdagod.github.io}
     depends_on:
       mysql:
         condition: service_healthy
@@ -266,7 +266,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       REDIS_URL: redis://:${REDIS_PASSWORD}@grudge-redis:6379
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudachain.grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://app.puter.com,https://molochdagod.github.io}
     depends_on:
       redis:
         condition: service_healthy
