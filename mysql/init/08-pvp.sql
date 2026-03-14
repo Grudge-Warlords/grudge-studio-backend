@@ -1,5 +1,5 @@
 -- ─────────────────────────────────────────────────────────────
--- GRUDGE STUDIO — PvP Lobby System Schema (07)
+-- GRUDGE STUDIO — PvP Lobby System Schema (08)
 -- Depends on: 01-schema.sql (users, characters, crews)
 -- Modes: duel (1v1), crew_battle (team), arena_ffa (free-for-all)
 -- ─────────────────────────────────────────────────────────────
