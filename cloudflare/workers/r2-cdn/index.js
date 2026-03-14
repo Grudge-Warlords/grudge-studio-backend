@@ -23,7 +23,7 @@ const CACHE_IMMUTABLE = 'public, max-age=31536000, immutable';          // 1 yr
 const CACHE_MUTABLE   = 'public, max-age=300, s-maxage=60, must-revalidate'; // 5 min
 
 // Paths that can change between game updates — use short cache
-const MUTABLE_PREFIXES = ['manifests/', 'versions/', 'config/', 'patches/'];
+const MUTABLE_PREFIXES = ['manifests/', 'versions/', 'config/', 'patches/', 'game-data/'];
 
 // ─── Rate Limiting ───────────────────────────────────────────────────────────
 const RL_MAX    = 120; // requests allowed per IP per window

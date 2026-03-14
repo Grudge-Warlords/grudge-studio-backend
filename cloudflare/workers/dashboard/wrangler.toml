@@ -27,7 +27,11 @@ bucket_name = "grudge-assets"
 binding = "KV"
 id      = "35be1828b2124f82abdc770293177165"
 
-# ── Environment variables (non-secret) ───────────────────────────────────────
+# ── Cron trigger: sync VPS data to D1/KV every 10 min ────────────────────
+[triggers]
+crons = ["*/10 * * * *"]
+
+# ── Environment variables (non-secret) ─────────────────────────────────────
 [vars]
 ENVIRONMENT       = "production"
 VPS_IP            = "74.208.155.229"

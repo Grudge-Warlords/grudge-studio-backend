@@ -1,10 +1,11 @@
 /**
- * Grudge Studio — Backend Dashboard Worker  v2.0
+ * Grudge Studio — Backend Dashboard Worker  v3.0
  *
  * Auth: POST /login with API key → sets HttpOnly session cookie (24h KV TTL)
- *       No more ?key= in the URL (security fix)
  *
- * Tabs: Overview · Servers · PvP Arena · Players · Storage · Events · Economy
+ * Tabs: Overview · Servers · PvP Arena · Players · Storage · Events · Economy · Uptime · System
+ *
+ * Cron: every 10 min — auto-syncs VPS metrics/players to D1/KV
  *
  * Deploy:  npx wrangler deploy  (from cloudflare/workers/dashboard/)
  * Secret:  npx wrangler secret put DASH_API_KEY
@@ -66,8 +67,13 @@ async function initD1(env) {
   } catch {}
 }
 
-// ── Main handler ──────────────────────────────────────────────
+// ── Main handler ────────────────────────────────────────────────
 export default {
+  // Cron: auto-sync VPS data every 10 min
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(cronSync(env));
+  },
+
   async fetch(request, env, ctx) {
     const url    = new URL(request.url);
     const method = request.method.toUpperCase();
@@ -378,6 +384,74 @@ async function apiVpsSync(env) {
   }
 
   return json({ ok: true, synced: results, ts: Math.floor(Date.now()/1000) });
+}
+
+// ── Cron Sync (runs every 10 min via scheduled trigger) ───────
+async function cronSync(env) {
+  const base   = env.GAME_API || 'https://api.grudge-studio.com';
+  const idBase = env.IDENTITY_API || 'https://id.grudge-studio.com';
+  const key    = env.DASH_API_KEY || '';
+  const now    = Math.floor(Date.now() / 1000);
+  let synced   = 0;
+
+  // Check if VPS is reachable before full sync
+  try {
+    const probe = await fetch(`${base}/health`, { signal: AbortSignal.timeout(5000) });
+    if (!probe.ok) return; // VPS down — skip sync silently
+  } catch { return; }
+
+  // Pull metrics from identity service
+  if (env.KV) {
+    try {
+      const r = await fetch(`${idBase}/stats`, { headers: { 'x-internal-key': key }, signal: AbortSignal.timeout(5000) });
+      if (r.ok) {
+        const d = await r.json();
+        if (d.active_players != null) await env.KV.put('active_players', String(d.active_players));
+        if (d.total_logins != null)   await env.KV.put('total_logins', String(d.total_logins));
+        synced++;
+      }
+    } catch {}
+
+    // Pull game stats
+    try {
+      const r = await fetch(`${base}/stats`, { headers: { 'x-internal-key': key }, signal: AbortSignal.timeout(5000) });
+      if (r.ok) {
+        const d = await r.json();
+        if (d.total_missions != null)   await env.KV.put('total_missions', String(d.total_missions));
+        if (d.gbux_circulating != null) await env.KV.put('gbux_circulating', String(d.gbux_circulating));
+        synced++;
+      }
+    } catch {}
+
+    // Record last sync time
+    await env.KV.put('dash:last_sync', String(now));
+  }
+
+  // Sync players to D1
+  if (env.DB) {
+    try {
+      const r = await fetch(`${base}/players?limit=50`, { headers: { 'x-internal-key': key }, signal: AbortSignal.timeout(5000) });
+      if (r.ok) {
+        const players = await r.json();
+        if (Array.isArray(players) && players.length > 0) {
+          const stmt = env.DB.prepare('INSERT OR REPLACE INTO dash_players (grudge_id, username, class, faction, level, last_seen) VALUES (?, ?, ?, ?, ?, ?)');
+          await env.DB.batch(players.map(p => stmt.bind(
+            p.grudge_id, p.username || null, p.class || null,
+            p.faction || null, p.level || 1, p.last_seen || now
+          )));
+          synced++;
+        }
+      }
+    } catch {}
+
+    // Log sync event
+    if (synced > 0) {
+      try {
+        await env.DB.prepare('INSERT INTO dash_events (service, event, payload, ts) VALUES (?, ?, ?, ?)')
+          .bind('dashboard', 'cron_sync', JSON.stringify({ synced }), now).run();
+      } catch {}
+    }
+  }
 }
 
 // ── System overview ───────────────────────────────────────────
