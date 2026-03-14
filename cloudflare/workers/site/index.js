@@ -258,6 +258,7 @@ function handlePage(env) {
     <a href="#status">Status</a>
     <a href="#api">API</a>
     <a href="#tools">Tools</a>
+    <a href="#games">Games & Apps</a>
   </div>
   <a class="nav-cta" href="https://dash.grudge-studio.com" target="_blank">Dashboard</a>
 </nav>
@@ -404,6 +405,77 @@ function handlePage(env) {
       <h3>🔗 WebSocket Playground</h3>
       <p>Connect to the /global namespace to monitor live game events — mission completions, island claims, combat results, and Z-key battle broadcasts.</p>
       <a href="${env.WS_API || 'https://ws.grudge-studio.com'}/health" target="_blank">Check WS status →</a>
+    </div>
+  </div>
+</section>
+
+<div class="hr"></div>
+
+<!-- GAMES & APPS -->
+<section id="games">
+  <div class="section-label">Ecosystem</div>
+  <h2 class="section-title">Games & Apps</h2>
+  <p class="section-sub">Live web apps, game clients, and tools — all part of the Grudge Studio ecosystem.</p>
+  <div class="tools-grid">
+    <div class="tool-card">
+      <h3>⚔️ Grudge Warlords</h3>
+      <p>The main game client — souls-like MMO RPG with faction warfare, island conquest, permadeath crews, and real-time combat.</p>
+      <a href="https://grudge-warlords-game.vercel.app" target="_blank">Play now →</a>
+    </div>
+    <div class="tool-card">
+      <h3>🛠️ Warlord Crafting Suite</h3>
+      <p>Browse and craft weapons, armor, shields, and relics. Full recipe database with tier progression and class requirements.</p>
+      <a href="https://warlord-crafting-suite.vercel.app" target="_blank">Open crafting →</a>
+    </div>
+    <div class="tool-card">
+      <h3>🎨 Grudge Builder</h3>
+      <p>Character, item, and world building tool. Create heroes, design gear loadouts, and plan island layouts.</p>
+      <a href="https://grudge-builder-grudgenexus.vercel.app" target="_blank">Open builder →</a>
+    </div>
+    <div class="tool-card">
+      <h3>🎮 Grudge Engine Web</h3>
+      <p>BabylonJS-powered 3D editor with PBR materials, GPU particles, combat system, AI auto-rig, and cloud save.</p>
+      <a href="https://grudge-engine-web.vercel.app" target="_blank">Open editor →</a>
+    </div>
+    <div class="tool-card">
+      <h3>🏝️ Grudge Islands RTS</h3>
+      <p>Real-time strategy with tower defense, naval combat, equipment system, and skill trees across 3 factions.</p>
+      <a href="https://swarmrts-master-grudgenexus.vercel.app" target="_blank">Play RTS →</a>
+    </div>
+    <div class="tool-card">
+      <h3>🕹️ Grudge Controller</h3>
+      <p>Third-person character controller demo — over-the-shoulder camera, target locking, and combat movement.</p>
+      <a href="https://controller-grudge.vercel.app" target="_blank">Try controller →</a>
+    </div>
+    <div class="tool-card">
+      <h3>🎣 Grudge Angeler</h3>
+      <p>Pixel art fishing adventure — a relaxing side game set in the Grudge universe.</p>
+      <a href="https://grudge-angeler.vercel.app" target="_blank">Play now →</a>
+    </div>
+    <div class="tool-card">
+      <h3>🌐 GrudaChain</h3>
+      <p>Free AI node system powered by GRUDA — decentralized compute for the Grudge ecosystem.</p>
+      <a href="https://grudachain-rho.vercel.app" target="_blank">Explore →</a>
+    </div>
+    <div class="tool-card">
+      <h3>🚀 StarWay GRUDA</h3>
+      <p>Web client for the StarWay GRUDA system — space exploration meets the Grudge universe.</p>
+      <a href="https://star-way-gruda-web-client.vercel.app" target="_blank">Launch →</a>
+    </div>
+    <div class="tool-card">
+      <h3>🏗️ GDevelop Assistant</h3>
+      <p>The development editor built in Grudge Studio — visual game creation with AI assistance.</p>
+      <a href="https://gdevelop-assistant-grudgenexus.vercel.app" target="_blank">Open editor →</a>
+    </div>
+    <div class="tool-card">
+      <h3>🏴 Grudge Factions</h3>
+      <p>Minecraft server landing page and modpack distribution — the souls-like MMO Minecraft experience.</p>
+      <a href="https://grudge-factions-site.vercel.app" target="_blank">Visit →</a>
+    </div>
+    <div class="tool-card">
+      <h3>📡 Grudge Platform</h3>
+      <p>Central platform portal — login, account management, and cross-game progression tracking.</p>
+      <a href="https://grudge-platform.vercel.app" target="_blank">Open platform →</a>
     </div>
   </div>
 </section>
