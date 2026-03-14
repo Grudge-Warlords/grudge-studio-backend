@@ -1,0 +1,115 @@
+name: Weekly Backup Verification
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 6am UTC
+  workflow_dispatch:
+
+jobs:
+  verify-backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Find latest backup & verify restore
+        id: verify
+        run: |
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+
+          # Find latest dump
+          LATEST=$($SSH 'ls -t /opt/grudge-studio-backend/backups/grudge_game_*.sql.gz 2>/dev/null | head -1')
+          if [ -z "$LATEST" ]; then
+            echo "result=FAIL — no backup found" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          echo "Latest backup: $LATEST"
+
+          # Get backup age in hours
+          AGE=$($SSH "echo \$(( (\$(date +%s) - \$(stat -c %Y $LATEST)) / 3600 ))")
+          echo "Backup age: ${AGE}h"
+          if [ "$AGE" -gt 48 ]; then
+            echo "result=FAIL — backup is ${AGE}h old (>48h)" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          # Start a temporary MySQL container, restore, verify
+          RESULT=$($SSH 'bash -s' <<'REMOTE_SCRIPT'
+          set -e
+          LATEST=$(ls -t /opt/grudge-studio-backend/backups/grudge_game_*.sql.gz 2>/dev/null | head -1)
+          CONTAINER="grudge-backup-verify-$$"
+
+          echo "Starting temp MySQL container: $CONTAINER"
+          docker run -d --name "$CONTAINER" \
+            -e MYSQL_ROOT_PASSWORD=verify_test \
+            -e MYSQL_DATABASE=verify_db \
+            mysql:8.0 > /dev/null 2>&1
+
+          # Wait for MySQL to be ready
+          for i in $(seq 1 30); do
+            if docker exec "$CONTAINER" mysqladmin ping -uroot -pverify_test 2>/dev/null | grep -q alive; then
+              break
+            fi
+            sleep 2
+          done
+
+          # Restore
+          echo "Restoring $LATEST ..."
+          gunzip -c "$LATEST" | docker exec -i "$CONTAINER" mysql -uroot -pverify_test verify_db 2>/dev/null
+
+          # Verify key tables exist
+          TABLES=$(docker exec "$CONTAINER" mysql -uroot -pverify_test verify_db -N -e "SHOW TABLES" 2>/dev/null | wc -l)
+          echo "Tables found: $TABLES"
+
+          # Cleanup
+          docker rm -f "$CONTAINER" > /dev/null 2>&1
+
+          if [ "$TABLES" -gt 0 ]; then
+            echo "PASS — $TABLES tables restored successfully"
+          else
+            echo "FAIL — 0 tables after restore"
+            exit 1
+          fi
+REMOTE_SCRIPT
+          )
+          echo "$RESULT"
+          echo "result=$RESULT" >> $GITHUB_OUTPUT
+
+      - name: Notify Discord (success)
+        if: success()
+        continue-on-error: true
+        run: |
+          curl -sf -X POST "${{ secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"embeds\": [{
+                \"title\": \"✅ Backup Verification — PASSED\",
+                \"color\": 4978687,
+                \"description\": \"${{ steps.verify.outputs.result }}\",
+                \"footer\": {\"text\": \"Weekly check — $(date -u '+%Y-%m-%d %H:%M UTC')\"}
+              }]
+            }"
+
+      - name: Notify Discord (failure)
+        if: failure()
+        run: |
+          curl -sf -X POST "${{ secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"embeds\": [{
+                \"title\": \"🚨 Backup Verification — FAILED\",
+                \"color\": 15158332,
+                \"description\": \"${{ steps.verify.outputs.result }}\",
+                \"footer\": {\"text\": \"Weekly check — $(date -u '+%Y-%m-%d %H:%M UTC')\"}
+              }]
+            }"
+          exit 1
