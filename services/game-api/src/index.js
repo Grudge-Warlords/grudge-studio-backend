@@ -20,6 +20,7 @@ const craftingRoutes   = require('./routes/crafting');
 const combatRoutes     = require('./routes/combat');
 const islandRoutes     = require('./routes/islands');
 const pvpRoutes        = require('./routes/pvp');
+const dungeonRoutes    = require('./routes/dungeon');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -161,6 +162,7 @@ app.use('/crafting',    requireAuth, craftingRoutes);
 app.use('/combat',      requireAuth, combatRoutes);
 app.use('/islands',     requireAuth, islandRoutes);
 app.use('/pvp',         requireAuth, pvpLimiter, pvpRoutes);
+app.use('/dungeon',     requireAuth, dungeonRoutes);
 
 app.use((err, req, res, next) => {
   console.error('[game-api]', err.message);
