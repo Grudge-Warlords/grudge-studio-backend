@@ -8,6 +8,11 @@ const { SYSTEM_CONTEXT } = require('./data/systemContext');
 const missionRoutes   = require('./routes/missions');
 const companionRoutes = require('./routes/companions');
 const factionRoutes   = require('./routes/factions');
+const devRoutes       = require('./routes/dev');
+const balanceRoutes   = require('./routes/balance');
+const loreRoutes      = require('./routes/lore');
+const artRoutes       = require('./routes/art');
+const { getProviderStatus } = require('./llm/provider');
 
 const app  = express();
 const PORT = process.env.PORT || 3004;
@@ -36,6 +41,20 @@ app.get('/ai/context', (req, res) => res.json(SYSTEM_CONTEXT));
 app.use('/ai/mission',   missionRoutes);
 app.use('/ai/companion', companionRoutes);
 app.use('/ai/faction',   factionRoutes);
+app.use('/ai/dev',       devRoutes);
+app.use('/ai/balance',   balanceRoutes);
+app.use('/ai/lore',      loreRoutes);
+app.use('/ai/art',       artRoutes);
+
+// ── LLM diagnostic endpoint ───────────────────────────────────
+app.get('/ai/llm/status', async (req, res) => {
+  try {
+    const status = await getProviderStatus();
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.use((err, req, res, next) => {
   console.error('[ai-agent]', err.message);

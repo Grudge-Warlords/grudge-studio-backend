@@ -20,11 +20,16 @@ id      = "35be1828b2124f82abdc770293177165"
 [vars]
 ENVIRONMENT = "production"
 
-# ── Routes / custom domain ───────────────────────────────────────────────────
-# assets.grudge-studio.com CNAME → grudge-r2-cdn.grudge.workers.dev (proxied)
-# Route binding tells Cloudflare to run this worker for that hostname.
+# ── Routes / custom domains ──────────────────────────────────────────────────
+# CDN reads: assets.grudge-studio.com
 [[routes]]
 pattern = "assets.grudge-studio.com/*"
+zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
+
+# ObjectStore API: objectstore.grudge-studio.com
+# DNS: objectstore  AAAA  100::  (Proxied)
+[[routes]]
+pattern = "objectstore.grudge-studio.com/*"
 zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
 
 # Legacy grudgestudio.com (keep until fully migrated)

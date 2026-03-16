@@ -15,7 +15,39 @@ concurrency:
   cancel-in-progress: false   # never cancel a running deploy
 
 jobs:
+  # ── Pre-deploy: lint & syntax-check all services ──────────────
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install & lint ai-agent
+        working-directory: services/ai-agent
+        run: |
+          npm ci --ignore-scripts
+          node -e "require('./src/index.js')" 2>&1 | head -5 && echo 'Syntax OK' || exit 1
+      - name: Syntax-check all services
+        run: |
+          FAIL=0
+          for svc in grudge-id wallet-service game-api ai-agent account-api launcher-api asset-service ws-service; do
+            DIR="services/$svc"
+            if [ -f "$DIR/package.json" ]; then
+              MAIN=$(node -e "console.log(require('./$DIR/package.json').main || 'src/index.js')")
+              if node --check "$DIR/$MAIN" 2>/dev/null; then
+                echo "  ✅ $svc"
+              else
+                echo "  ❌ $svc syntax error"
+                FAIL=$((FAIL+1))
+              fi
+            fi
+          done
+          [ $FAIL -eq 0 ] || exit 1
+
   deploy:
+    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 30
 

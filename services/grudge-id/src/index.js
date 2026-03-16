@@ -18,7 +18,7 @@ app.use(helmet({ hsts: { maxAge: 31536000, includeSubDomains: true, preload: tru
 // ── Dynamic CORS — add GitHub Pages / puter app URLs to CORS_ORIGINS env ─
 const CORS_ORIGINS = (
   process.env.CORS_ORIGINS ||
-  'https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com,https://app.puter.com'
+  'https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com,https://app.puter.com,https://gdevelop-assistant.vercel.app,https://gdevelop-assistant-git-objectstore-integration.vercel.app'
 ).split(',').map(o => o.trim()).filter(Boolean);
 // Allow all *.puter.site subdomains for Puter-hosted apps
 const CORS_ORIGIN_FN = (origin, cb) => {
