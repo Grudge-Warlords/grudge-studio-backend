@@ -1,6 +1,19 @@
 # Grudge Studio — VPS Deployment Guide
 
-Target: **74.208.155.229** (Ubuntu)
+## VPS Hosts
+
+| Host | OS | IP | Role |
+|---|---|---|---|
+| **VPS1** | Ubuntu Linux | `74.208.155.229` | Primary — Docker, all services |
+| **VPS2** | Windows Server | `74.208.174.62` | Secondary — bootstrap target |
+
+Both require credentials stored in GitHub Secrets (never hardcoded):
+- `VPS_HOST` — target IP
+- `VPS_USER` — SSH username
+- `VPS_PASSWORD` — SSH password
+- `GH_DEPLOY_TOKEN` — GitHub PAT for cloning
+
+Primary target: **74.208.155.229** (Ubuntu)
 
 ---
 

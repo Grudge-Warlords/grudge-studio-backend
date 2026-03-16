@@ -21,6 +21,7 @@ const combatRoutes     = require('./routes/combat');
 const islandRoutes     = require('./routes/islands');
 const pvpRoutes        = require('./routes/pvp');
 const dungeonRoutes    = require('./routes/dungeon');
+const aiProxyRoutes    = require('./routes/ai-proxy');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -47,7 +48,13 @@ app.use(helmet({
     },
   },
 }));
-app.use(cors({ origin: CORS_ORIGINS, credentials: true }));
+// Allow *.puter.site subdomains for Puter-hosted apps (e.g. AI Lab)
+const CORS_ORIGIN_FN = (origin, cb) => {
+  if (!origin) return cb(null, true); // server-to-server
+  if (CORS_ORIGINS.includes(origin) || /\.puter\.site$/.test(origin)) return cb(null, true);
+  cb(new Error('CORS: origin not allowed'));
+};
+app.use(cors({ origin: CORS_ORIGIN_FN, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
 
 // ── Static assets (favicon, etc.) ──────────────────────────────
@@ -163,6 +170,7 @@ app.use('/combat',      requireAuth, combatRoutes);
 app.use('/islands',     requireAuth, islandRoutes);
 app.use('/pvp',         requireAuth, pvpLimiter, pvpRoutes);
 app.use('/dungeon',     requireAuth, dungeonRoutes);
+app.use('/ai',          requireAuth, aiProxyRoutes);
 
 app.use((err, req, res, next) => {
   console.error('[game-api]', err.message);

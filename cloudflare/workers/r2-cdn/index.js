@@ -31,14 +31,21 @@ const ALLOWED_ORIGINS = new Set([
   'https://grudge-studio.com',
   'https://assets.grudge-studio.com',
   'https://objectstore.grudge-studio.com',
+  'https://assets-api.grudge-studio.com',
   'https://app.grudge-studio.com',
   'https://dash.grudge-studio.com',
+  'https://lab.grudge-studio.com',
   'https://id.grudge-studio.com',
+  'https://api.grudge-studio.com',
+  'https://objectstore.vercel.app',
+  'https://grudge-ai-lab.vercel.app',
   'https://molochdagod.github.io',
   'http://localhost:3000',
   'http://localhost:5173',
   'http://localhost:8787',
 ]);
+// Also allow *.puter.site and *.vercel.app subdomains
+const DYNAMIC_ORIGIN_RE = /\.(puter\.site|vercel\.app)$/;
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default {
@@ -309,18 +316,24 @@ function jsonResponse(data, origin, status = 200) {
   return res;
 }
 
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  if (ALLOWED_ORIGINS.has(origin)) return true;
+  try { return DYNAMIC_ORIGIN_RE.test(new URL(origin).hostname); } catch { return false; }
+}
+
 function corsResponse(origin, status, body, extra = {}) {
   return new Response(body, {
     status,
     headers: {
-      'Access-Control-Allow-Origin': ALLOWED_ORIGINS.has(origin) ? origin : '*',
+      'Access-Control-Allow-Origin': isAllowedOrigin(origin) ? origin : '*',
       ...extra,
     },
   });
 }
 
 function applyCORS(headers, origin) {
-  headers.set('Access-Control-Allow-Origin', ALLOWED_ORIGINS.has(origin) ? origin : '*');
+  headers.set('Access-Control-Allow-Origin', isAllowedOrigin(origin) ? origin : '*');
   headers.set('Access-Control-Expose-Headers', 'ETag, CF-Cache-Status, Content-Length');
   headers.append('Vary', 'Origin');
 }
