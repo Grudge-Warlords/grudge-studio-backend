@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grudge Studio | AI Lab</title>
+    <script src="https://js.puter.com/v2/"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background: #0b1120; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; }
+        .panel { background: #1e293b; border: 1px solid #334155; transition: border-color 0.2s; }
+        .panel:hover { border-color: #6366f1; }
+        .btn-primary { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); transition: all 0.2s; }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-save { background: linear-gradient(135deg, #059669 0%, #047857 100%); }
+        .btn-save:hover { opacity: 0.9; }
+        .input-dark { background: #0f172a; border: 1px solid #334155; color: white; }
+        .input-dark:focus { border-color: #6366f1; outline: none; box-shadow: 0 0 0 2px rgba(99,102,241,0.2); }
+        .loader { border: 3px solid #334155; border-top: 3px solid #6366f1; border-radius: 50%; width: 18px; height: 18px; animation: spin 0.8s linear infinite; display: none; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .output-box { background: #0f172a; border: 1px solid #1e293b; }
+        .tag { background: #312e81; color: #a5b4fc; font-size: 10px; padding: 2px 8px; border-radius: 9999px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .status-ok { background: #10b981; }
+        .status-off { background: #ef4444; }
+        .status-warn { background: #f59e0b; }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-6">
+<div class="max-w-[1600px] mx-auto">
+
+    <!-- ═══ HEADER ═══════════════════════════════════════════════ -->
+    <header class="flex flex-wrap justify-between items-center mb-6 gap-4">
+        <div>
+            <h1 class="text-2xl md:text-3xl font-black tracking-tight">
+                <span class="text-indigo-400">GRUDGE</span> <span class="text-white">AI LAB</span>
+            </h1>
+            <p class="text-slate-500 text-xs mt-1">Game Development Pipeline &bull; Powered by Puter.js + Grudge Backend</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <div id="auth-status" class="text-xs bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700 flex items-center gap-2 cursor-pointer" onclick="handleAuth()">
+                <div class="status-dot status-warn"></div>
+                <span>Click to Sign In</span>
+            </div>
+            <div id="backend-status" class="text-xs bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700 flex items-center gap-2">
+                <div class="status-dot status-off"></div>
+                <span>Backend</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- ═══ PANELS GRID ══════════════════════════════════════════ -->
+    <div class="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+
+        <!-- ── 1. CODE ARCHITECT ─────────────────────────────── -->
+        <section class="panel rounded-xl p-5 flex flex-col gap-3">
+            <div class="flex items-center gap-3 border-b border-slate-700 pb-3">
+                <div class="bg-blue-500/10 p-2 rounded text-blue-400"><i class="fa-solid fa-code"></i></div>
+                <div>
+                    <h2 class="font-bold text-sm">Code Architect</h2>
+                    <p class="text-[10px] text-slate-500">Code review, generation, debugging</p>
+                </div>
+            </div>
+            <textarea id="code-prompt" class="w-full h-28 input-dark p-3 rounded-lg text-xs font-mono resize-none" placeholder="// Paste code or describe what you need..."></textarea>
+            <div class="flex gap-2">
+                <select id="code-model" class="input-dark px-2 py-1.5 rounded text-[11px] flex-shrink-0">
+                    <option value="claude-3-5-sonnet">Claude 3.5</option>
+                    <option value="gpt-4o">GPT-4o</option>
+                    <option value="deepseek-chat">DeepSeek</option>
+                </select>
+                <select id="code-source" class="input-dark px-2 py-1.5 rounded text-[11px] flex-shrink-0">
+                    <option value="puter">Puter AI</option>
+                    <option value="grudge">Grudge Agent</option>
+                </select>
+                <button onclick="runCodeArchitect()" class="btn-primary px-3 py-1.5 rounded text-[11px] font-bold flex-grow flex justify-center items-center gap-2">
+                    <div id="loader-code" class="loader"></div><span>Analyze</span>
+                </button>
+            </div>
+            <div id="output-code" class="output-box p-3 rounded-lg text-xs font-mono text-green-400 max-h-48 overflow-y-auto whitespace-pre-wrap hidden"></div>
+        </section>
+
+        <!-- ── 2. TEXTURE SYNTHESIS ──────────────────────────── -->
+        <section class="panel rounded-xl p-5 flex flex-col gap-3">
+            <div class="flex items-center gap-3 border-b border-slate-700 pb-3">
+                <div class="bg-purple-500/10 p-2 rounded text-purple-400"><i class="fa-solid fa-image"></i></div>
+                <div>
+                    <h2 class="font-bold text-sm">Texture Synthesis</h2>
+                    <p class="text-[10px] text-slate-500">Generate game textures &amp; sprites</p>
+                </div>
+            </div>
+            <input type="text" id="img-prompt" class="w-full input-dark p-3 rounded-lg text-xs" placeholder="e.g., seamless stone wall texture, dark fantasy style">
+            <div class="flex gap-2">
+                <button onclick="generateTexture()" class="btn-primary px-3 py-1.5 rounded text-[11px] font-bold flex-grow flex justify-center items-center gap-2">
+                    <div id="loader-img" class="loader"></div><span>Generate</span>
+                </button>
+                <button onclick="saveAsset('texture')" class="btn-save px-3 py-1.5 rounded text-[11px] font-bold hidden" id="save-texture">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Save
+                </button>
+            </div>
+            <div id="output-img" class="h-44 bg-black/30 rounded-lg flex items-center justify-center border border-dashed border-slate-700 overflow-hidden">
+                <span class="text-slate-600 text-xs">Preview Area</span>
+            </div>
+        </section>
+
+        <!-- ── 3. NPC VOICE STUDIO ───────────────────────────── -->
+        <section class="panel rounded-xl p-5 flex flex-col gap-3">
+            <div class="flex items-center gap-3 border-b border-slate-700 pb-3">
+                <div class="bg-pink-500/10 p-2 rounded text-pink-400"><i class="fa-solid fa-microphone-lines"></i></div>
+                <div>
+                    <h2 class="font-bold text-sm">NPC Voice Studio</h2>
+                    <p class="text-[10px] text-slate-500">Text-to-speech for game dialogue</p>
+                </div>
+            </div>
+            <input type="text" id="tts-text" class="w-full input-dark p-3 rounded-lg text-xs" placeholder="Enter NPC dialogue here...">
+            <div class="flex gap-2">
+                <select id="tts-voice" class="input-dark px-2 py-1.5 rounded text-[11px]">
+                    <option value="alloy">Alloy</option><option value="echo">Echo</option>
+                    <option value="fable">Fable</option><option value="onyx">Onyx</option>
+                    <option value="nova">Nova</option><option value="shimmer">Shimmer</option>
+                </select>
+                <button onclick="generateVoice()" class="btn-primary px-3 py-1.5 rounded text-[11px] font-bold flex-grow flex justify-center items-center gap-2">
+                    <div id="loader-voice" class="loader"></div><span>Generate</span>
+                </button>
+                <button onclick="saveAsset('audio')" class="btn-save px-3 py-1.5 rounded text-[11px] font-bold hidden" id="save-audio">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Save
+                </button>
+            </div>
+            <div id="audio-container" class="min-h-[40px]"></div>
+        </section>
+
+        <!-- ── 4. LORE WRITER (NEW) ──────────────────────────── -->
+        <section class="panel rounded-xl p-5 flex flex-col gap-3">
+            <div class="flex items-center gap-3 border-b border-slate-700 pb-3">
+                <div class="bg-amber-500/10 p-2 rounded text-amber-400"><i class="fa-solid fa-scroll"></i></div>
+                <div>
+                    <h2 class="font-bold text-sm">Lore Writer</h2>
+                    <p class="text-[10px] text-slate-500">Quest text, NPC dialogue, item descriptions</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <select id="lore-type" class="input-dark px-2 py-1.5 rounded text-[11px] w-1/3">
+                    <option value="quest">Quest</option><option value="dialogue">Dialogue</option>
+                    <option value="item_description">Item Desc</option><option value="boss">Boss</option>
+                    <option value="location">Location</option><option value="event">Event</option>
+                </select>
+                <input type="text" id="lore-context" class="flex-grow input-dark px-3 py-1.5 rounded-lg text-xs" placeholder="Context: pirate faction, tier 3 sword...">
+            </div>
+            <div class="flex gap-2">
+                <select id="lore-source" class="input-dark px-2 py-1.5 rounded text-[11px] flex-shrink-0">
+                    <option value="puter">Puter AI</option>
+                    <option value="grudge">Grudge Agent</option>
+                </select>
+                <button onclick="generateLore()" class="btn-primary px-3 py-1.5 rounded text-[11px] font-bold flex-grow flex justify-center items-center gap-2">
+                    <div id="loader-lore" class="loader"></div><span>Generate Lore</span>
+                </button>
+            </div>
+            <div id="output-lore" class="output-box p-3 rounded-lg text-xs max-h-48 overflow-y-auto whitespace-pre-wrap hidden"></div>
+        </section>
+
+        <!-- ── 5. 3D ART PROMPTER (NEW) ──────────────────────── -->
+        <section class="panel rounded-xl p-5 flex flex-col gap-3">
+            <div class="flex items-center gap-3 border-b border-slate-700 pb-3">
+                <div class="bg-cyan-500/10 p-2 rounded text-cyan-400"><i class="fa-solid fa-cube"></i></div>
+                <div>
+                    <h2 class="font-bold text-sm">3D Art Prompter</h2>
+                    <p class="text-[10px] text-slate-500">Prompts for Meshy, Tripo, text2vox</p>
+                </div>
+            </div>
+            <input type="text" id="art-desc" class="w-full input-dark p-3 rounded-lg text-xs" placeholder="Describe the 3D model: medieval shield with runes...">
+            <div class="flex gap-2">
+                <select id="art-engine" class="input-dark px-2 py-1.5 rounded text-[11px]">
+                    <option value="meshy">Meshy</option><option value="tripo">Tripo</option><option value="text2vox">text2vox</option>
+                </select>
+                <select id="art-style" class="input-dark px-2 py-1.5 rounded text-[11px]">
+                    <option value="voxel">Voxel</option><option value="realistic">Realistic</option>
+                    <option value="stylized">Stylized</option><option value="low_poly">Low Poly</option>
+                </select>
+                <select id="art-source" class="input-dark px-2 py-1.5 rounded text-[11px] flex-shrink-0">
+                    <option value="puter">Puter AI</option>
+                    <option value="grudge">Grudge Agent</option>
+                </select>
+                <button onclick="generate3DArt()" class="btn-primary px-3 py-1.5 rounded text-[11px] font-bold flex-grow flex justify-center items-center gap-2">
+                    <div id="loader-art" class="loader"></div><span>Generate</span>
+                </button>
+            </div>
+            <div id="output-art" class="output-box p-3 rounded-lg text-xs font-mono max-h-48 overflow-y-auto whitespace-pre-wrap hidden"></div>
+        </section>
+
+        <!-- ── 6. BALANCE ANALYZER (NEW) ─────────────────────── -->
+        <section class="panel rounded-xl p-5 flex flex-col gap-3">
+            <div class="flex items-center gap-3 border-b border-slate-700 pb-3">
+                <div class="bg-red-500/10 p-2 rounded text-red-400"><i class="fa-solid fa-scale-balanced"></i></div>
+                <div>
+                    <h2 class="font-bold text-sm">Balance Analyzer</h2>
+                    <p class="text-[10px] text-slate-500">Combat, economy &amp; progression analysis</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <select id="balance-area" class="input-dark px-2 py-1.5 rounded text-[11px] w-1/3">
+                    <option value="combat">Combat</option><option value="economy">Economy</option>
+                    <option value="professions">Professions</option><option value="gear">Gear</option>
+                </select>
+                <input type="text" id="balance-context" class="flex-grow input-dark px-3 py-1.5 rounded-lg text-xs" placeholder="Optional: specific concern...">
+            </div>
+            <button onclick="analyzeBalance()" class="btn-primary px-3 py-1.5 rounded text-[11px] font-bold w-full flex justify-center items-center gap-2">
+                <div id="loader-balance" class="loader"></div><span>Analyze Balance</span>
+            </button>
+            <div id="output-balance" class="output-box p-3 rounded-lg text-xs max-h-48 overflow-y-auto whitespace-pre-wrap hidden"></div>
+        </section>
+
+        <!-- ── 7. ASSET INSPECTOR ────────────────────────────── -->
+        <section class="panel rounded-xl p-5 flex flex-col gap-3">
+            <div class="flex items-center gap-3 border-b border-slate-700 pb-3">
+                <div class="bg-emerald-500/10 p-2 rounded text-emerald-400"><i class="fa-solid fa-eye"></i></div>
+                <div>
+                    <h2 class="font-bold text-sm">Asset Inspector</h2>
+                    <p class="text-[10px] text-slate-500">AI-powered image analysis</p>
+                </div>
+            </div>
+            <div class="flex gap-2 items-center">
+                <input type="file" id="vision-upload" accept="image/*" class="text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-semibold file:bg-slate-700 file:text-white hover:file:bg-slate-600 flex-grow">
+                <button onclick="analyzeImage()" class="btn-primary px-3 py-1.5 rounded text-[11px] font-bold flex items-center gap-2">
+                    <div id="loader-vision" class="loader"></div><i class="fa-solid fa-search"></i>
+                </button>
+            </div>
+            <div id="output-vision" class="output-box p-3 rounded-lg text-xs max-h-40 overflow-y-auto hidden"></div>
+        </section>
+
+        <!-- ── 8. LLM STATUS (NEW) ───────────────────────────── -->
+        <section class="panel rounded-xl p-5 flex flex-col gap-3">
+            <div class="flex items-center gap-3 border-b border-slate-700 pb-3">
+                <div class="bg-indigo-500/10 p-2 rounded text-indigo-400"><i class="fa-solid fa-server"></i></div>
+                <div>
+                    <h2 class="font-bold text-sm">LLM Status</h2>
+                    <p class="text-[10px] text-slate-500">Backend AI provider diagnostics</p>
+                </div>
+            </div>
+            <div id="llm-status-grid" class="space-y-2 text-xs">
+                <div class="flex items-center justify-between p-2 rounded bg-slate-800">
+                    <span class="text-slate-400">Puter AI</span>
+                    <div class="flex items-center gap-2"><span class="tag">Client-side</span><div class="status-dot status-ok"></div></div>
+                </div>
+                <div id="llm-providers" class="space-y-2">
+                    <div class="p-2 rounded bg-slate-800 text-slate-500 text-center">Connect to backend to see provider status</div>
+                </div>
+            </div>
+            <button onclick="refreshLLMStatus()" class="btn-primary px-3 py-1.5 rounded text-[11px] font-bold w-full flex justify-center items-center gap-2">
+                <div id="loader-llm" class="loader"></div><span>Refresh Status</span>
+            </button>
+        </section>
+
+    </div>
+
+    <!-- ═══ FOOTER ═══════════════════════════════════════════════ -->
+    <footer class="mt-6 text-center text-slate-600 text-[10px]">
+        Grudge Studio &copy; 2026 &bull; AI Lab v2.0.0 &bull;
+        <a href="https://grudgewarlords.com" class="text-slate-500 hover:text-indigo-400">grudgewarlords.com</a>
+    </footer>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════════════
+const CONFIG = {
+    GRUDGE_API:  'https://api.grudge-studio.com',
+    GRUDGE_ID:   'https://id.grudge-studio.com',
+    ASSET_API:   'https://assets-api.grudge-studio.com',
+};
+
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+let grudgeJWT  = null;
+let grudgeUser = null;
+let lastGeneratedTexture = null; // { blob, prompt }
+let lastGeneratedAudio   = null; // { blob, text, voice }
+
+// ═══════════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════════
+async function handleAuth() {
+    const el = document.getElementById('auth-status');
+    if (grudgeJWT) return; // already signed in
+
+    try {
+        // Step 1: Puter sign in
+        const puterUser = await puter.auth.getUser().catch(() => null);
+        if (!puterUser) await puter.auth.signIn();
+
+        const user = await puter.auth.getUser();
+        el.innerHTML = `<div class="status-dot status-ok"></div><span>${user.username}</span>`;
+
+        // Step 2: Try Grudge JWT bridge
+        try {
+            const resp = await fetch(`${CONFIG.GRUDGE_ID}/auth/puter-bridge`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ puter_username: user.username, puter_uuid: user.uuid }),
+            });
+            if (resp.ok) {
+                const data = await resp.json();
+                grudgeJWT  = data.jwt || data.token;
+                grudgeUser = data;
+                el.innerHTML = `<div class="status-dot status-ok"></div><span>${data.username || user.username}</span><span class="tag">${data.faction || 'pirate'}</span>`;
+                updateBackendStatus(true);
+                refreshLLMStatus();
+            }
+        } catch { /* backend offline — Puter AI still works */ }
+    } catch (err) {
+        el.innerHTML = `<div class="status-dot status-off"></div><span>Auth failed</span>`;
+    }
+}
+
+function updateBackendStatus(ok) {
+    const el = document.getElementById('backend-status');
+    el.innerHTML = ok
+        ? `<div class="status-dot status-ok"></div><span>Backend Connected</span>`
+        : `<div class="status-dot status-off"></div><span>Backend Offline</span>`;
+}
+
+// Auto-check backend on load
+(async () => {
+    try {
+        const r = await fetch(`${CONFIG.GRUDGE_API}/health`, { signal: AbortSignal.timeout(3000) });
+        if (r.ok) updateBackendStatus(true);
+    } catch { /* offline */ }
+    // Auto sign-in if already in Puter
+    try {
+        const u = await puter.auth.getUser();
+        if (u) {
+            document.getElementById('auth-status').innerHTML =
+                `<div class="status-dot status-ok"></div><span>${u.username}</span>`;
+        }
+    } catch { /* not signed in */ }
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// API HELPERS
+// ═══════════════════════════════════════════════════════════════
+async function grudgeAPI(path, body) {
+    if (!grudgeJWT) throw new Error('Sign in to use Grudge backend');
+    const resp = await fetch(`${CONFIG.GRUDGE_API}${path}`, {
+        method: body ? 'POST' : 'GET',
+        headers: {
+            'Authorization': `Bearer ${grudgeJWT}`,
+            'Content-Type': 'application/json',
+        },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || `API error ${resp.status}`);
+    }
+    return resp.json();
+}
+
+async function assetAPI(path, opts = {}) {
+    if (!grudgeJWT) throw new Error('Sign in to save assets');
+    const headers = { 'Authorization': `Bearer ${grudgeJWT}`, ...opts.headers };
+    if (opts.body && typeof opts.body === 'object' && !(opts.body instanceof Blob)) {
+        headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(opts.body);
+    }
+    const resp = await fetch(`${CONFIG.ASSET_API}${path}`, { ...opts, headers });
+    if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || `Asset API error ${resp.status}`);
+    }
+    return resp.json();
+}
+
+// Panel helper
+function P(id) {
+    return {
+        loader: document.getElementById(`loader-${id}`),
+        output: document.getElementById(`output-${id}`),
+        start() { this.loader.style.display = 'block'; },
+        stop()  { this.loader.style.display = 'none'; },
+        show(html, cls = '') {
+            this.output.className = `output-box p-3 rounded-lg text-xs max-h-48 overflow-y-auto whitespace-pre-wrap ${cls}`;
+            this.output.innerHTML = html;
+            this.output.classList.remove('hidden');
+        },
+        text(t) { this.output.textContent = t; this.output.classList.remove('hidden'); },
+        error(msg) { this.show(`<span class="text-red-400">${msg}</span>`); }
+    };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 1. CODE ARCHITECT
+// ═══════════════════════════════════════════════════════════════
+async function runCodeArchitect() {
+    const prompt = document.getElementById('code-prompt').value;
+    if (!prompt) return alert('Enter code or a question.');
+
+    const p = P('code');
+    const source = document.getElementById('code-source').value;
+    const model  = document.getElementById('code-model').value;
+    p.start();
+
+    try {
+        if (source === 'grudge') {
+            // Use Grudge AI agent via game-api proxy
+            const isReview = prompt.includes('review') || prompt.includes('bug') || prompt.includes('fix');
+            const endpoint = isReview ? '/ai/dev/review' : '/ai/dev/generate';
+            const body = isReview
+                ? { code: prompt, language: 'csharp', focus: 'bugs,performance' }
+                : { description: prompt, language: 'csharp', framework: 'uMMORPG' };
+            const data = await grudgeAPI(endpoint, body);
+            p.show(`<span class="text-slate-500">via ${data.provider || 'Grudge AI'} (${data.model || ''})</span>\n\n${data.review || data.code || JSON.stringify(data, null, 2)}`, 'font-mono text-green-400');
+        } else {
+            // Use Puter AI
+            const resp = await puter.ai.chat(
+                `You are a senior game developer for Grudge Studio (Unity + uMMORPG + Mirror networking). Help with this request using concise, modern code:\n\n${prompt}`,
+                { model }
+            );
+            p.show(typeof resp === 'string' ? resp : resp.message?.content || JSON.stringify(resp), 'font-mono text-green-400');
+        }
+    } catch (err) {
+        p.error(err.message);
+    } finally { p.stop(); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 2. TEXTURE SYNTHESIS
+// ═══════════════════════════════════════════════════════════════
+async function generateTexture() {
+    const prompt = document.getElementById('img-prompt').value;
+    if (!prompt) return alert('Enter a texture description.');
+
+    const p = P('img');
+    p.start();
+    const container = document.getElementById('output-img');
+    container.innerHTML = '<span class="text-slate-500 animate-pulse text-xs">Synthesizing...</span>';
+
+    try {
+        const image = await puter.ai.txt2img(prompt);
+        container.innerHTML = `<img src="${image.src}" class="w-full h-full object-cover cursor-pointer" onclick="window.open(this.src)">`;
+
+        // Store for saving
+        const resp = await fetch(image.src);
+        lastGeneratedTexture = { blob: await resp.blob(), prompt };
+        document.getElementById('save-texture').classList.remove('hidden');
+    } catch (err) {
+        container.innerHTML = `<span class="text-red-400 text-xs">${err.message}</span>`;
+    } finally { p.stop(); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 3. NPC VOICE STUDIO
+// ═══════════════════════════════════════════════════════════════
+async function generateVoice() {
+    const text = document.getElementById('tts-text').value;
+    if (!text) return alert('Enter dialogue text.');
+
+    const p = P('voice');
+    const voice = document.getElementById('tts-voice').value;
+    p.start();
+
+    try {
+        const audio = await puter.ai.txt2speech(text, { engine: 'openai', voice });
+        const player = document.createElement('audio');
+        player.src = audio.src;
+        player.controls = true;
+        player.className = 'w-full';
+
+        const container = document.getElementById('audio-container');
+        container.innerHTML = '';
+        container.appendChild(player);
+        player.play();
+
+        // Store for saving
+        const resp = await fetch(audio.src);
+        lastGeneratedAudio = { blob: await resp.blob(), text, voice };
+        document.getElementById('save-audio').classList.remove('hidden');
+    } catch (err) {
+        alert('TTS Error: ' + err.message);
+    } finally { p.stop(); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 4. LORE WRITER
+// ═══════════════════════════════════════════════════════════════
+async function generateLore() {
+    const type    = document.getElementById('lore-type').value;
+    const context = document.getElementById('lore-context').value;
+    const source  = document.getElementById('lore-source').value;
+    if (!context) return alert('Enter some context for the lore.');
+
+    const p = P('lore');
+    p.start();
+
+    try {
+        if (source === 'grudge') {
+            const data = await grudgeAPI('/ai/lore/generate', { type, context, tone: 'dark_fantasy' });
+            p.show(`<span class="text-amber-400 font-bold">${data.title || type.toUpperCase()}</span>\n\n${data.content || data.text || JSON.stringify(data, null, 2)}`);
+        } else {
+            const resp = await puter.ai.chat(
+                `You are a lore writer for Grudge Warlords, a dark fantasy souls-like MMO with pirates, factions, and magic. Generate a ${type} based on this context: ${context}. Be atmospheric, concise, and game-ready.`,
+                { model: 'claude-3-5-sonnet' }
+            );
+            p.show(`<span class="text-amber-400 font-bold">${type.toUpperCase()}</span>\n\n${typeof resp === 'string' ? resp : resp.message?.content || resp}`);
+        }
+    } catch (err) {
+        p.error(err.message);
+    } finally { p.stop(); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 5. 3D ART PROMPTER
+// ═══════════════════════════════════════════════════════════════
+async function generate3DArt() {
+    const desc   = document.getElementById('art-desc').value;
+    const engine = document.getElementById('art-engine').value;
+    const style  = document.getElementById('art-style').value;
+    const source = document.getElementById('art-source').value;
+    if (!desc) return alert('Describe the 3D model.');
+
+    const p = P('art');
+    p.start();
+
+    try {
+        if (source === 'grudge') {
+            const data = await grudgeAPI('/ai/art/prompt', { description: desc, engine, style });
+            p.show(`<span class="text-cyan-400 font-bold">${engine.toUpperCase()} Prompt</span>\n\n${data.prompt || JSON.stringify(data, null, 2)}`, 'font-mono text-cyan-300');
+        } else {
+            const resp = await puter.ai.chat(
+                `You are a 3D artist specializing in game assets for ${engine}. Generate an optimized prompt for creating this model: "${desc}" in ${style} style. Include specific technical parameters for ${engine} (topology, scale, polycount, textures).`,
+                { model: 'gpt-4o' }
+            );
+            p.show(`<span class="text-cyan-400 font-bold">${engine.toUpperCase()} Prompt</span>\n\n${typeof resp === 'string' ? resp : resp.message?.content || resp}`, 'font-mono text-cyan-300');
+        }
+    } catch (err) {
+        p.error(err.message);
+    } finally { p.stop(); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 6. BALANCE ANALYZER
+// ═══════════════════════════════════════════════════════════════
+async function analyzeBalance() {
+    const area    = document.getElementById('balance-area').value;
+    const context = document.getElementById('balance-context').value;
+    const p = P('balance');
+    p.start();
+
+    try {
+        if (grudgeJWT) {
+            const data = await grudgeAPI('/ai/balance/analyze', { area, context });
+            p.show(`<span class="text-red-400 font-bold">Balance: ${area.toUpperCase()}</span>\n\n${data.analysis || data.suggestions?.join('\n\n') || JSON.stringify(data, null, 2)}`);
+        } else {
+            const resp = await puter.ai.chat(
+                `You are a game balance designer for Grudge Warlords (souls-like MMO with 4 classes: warrior, mage, ranger, worge). Analyze ${area} balance${context ? ` focusing on: ${context}` : ''}. Consider: class asymmetry, gear tiers (T1-T5), profession milestones, faction interactions, permadeath impact. Provide specific numbers.`,
+                { model: 'claude-3-5-sonnet' }
+            );
+            p.show(`<span class="text-red-400 font-bold">Balance: ${area.toUpperCase()}</span>\n\n${typeof resp === 'string' ? resp : resp.message?.content || resp}`);
+        }
+    } catch (err) {
+        p.error(err.message);
+    } finally { p.stop(); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 7. ASSET INSPECTOR
+// ═══════════════════════════════════════════════════════════════
+async function analyzeImage() {
+    const fileInput = document.getElementById('vision-upload');
+    if (!fileInput.files.length) return alert('Select an image first.');
+
+    const p = P('vision');
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    p.output.textContent = 'Analyzing...';
+    p.output.classList.remove('hidden');
+
+    reader.onload = async (e) => {
+        try {
+            const img = document.createElement('img');
+            img.src = e.target.result;
+            const resp = await puter.ai.chat(
+                'Analyze this game asset for Grudge Warlords (dark fantasy MMO). Describe its style, color palette, resolution quality, and suggest improvements for a voxel/low-poly aesthetic.',
+                [img]
+            );
+            p.text(typeof resp === 'string' ? resp : resp.message?.content || JSON.stringify(resp));
+        } catch (err) {
+            p.error(err.message);
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 8. LLM STATUS
+// ═══════════════════════════════════════════════════════════════
+async function refreshLLMStatus() {
+    const p = P('llm');
+    const container = document.getElementById('llm-providers');
+    p.start();
+
+    try {
+        const data = await grudgeAPI('/ai/llm/status');
+        const providers = data.providers || data;
+        let html = '';
+        for (const [name, info] of Object.entries(providers)) {
+            const ok = info.configured || info.available;
+            html += `<div class="flex items-center justify-between p-2 rounded bg-slate-800">
+                <span class="${ok ? 'text-slate-300' : 'text-slate-500'}">${name}</span>
+                <div class="flex items-center gap-2">
+                    ${info.model ? `<span class="tag">${info.model}</span>` : ''}
+                    <div class="status-dot ${ok ? 'status-ok' : 'status-off'}"></div>
+                </div>
+            </div>`;
+        }
+        container.innerHTML = html || '<div class="p-2 text-slate-500 text-center">No providers reported</div>';
+    } catch (err) {
+        container.innerHTML = `<div class="p-2 text-red-400 text-center">${err.message}</div>`;
+    } finally { p.stop(); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SAVE TO GRUDGE ASSETS
+// ═══════════════════════════════════════════════════════════════
+async function saveAsset(type) {
+    if (!grudgeJWT) return alert('Sign in and connect to backend to save assets.');
+
+    try {
+        let filename, mime, category, blob, metadata;
+
+        if (type === 'texture' && lastGeneratedTexture) {
+            blob     = lastGeneratedTexture.blob;
+            filename = `texture_${Date.now()}.png`;
+            mime     = 'image/png';
+            category = 'texture';
+            metadata = { prompt: lastGeneratedTexture.prompt, source: 'ai-lab' };
+        } else if (type === 'audio' && lastGeneratedAudio) {
+            blob     = lastGeneratedAudio.blob;
+            filename = `npc_voice_${Date.now()}.mp3`;
+            mime     = 'audio/mpeg';
+            category = 'audio';
+            metadata = { dialogue: lastGeneratedAudio.text, voice: lastGeneratedAudio.voice, source: 'ai-lab' };
+        } else {
+            return alert('Nothing to save — generate content first.');
+        }
+
+        // Step 1: Get presigned upload URL
+        const presign = await assetAPI('/assets/presign', {
+            method: 'POST',
+            body: { filename, mime, category, metadata, tags: ['ai-generated', 'lab'], visibility: 'public' },
+        });
+
+        // Step 2: Upload directly to R2
+        await fetch(presign.uploadUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': mime },
+            body: blob,
+        });
+
+        // Step 3: Finalize
+        const result = await assetAPI(`/assets/${presign.uuid}/complete`, { method: 'POST' });
+
+        alert(`Saved! Asset ID: ${presign.uuid}\nURL: ${result.url || 'processing...'}`);
+
+        // Hide save button after successful save
+        document.getElementById(`save-${type}`).classList.add('hidden');
+    } catch (err) {
+        alert('Save failed: ' + err.message);
+    }
+}
+</script>
+</body>
+</html>

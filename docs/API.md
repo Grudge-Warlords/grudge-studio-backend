@@ -280,26 +280,81 @@ GET  /entitlement                      — check if user has game access (auth)
 
 ---
 
-## ai-agent — AI Systems (port 3004, internal only)
+## ai-agent — AI Systems (port 3004)
 
-### Dynamic Missions
+AI agent endpoints are accessible externally via the game-api proxy at `api.grudgestudio.com/ai/*` (requires JWT auth). Internally, services call ai-agent directly at port 3004 with `x-internal-key`.
+
+The AI agent uses a fallback chain: **Anthropic → OpenAI → DeepSeek → template**. If no LLM API keys are configured, all endpoints gracefully fall back to deterministic template-based responses.
+
+### LLM Status
 ```
-POST /missions/generate                — generate missions for a player (internal)
-     Body: { grudge_id, faction, level, profession_levels? }
+GET /ai/llm/status                     — provider diagnostics
+→ { providers: { anthropic: { configured, model }, openai: {...}, deepseek: {...} } }
+```
+
+### Game Context
+```
+GET /ai/context                        — full game system context (classes, races, weapons, etc.)
+→ { version, races, classes, factions, professions, ... }
+```
+
+### Code Review & Generation
+```
+POST /ai/dev/review                    — review code for bugs/perf/patterns
+     Body: { code, language?, focus? }
+→ { review, suggestions[], severity, provider, model }
+
+POST /ai/dev/generate                  — generate game code
+     Body: { description, language?, framework? }
+→ { code, explanation, provider, model }
+```
+
+### Balance Analysis
+```
+POST /ai/balance/analyze               — analyze game balance
+     Body: { area: "combat"|"economy"|"professions"|"gear", context? }
+→ { analysis, suggestions[], data_points, provider, model }
+```
+
+### Lore Generation
+```
+POST /ai/lore/generate                 — generate game lore/content
+     Body: { type: "quest"|"dialogue"|"item_description"|"boss"|"location"|"event", context, tone? }
+→ { title, content, tags[], provider, model }
+```
+
+### 3D Art Prompts
+```
+POST /ai/art/prompt                    — generate optimized 3D model prompts
+     Body: { description, engine: "meshy"|"tripo"|"text2vox", style? }
+→ { prompt, engine, settings{}, provider, model }
+```
+
+### Dynamic Missions (LLM-enhanced)
+```
+POST /ai/mission/generate              — generate missions for a player
+     Body: { grudge_id, faction, level, profession_levels?, useLLM? }
 → [{ title, type, description, reward_gold, reward_xp, difficulty }]
 ```
+**Mission types:** `harvesting` | `fighting` | `sailing` | `competing`
 
-### Companions (Gouldstone behavior)
+### Companion Dialogue (LLM-enhanced)
 ```
-GET  /companions/:grudge_id            — get all companion behavior states
-POST /companions/:grudge_id/action     — trigger a companion action (internal)
-     Body: { gouldstone_id, action_type }
+POST /ai/companion/interact            — generate companion dialogue
+     Body: { class, style?, faction?, situation: "combat"|"idle"|"harvesting"|"sailing"|"travel", context?, player_name? }
+→ { dialogue, action_hint, emote, context, profile, source: "llm"|"fallback" }
+
+POST /ai/companion/assign              — assign behavior profile
+     Body: { class, style?, faction? }
+→ { combat_style, dialogue_tone, faction_dialogue, behavior_flags }
+
+GET  /ai/companion/profiles/:class     — get available styles for a class
 ```
 
 ### Faction Intel
 ```
-GET  /factions/intel                   — faction activity summary (internal)
-GET  /factions/recommend/:grudge_id    — recommend missions based on faction standing
+GET  /ai/faction/intel                 — faction activity summary
+GET  /ai/faction/recommend/:grudge_id  — recommend missions based on faction standing
 ```
 
 ---

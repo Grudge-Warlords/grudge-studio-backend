@@ -13,10 +13,13 @@ Built with Node.js · Docker · MySQL 8 · Redis 7 · nginx · Solana · Cloudfl
 | **grudge-id** | 3001 | `id.grudgestudio.com` | Unified identity — Discord OAuth, Web3Auth, JWT, Puter bridge |
 | **wallet-service** | 3002 | *(internal only)* | Server-side Solana HD wallets (BIP44) |
 | **game-api** | 3003 | `api.grudgestudio.com` | GAME_API_GRUDA — characters, missions, crews, inventory, professions, gouldstones |
-| **ai-agent** | 3004 | *(internal only)* | Dynamic missions, Gouldstone behavior profiles, faction intel |
+| **ai-agent** | 3004 | `api.grudgestudio.com/ai/*` | LLM-powered AI pipeline — code review, balance analysis, lore gen, art prompts, dynamic missions, companion dialogue (Anthropic → OpenAI → DeepSeek → template fallback) |
 | **account-api** | 3005 | `account.grudgestudio.com` | User profiles, social, achievements, R2 asset storage |
 | **launcher-api** | 3006 | `launcher.grudgestudio.com` | Version manifest (60s TTL cache), computer registration, launch tokens |
-| **grudge-headless** | 7777 | `ws.grudgestudio.com` | Game server WebSocket |
+| **asset-service** | 3008 | `assets-api.grudgestudio.com` | Asset upload, metadata, conversions, export bundles, ObjectStore sync |
+| **ws-service** | 3007 | `ws.grudgestudio.com` | Real-time WebSocket (Socket.IO) — island rooms, crew chat, PvP, global events |
+| **grudge-headless** | 7777 | `ws.grudgestudio.com:7777` | Unity game server (Mirror) |
+| **AI Lab** | — | `lab.grudge-studio.com` | Browser-based dev tool — 8-panel AI workbench (Puter.js + Grudge backend) |
 
 ---
 

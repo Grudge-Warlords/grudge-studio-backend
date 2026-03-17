@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path       = require('path');
 const express    = require('express');
 const helmet     = require('helmet');
 const cors       = require('cors');
@@ -20,6 +21,8 @@ const combatRoutes     = require('./routes/combat');
 const islandRoutes     = require('./routes/islands');
 const pvpRoutes        = require('./routes/pvp');
 const gameDataRoutes   = require('./routes/game-data');
+const dungeonRoutes    = require('./routes/dungeon');
+const aiProxyRoutes    = require('./routes/ai-proxy');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -42,11 +45,22 @@ app.use(helmet({
       scriptSrc:  ["'self'", "https://static.cloudflareinsights.com"],
       connectSrc: ["'self'", "https://cloudflareinsights.com"],
       styleSrc:   ["'self'", "'unsafe-inline'"],
+      imgSrc:     ["'self'", 'data:'],
+      fontSrc:    ["'self'"],
     },
   },
 }));
-app.use(cors({ origin: CORS_ORIGINS, credentials: true }));
+// Allow *.puter.site subdomains for Puter-hosted apps (e.g. AI Lab)
+const CORS_ORIGIN_FN = (origin, cb) => {
+  if (!origin) return cb(null, true); // server-to-server
+  if (CORS_ORIGINS.includes(origin) || /\.puter\.site$/.test(origin)) return cb(null, true);
+  cb(new Error('CORS: origin not allowed'));
+};
+app.use(cors({ origin: CORS_ORIGIN_FN, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
+
+// ── Static assets (favicon, etc.) ──────────────────────────────
+app.use(express.static(path.join(__dirname, '..', 'public'), { maxAge: '7d' }));
 
 // ── Rate limiting ──────────────────────────────────────────────
 // Skip for internal service calls (x-internal-key header)
@@ -118,7 +132,32 @@ async function requireAuth(req, res, next) {
 }
 
 // ── Routes ────────────────────────────
-app.get('/', (req, res) => res.json({ service: 'game-api', version: '2.0.0', docs: '/health', status: 'running' }));
+app.get('/', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Grudge Studio — Game API</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{min-height:100vh;display:flex;align-items:center;justify-content:center;
+         background:#0a0e17;color:#c9a44a;font-family:system-ui,sans-serif}
+    .card{text-align:center;padding:2rem}
+    img{width:96px;height:96px;margin-bottom:1rem}
+    h1{font-size:1.5rem;margin-bottom:.5rem;color:#e2c563}
+    p{color:#8892a4;font-size:.9rem}
+    a{color:#c9a44a;text-decoration:none}
+    a:hover{text-decoration:underline}
+  </style>
+</head><body>
+  <div class="card">
+    <img src="/favicon.png" alt="Grudge Studio">
+    <h1>Grudge Studio — Game API</h1>
+    <p>v2.0.0 &bull; <a href="/health">/health</a></p>
+  </div>
+</body></html>`);
+});
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'game-api', version: '2.0.0' }));
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.use('/characters',  requireAuth, characterRoutes);
@@ -134,6 +173,8 @@ app.use('/combat',      requireAuth, combatRoutes);
 app.use('/islands',     requireAuth, islandRoutes);
 app.use('/pvp',         requireAuth, pvpLimiter, pvpRoutes);
 app.use('/game-data',   gameDataRoutes);  // Public — no auth required (read-only game definitions)
+app.use('/dungeon',     requireAuth, dungeonRoutes);
+app.use('/ai',          requireAuth, aiProxyRoutes);
 
 app.use((err, req, res, next) => {
   console.error('[game-api]', err.message);

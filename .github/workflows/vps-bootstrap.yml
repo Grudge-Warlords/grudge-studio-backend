@@ -22,9 +22,9 @@ jobs:
       - name: Install Docker
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.VPS_HOST || '74.208.174.62' }}
-          username: ${{ secrets.VPS_USER || 'Administrator' }}
-          password: ${{ secrets.VPS_PASSWORD || 'Hf8vBjMC' }}
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
           port: 22
           command_timeout: 20m
           script: |
@@ -43,13 +43,13 @@ jobs:
       - name: Clone repo
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.VPS_HOST || '74.208.174.62' }}
-          username: ${{ secrets.VPS_USER || 'Administrator' }}
-          password: ${{ secrets.VPS_PASSWORD || 'Hf8vBjMC' }}
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
           port: 22
           command_timeout: 5m
           script: |
-            REPO_URL="https://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@github.com/MolochDaGod/grudge-studio-backend.git"
+            REPO_URL="https://${{ secrets.GH_DEPLOY_TOKEN }}@github.com/MolochDaGod/grudge-studio-backend.git"
             DEPLOY_DIR="/opt/grudge-studio-backend"
             if [ -d "$DEPLOY_DIR/.git" ]; then
               cd "$DEPLOY_DIR"
@@ -67,9 +67,9 @@ jobs:
       - name: Setup .env
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.VPS_HOST || '74.208.174.62' }}
-          username: ${{ secrets.VPS_USER || 'Administrator' }}
-          password: ${{ secrets.VPS_PASSWORD || 'Hf8vBjMC' }}
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
           port: 22
           command_timeout: 3m
           script: |
@@ -98,9 +98,9 @@ jobs:
       - name: Generate deploy SSH key
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.VPS_HOST || '74.208.174.62' }}
-          username: ${{ secrets.VPS_USER || 'Administrator' }}
-          password: ${{ secrets.VPS_PASSWORD || 'Hf8vBjMC' }}
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
           port: 22
           command_timeout: 2m
           script: |
@@ -124,9 +124,9 @@ jobs:
       - name: Start infrastructure (MySQL + Redis)
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.VPS_HOST || '74.208.174.62' }}
-          username: ${{ secrets.VPS_USER || 'Administrator' }}
-          password: ${{ secrets.VPS_PASSWORD || 'Hf8vBjMC' }}
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
           port: 22
           command_timeout: 10m
           script: |
@@ -145,9 +145,9 @@ jobs:
       - name: Build and start all services
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.VPS_HOST || '74.208.174.62' }}
-          username: ${{ secrets.VPS_USER || 'Administrator' }}
-          password: ${{ secrets.VPS_PASSWORD || 'Hf8vBjMC' }}
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
           port: 22
           command_timeout: 20m
           script: |
@@ -177,9 +177,9 @@ jobs:
       - name: Health checks
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.VPS_HOST || '74.208.174.62' }}
-          username: ${{ secrets.VPS_USER || 'Administrator' }}
-          password: ${{ secrets.VPS_PASSWORD || 'Hf8vBjMC' }}
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
           port: 22
           command_timeout: 3m
           script: |

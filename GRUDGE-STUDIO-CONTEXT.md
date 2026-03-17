@@ -25,7 +25,7 @@ INFRASTRUCTURE:
 LIVE ENDPOINTS:
 - https://grudge-studio.com          — Main site (Cloudflare Worker)
 - https://id.grudge-studio.com       — Identity / Auth API  (port 3001)
-- https://api.grudge-studio.com      — Game API / GAME_API_GRUDA (port 3003)
+- https://api.grudge-studio.com      — Game API / GAME_API_GRUDA (port 3003) — branded landing page + favicon
 - https://account.grudge-studio.com  — Account / Profile API (port 3005)
 - https://launcher.grudge-studio.com — Launcher / Patch API (port 3006)
 - https://ws.grudge-studio.com       — WebSocket / Socket.IO (port 3007)
@@ -68,7 +68,7 @@ INTERNAL NETWORK:
 |---------|-----------|------|-----|---------|
 | Grudge Identity | `grudge-id` | 3001 | id.grudge-studio.com | external |
 | Wallet Service | `wallet-service` | 3002 | (internal only) | internal |
-| Game API | `game-api` | 3003 | api.grudge-studio.com | external |
+| Game API | `game-api` | 3003 | api.grudge-studio.com | external | Serves branded landing page at `/`, favicon at `/favicon.png` |
 | AI Agent | `ai-agent` | 3004 | (internal only) | internal |
 | Account API | `account-api` | 3005 | account.grudge-studio.com | external |
 | Launcher API | `launcher-api` | 3006 | launcher.grudge-studio.com | external |
@@ -120,6 +120,13 @@ Required on auth endpoints when `CF_TURNSTILE_SECRET_KEY` is set in .env.
 ## 4. Game API — Endpoint Reference
 
 **Base URL:** `https://api.grudge-studio.com`
+
+### Root / Status
+```
+GET  /                               — Branded landing page (HTML) with favicon
+GET  /health                         — { status: 'ok', service: 'game-api', version: '2.0.0' }
+GET  /favicon.png                    — Grudge Studio favicon (static, 7d cache)
+```
 
 ### Economy
 ```

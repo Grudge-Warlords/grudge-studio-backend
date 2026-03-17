@@ -15,7 +15,39 @@ concurrency:
   cancel-in-progress: false   # never cancel a running deploy
 
 jobs:
+  # ── Pre-deploy: lint & syntax-check all services ──────────────
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install & lint ai-agent
+        working-directory: services/ai-agent
+        run: |
+          npm ci --ignore-scripts
+          node -e "require('./src/index.js')" 2>&1 | head -5 && echo 'Syntax OK' || exit 1
+      - name: Syntax-check all services
+        run: |
+          FAIL=0
+          for svc in grudge-id wallet-service game-api ai-agent account-api launcher-api asset-service ws-service; do
+            DIR="services/$svc"
+            if [ -f "$DIR/package.json" ]; then
+              MAIN=$(node -e "console.log(require('./$DIR/package.json').main || 'src/index.js')")
+              if node --check "$DIR/$MAIN" 2>/dev/null; then
+                echo "  ✅ $svc"
+              else
+                echo "  ❌ $svc syntax error"
+                FAIL=$((FAIL+1))
+              fi
+            fi
+          done
+          [ $FAIL -eq 0 ] || exit 1
+
   deploy:
+    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -26,30 +58,78 @@ jobs:
 
       # ── 2. SSH setup ──────────────────────────
       - name: Setup SSH
+        id: setup_ssh
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+          KEY_RAW='${{ secrets.DEPLOY_SSH_KEY }}'
+          VALID=0
+
+          # Method 1: raw multiline secret
+          printf "%s" "$KEY_RAW" | tr -d '\r' > ~/.ssh/deploy_key
+          if ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null 2>&1; then
+            VALID=1
+          fi
+
+          # Method 2: escaped newlines (\n)
+          if [ $VALID -eq 0 ]; then
+            printf "%b" "$KEY_RAW" | tr -d '\r' > ~/.ssh/deploy_key
+            if ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null 2>&1; then
+              VALID=1
+            fi
+          fi
+
+          # Method 3: base64-encoded key
+          if [ $VALID -eq 0 ]; then
+            echo "$KEY_RAW" | tr -d '\r' | base64 -d > ~/.ssh/deploy_key 2>/dev/null || true
+            if ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null 2>&1; then
+              VALID=1
+            fi
+          fi
+
+          if [ $VALID -eq 1 ]; then
+            chmod 600 ~/.ssh/deploy_key
+            echo "auth_mode=key" >> $GITHUB_OUTPUT
+          elif [ -n "${{ secrets.VPS_PASSWORD }}" ]; then
+            sudo apt-get update -y
+            sudo apt-get install -y sshpass
+            echo "auth_mode=password" >> $GITHUB_OUTPUT
+          else
+            echo "DEPLOY_SSH_KEY invalid and VPS_PASSWORD not set."
+            exit 1
+          fi
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
       # ── 3. Sync code (never sync .env) ────────
       - name: Sync project to VPS
         run: |
+          if [ "${{ steps.setup_ssh.outputs.auth_mode }}" = "password" ]; then
+            export SSHPASS="${{ secrets.VPS_PASSWORD }}"
+            RSYNC_SSH="sshpass -e ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no"
+          else
+            RSYNC_SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no"
+          fi
           rsync -az --delete \
             --exclude='.git/' \
             --exclude='node_modules/' \
             --exclude='services/grudge-headless/bin/' \
             --exclude='.env' \
             --exclude='*.log' \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            -e "$RSYNC_SSH" \
             ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/grudge-studio-backend/
 
       # ── 4. Run SQL migrations (idempotent) ────
       - name: Run SQL migrations
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-            'bash /opt/grudge-studio-backend/scripts/migrate.sh'
+          if [ "${{ steps.setup_ssh.outputs.auth_mode }}" = "password" ]; then
+            export SSHPASS="${{ secrets.VPS_PASSWORD }}"
+            sshpass -e ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no \
+              ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+              'bash /opt/grudge-studio-backend/scripts/migrate.sh'
+          else
+            ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+              ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+              'bash /opt/grudge-studio-backend/scripts/migrate.sh'
+          fi
 
       # ── 5. Rolling service rebuild ────────────
       #   Order: infrastructure-free → data → api → realtime
@@ -57,7 +137,12 @@ jobs:
       #   other services stay up during the rolling update.
       - name: Rolling deploy
         run: |
-          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          if [ "${{ steps.setup_ssh.outputs.auth_mode }}" = "password" ]; then
+            export SSHPASS="${{ secrets.VPS_PASSWORD }}"
+            SSH="sshpass -e ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          else
+            SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          fi
           BASE="/opt/grudge-studio-backend"
           SERVICES="${{ github.event.inputs.services || 'all' }}"
 
@@ -82,16 +167,28 @@ jobs:
       # ── 6. Remove dangling images/containers ──
       - name: Prune docker
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-            'docker image prune -f && docker container prune -f'
+          if [ "${{ steps.setup_ssh.outputs.auth_mode }}" = "password" ]; then
+            export SSHPASS="${{ secrets.VPS_PASSWORD }}"
+            sshpass -e ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no \
+              ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+              'docker image prune -f && docker container prune -f'
+          else
+            ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+              ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+              'docker image prune -f && docker container prune -f'
+          fi
 
       # ── 7. Health checks with retry ───────────
       - name: Health check
         id: health
         run: |
           sleep 12
-          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          if [ "${{ steps.setup_ssh.outputs.auth_mode }}" = "password" ]; then
+            export SSHPASS="${{ secrets.VPS_PASSWORD }}"
+            SSH="sshpass -e ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          else
+            SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          fi
           FAIL=0
           declare -A ENDPOINTS=(
             [grudge-id]=3001
@@ -130,6 +227,10 @@ jobs:
         if: success()
         continue-on-error: true
         run: |
+          if [ -z "${{ secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN }}" ]; then
+            echo "DISCORD_SYSTEM_WEBHOOK_TOKEN not set; skipping success notification."
+            exit 0
+          fi
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           curl -sf -X POST "${{ secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN }}" \
             -H "Content-Type: application/json" \
@@ -149,7 +250,12 @@ jobs:
 
       - name: Notify Discord (failure)
         if: failure()
+        continue-on-error: true
         run: |
+          if [ -z "${{ secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN }}" ]; then
+            echo "DISCORD_SYSTEM_WEBHOOK_TOKEN not set; skipping failure notification."
+            exit 0
+          fi
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           curl -sf -X POST "${{ secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN }}" \
             -H "Content-Type: application/json" \
