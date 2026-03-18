@@ -24,7 +24,7 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 22
           command_timeout: 20m
           script: |
@@ -45,7 +45,7 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 22
           command_timeout: 5m
           script: |
@@ -69,7 +69,7 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 22
           command_timeout: 3m
           script: |
@@ -100,7 +100,7 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 22
           command_timeout: 2m
           script: |
@@ -126,7 +126,7 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 22
           command_timeout: 10m
           script: |
@@ -147,7 +147,7 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 22
           command_timeout: 20m
           script: |
@@ -164,9 +164,9 @@ jobs:
       - name: Run SQL migrations
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.VPS_HOST || '74.208.174.62' }}
-          username: ${{ secrets.VPS_USER || 'Administrator' }}
-          password: ${{ secrets.VPS_PASSWORD || 'Hf8vBjMC' }}
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 22
           command_timeout: 5m
           script: |
@@ -179,7 +179,7 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 22
           command_timeout: 3m
           script: |
