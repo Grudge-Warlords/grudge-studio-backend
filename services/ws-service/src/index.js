@@ -14,18 +14,12 @@ const JWT_SECRET      = process.env.JWT_SECRET;
 const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY;
 const REDIS_URL       = process.env.REDIS_URL || 'redis://:@grudge-redis:6379';
 
-// ── CORS origins ──────────────────────────────
-const CORS_ORIGINS = (
-  process.env.CORS_ORIGINS ||
-  'https://grudgewarlords.com,https://grudge-studio.com'
-).split(',').map(o => o.trim()).filter(Boolean);
-if (process.env.NODE_ENV !== 'production') {
-  CORS_ORIGINS.push('http://localhost:3000', 'http://localhost:5173');
-}
+// ── CORS — shared module ──────────────────────
+const { grudgeCorsConfig } = require('../../shared/cors');
 
 // ── Socket.IO ─────────────────────────────────
 const io = new Server(server, {
-  cors: { origin: CORS_ORIGINS, methods: ['GET', 'POST'], credentials: true },
+  cors: grudgeCorsConfig(),
   // Traefik sticky sessions via client ID header
   allowEIO3: true,
 });

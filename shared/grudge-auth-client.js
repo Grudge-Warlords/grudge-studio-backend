@@ -24,6 +24,13 @@ const GRUDGE_AUTH_URL = process.env.GRUDGE_AUTH_URL
   || process.env.VPS_AUTH_URL
   || 'https://id.grudge-studio.com';
 
+// ── Default redirect_uri for OAuth (caller's /auth page) ─────────────────────
+let _defaultRedirectUri = null;
+
+/** Set the default redirect_uri for all OAuth redirect flows */
+function setDefaultRedirectUri(uri) { _defaultRedirectUri = uri; }
+function getDefaultRedirectUri() { return _defaultRedirectUri; }
+
 // ── Generic HTTP helpers ────────────────────────────────────────────────────
 
 async function authPost(path, body = {}) {
@@ -79,6 +86,17 @@ async function grudgeGoogleExchange(code, redirect_uri) {
 /** GitHub OAuth code exchange */
 async function grudgeGitHubExchange(code, redirect_uri) {
   return authPost('/auth/github/exchange', { code, redirect_uri });
+}
+
+/**
+ * Get OAuth redirect URL for a provider.
+ * The backend will redirect the user back to `redirect_uri` after login.
+ * Usage: window.location.href = grudgeOAuthUrl('discord', 'https://myapp.com/auth')
+ */
+function grudgeOAuthUrl(provider, redirect_uri) {
+  const redir = redirect_uri || _defaultRedirectUri || '';
+  const params = redir ? `?redirect_uri=${encodeURIComponent(redir)}` : '';
+  return `${GRUDGE_AUTH_URL}/auth/${provider}${params}`;
 }
 
 /** Puter UUID login/register */
@@ -271,16 +289,35 @@ function mountGrudgeAuth(app) {
   app.post('/api/auth/verify',   (req, res) => proxy('/auth/verify', req, res));
   app.post('/api/auth/phone-verify', (req, res) => proxy('/auth/phone-verify', req, res));
 
-  // OAuth exchanges
+  // OAuth exchanges (POST — used by in-app SDK flows)
   app.post('/api/auth/discord/exchange', (req, res) => proxy('/auth/discord/exchange', req, res));
   app.post('/api/auth/google/exchange',  (req, res) => proxy('/auth/google/exchange', req, res));
   app.post('/api/auth/github/exchange',  (req, res) => proxy('/auth/github/exchange', req, res));
 
-  // OAuth redirects
-  app.get('/api/auth/discord', (req, res) => proxy('/auth/discord', req, res, { method: 'GET', forwardBody: false }));
+  // OAuth redirects (GET — browser redirect flow with state-based dynamic redirect)
+  app.get('/api/auth/discord', (req, res) => {
+    const qs = req.url.includes('?') ? req.url.split('?')[1] : '';
+    proxy(`/auth/discord?${qs}`, req, res, { method: 'GET', forwardBody: false });
+  });
   app.get('/api/auth/discord/callback', (req, res) => {
     const qs = req.url.includes('?') ? req.url.split('?')[1] : '';
     proxy(`/auth/discord/callback?${qs}`, req, res, { method: 'GET', forwardBody: false });
+  });
+  app.get('/api/auth/google', (req, res) => {
+    const qs = req.url.includes('?') ? req.url.split('?')[1] : '';
+    proxy(`/auth/google?${qs}`, req, res, { method: 'GET', forwardBody: false });
+  });
+  app.get('/api/auth/google/callback', (req, res) => {
+    const qs = req.url.includes('?') ? req.url.split('?')[1] : '';
+    proxy(`/auth/google/callback?${qs}`, req, res, { method: 'GET', forwardBody: false });
+  });
+  app.get('/api/auth/github', (req, res) => {
+    const qs = req.url.includes('?') ? req.url.split('?')[1] : '';
+    proxy(`/auth/github?${qs}`, req, res, { method: 'GET', forwardBody: false });
+  });
+  app.get('/api/auth/github/callback', (req, res) => {
+    const qs = req.url.includes('?') ? req.url.split('?')[1] : '';
+    proxy(`/auth/github/callback?${qs}`, req, res, { method: 'GET', forwardBody: false });
   });
 
   // Identity
@@ -316,6 +353,11 @@ module.exports = {
   grudgeVerify,
   grudgeLookup,
   grudgeGetMe,
+
+  // OAuth redirect helpers
+  grudgeOAuthUrl,
+  setDefaultRedirectUri,
+  getDefaultRedirectUri,
 
   // Helpers
   extractUser,

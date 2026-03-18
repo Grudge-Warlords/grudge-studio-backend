@@ -2,7 +2,6 @@ require('dotenv').config();
 const path       = require('path');
 const express    = require('express');
 const helmet     = require('helmet');
-const cors       = require('cors');
 const jwt        = require('jsonwebtoken');
 const rateLimit  = require('express-rate-limit');
 const { initDB } = require('./db');
@@ -28,14 +27,7 @@ const app = express();
 const PORT = process.env.PORT || 3003;
 app.set('trust proxy', 1); // Trust one proxy hop (Traefik/Coolify) — required by express-rate-limit v7
 
-// ── Dynamic CORS — supports GitHub Pages, puter apps, ObjectStore ────
-const CORS_ORIGINS = (
-  process.env.CORS_ORIGINS ||
-  'https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com'
-).split(',').map(o => o.trim()).filter(Boolean);
-if (process.env.NODE_ENV !== 'production') {
-  CORS_ORIGINS.push('http://localhost:3000', 'http://localhost:5173', 'http://localhost:4173');
-}
+const { grudgeCors } = require('../../shared/cors');
 
 app.use(helmet({
   hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
@@ -50,13 +42,7 @@ app.use(helmet({
     },
   },
 }));
-// Allow *.puter.site subdomains for Puter-hosted apps (e.g. AI Lab)
-const CORS_ORIGIN_FN = (origin, cb) => {
-  if (!origin) return cb(null, true); // server-to-server
-  if (CORS_ORIGINS.includes(origin) || /\.puter\.site$/.test(origin)) return cb(null, true);
-  cb(new Error('CORS: origin not allowed'));
-};
-app.use(cors({ origin: CORS_ORIGIN_FN, credentials: true }));
+app.use(grudgeCors());
 app.use(express.json({ limit: '2mb' }));
 
 // ── Static assets (favicon, etc.) ──────────────────────────────

@@ -19,72 +19,118 @@ Welcome to the Grudge Studio platform. This guide covers everything you need to 
 
 ## Authentication
 
-All API calls (except public endpoints) require a JWT in the `Authorization` header:
+All API calls (except public endpoints) require a Grudge JWT in the `Authorization` header:
 
 ```
 Authorization: Bearer <token>
 ```
 
-### Register / Login
+One Grudge ID works across every Grudge Studio app — like Steam or Battle.net.
+
+### CORS
+
+All services use a shared CORS module (`services/shared/cors.js`) that allows:
+- `*.grudge-studio.com`, `*.grudgestudio.com`, `*.grudgewarlords.com` (any subdomain)
+- Grudge project Vercel deploys (e.g. `dungeon-crawler-quest-*.vercel.app`)
+- `*.puter.site` (Puter-hosted apps)
+- `localhost:*` (dev mode only)
+- Any explicit origins in `CORS_ORIGINS` env
+
+### Register / Login (Username + Password)
 
 ```http
 POST https://id.grudge-studio.com/auth/register
-Content-Type: application/json
+{ "username": "player1", "password": "...", "email": "player1@example.com" }
 
-{
-  "username": "player1",
-  "email": "player1@example.com",
-  "password": "..."
-}
-```
-
-```http
 POST https://id.grudge-studio.com/auth/login
-Content-Type: application/json
-
-{
-  "email": "player1@example.com",
-  "password": "..."
-}
+{ "username": "player1", "password": "..." }
 ```
 
-Response:
-```json
-{
-  "token": "eyJ...",
-  "user": { "grudge_id": "GRD-abc123", "username": "player1" }
-}
-```
+Response: `{ "success": true, "token": "eyJ...", "grudgeId": "...", "user": { ... } }`
 
-### Discord OAuth
+### OAuth Redirect Flows (Discord, Google, GitHub)
+
+All OAuth providers use browser redirect with a `state` parameter to return the user to the correct app:
 
 ```
-GET https://id.grudge-studio.com/auth/discord
+GET https://id.grudge-studio.com/auth/discord?redirect_uri=https://myapp.com/login
+GET https://id.grudge-studio.com/auth/google?redirect_uri=https://myapp.com/login
+GET https://id.grudge-studio.com/auth/github?redirect_uri=https://myapp.com/login
 ```
-Redirects to Discord, then returns a Grudge JWT.
+
+After the user approves, they are redirected to:
+```
+https://myapp.com/login?token=eyJ...&grudge_id=...&provider=discord
+```
+
+The `redirect_uri` is validated against the same domain allow-list as CORS. If omitted, defaults to `https://grudgewarlords.com/auth`.
+
+**POST exchange endpoints** (for server-side/proxy flows) are also available:
+```http
+POST https://id.grudge-studio.com/auth/discord/exchange  { "code": "...", "redirect_uri": "..." }
+POST https://id.grudge-studio.com/auth/google/exchange   { "code": "...", "redirect_uri": "..." }
+POST https://id.grudge-studio.com/auth/github/exchange   { "code": "...", "redirect_uri": "..." }
+```
 
 ### Web3Auth / Solana Wallet
 
 ```http
-POST https://id.grudge-studio.com/auth/web3
-Content-Type: application/json
-
-{
-  "wallet_address": "...",
-  "signature": "...",
-  "message": "..."
-}
+POST https://id.grudge-studio.com/auth/wallet
+{ "wallet_address": "...", "web3auth_token": "..." }
 ```
 
-### Puter Bridge (AI Lab)
+### Puter Cloud
 
 ```http
-POST https://api.grudge-studio.com/auth/puter-bridge
-Content-Type: application/json
+POST https://id.grudge-studio.com/auth/puter
+{ "puterUuid": "...", "puterUsername": "..." }
+```
 
-{
-  "puterToken": "..."
-}
+### Guest Login
+
+```http
+POST https://id.grudge-studio.com/auth/guest
+{ "deviceId": "..." }
+```
+
+### Phone Verification
+
+```http
+POST https://id.grudge-studio.com/auth/phone-verify
+{ "phone": "+1234567890", "code": "123456" }
+```
+
+### Verify Token
+
+```http
+POST https://id.grudge-studio.com/auth/verify
+{ "token": "eyJ..." }
+```
+
+### Get Current User
+
+```http
+GET https://id.grudge-studio.com/identity/me
+Authorization: Bearer <token>
+```
+
+### Drop-in Auth Client
+
+Use `shared/grudge-auth-client.js` in any Node.js project:
+
+```js
+const { mountGrudgeAuth, verifyGrudgeToken, grudgeOAuthUrl } = require('./grudge-auth-client');
+
+// Mount all auth proxy routes on an Express app
+mountGrudgeAuth(app);
+
+// Protect a route with Grudge JWT verification
+app.get('/protected', verifyGrudgeToken, (req, res) => {
+  res.json({ user: req.grudgeUser });
+});
+
+// Generate an OAuth URL for a provider
+const discordUrl = grudgeOAuthUrl('discord', 'https://myapp.com/auth');
 ```
 
 ---
