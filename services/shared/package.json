@@ -1,12 +1,13 @@
 {
-  "name": "@grudge-studio/shared",
+  "name": "@grudge/shared",
   "version": "1.0.0",
-  "private": true,
   "description": "Shared utilities for Grudge Studio backend services",
-  "main": "storage.js",
+  "main": "index.js",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.500.0",
     "@aws-sdk/s3-request-presigner": "^3.500.0",
-    "multer": "^1.4.5-lts.1"
+    "multer": "^1.4.5-lts.1",
+    "cors": "^2.8.5",
+    "jsonwebtoken": "^9.0.0"
   }
 }

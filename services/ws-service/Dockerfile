@@ -2,6 +2,9 @@ FROM node:20-alpine AS base
 WORKDIR /app/ws-service
 COPY ws-service/package.json .
 COPY shared /app/shared
+WORKDIR /app/shared
+RUN npm install --omit=dev
+WORKDIR /app/ws-service
 
 FROM base AS development
 RUN npm install

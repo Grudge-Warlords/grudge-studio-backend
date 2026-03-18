@@ -2,6 +2,9 @@ FROM node:20-alpine AS base
 WORKDIR /app/grudge-id
 COPY grudge-id/package.json .
 COPY shared /app/shared
+WORKDIR /app/shared
+RUN npm install --omit=dev
+WORKDIR /app/grudge-id
 
 FROM base AS development
 RUN npm install

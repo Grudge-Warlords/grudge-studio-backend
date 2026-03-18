@@ -2,6 +2,9 @@ FROM node:20-alpine AS base
 WORKDIR /app/asset-service
 COPY asset-service/package.json .
 COPY shared /app/shared
+WORKDIR /app/shared
+RUN npm install --omit=dev
+WORKDIR /app/asset-service
 
 FROM base AS development
 RUN npm install

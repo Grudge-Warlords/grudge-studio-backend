@@ -2,6 +2,9 @@ FROM node:20-alpine AS base
 WORKDIR /app/account-api
 COPY account-api/package.json .
 COPY shared /app/shared
+WORKDIR /app/shared
+RUN npm install --omit=dev
+WORKDIR /app/account-api
 
 FROM base AS development
 RUN npm install

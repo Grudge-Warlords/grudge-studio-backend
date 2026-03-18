@@ -2,6 +2,9 @@ FROM node:20-alpine AS base
 WORKDIR /app/game-api
 COPY game-api/package.json .
 COPY shared /app/shared
+WORKDIR /app/shared
+RUN npm install --omit=dev
+WORKDIR /app/game-api
 
 FROM base AS development
 RUN npm install
