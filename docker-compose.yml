@@ -13,7 +13,6 @@ volumes:
   redis-data:
   server-data:
   kuma-data:
-  traefik-acme:
 
 # ── Shared CORS origins (DRY) ──────────────────────────────────
 # All externally-exposed services share this default.
@@ -366,51 +365,9 @@ services:
     networks:
       - grudge-net
 
-  # ─────────────────────────────────────────────
-  # TRAEFIK — Reverse Proxy + Automatic TLS
-  # Dashboard: https://traefik.grudge-studio.com
-  # Handles all HTTPS routing for every service
-  # ─────────────────────────────────────────────
-  traefik:
-    image: traefik:v3.1
-    container_name: traefik
-    restart: unless-stopped
-    command:
-      - "--api.dashboard=true"
-      - "--api.insecure=false"
-      - "--providers.docker=true"
-      - "--providers.docker.network=coolify"
-      - "--providers.docker.exposedByDefault=false"
-      - "--entrypoints.http.address=:80"
-      - "--entrypoints.https.address=:443"
-      # HTTP → HTTPS redirect
-      - "--entrypoints.http.http.redirections.entrypoint.to=https"
-      - "--entrypoints.http.http.redirections.entrypoint.scheme=https"
-      - "--entrypoints.http.http.redirections.entrypoint.permanent=true"
-      # Let's Encrypt (HTTP-01 challenge)
-      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@grudge-studio.com}"
-      - "--certificatesresolvers.letsencrypt.acme.storage=/acme/acme.json"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=http"
-      - "--log.level=INFO"
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik-acme:/acme
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.traefik-dash.rule=Host(`traefik.grudge-studio.com`)"
-      - "traefik.http.routers.traefik-dash.entrypoints=https"
-      - "traefik.http.routers.traefik-dash.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.traefik-dash.service=api@internal"
-      - "traefik.http.routers.traefik-dash.middlewares=traefik-auth"
-      # Change this password: htpasswd -nb admin yourpassword
-      - "traefik.http.middlewares.traefik-auth.basicauth.users=admin:$$apr1$$grudge$$Hf8vBjMCxR8samplehash"
-      - "traefik.docker.network=coolify"
-    networks:
-      - coolify
+  # NOTE: Traefik reverse proxy is managed by Coolify (coolify-proxy container).
+  # It owns ports 80/443 and handles TLS + routing for all services via Docker labels.
+  # Do NOT add a separate traefik service here — it will conflict with coolify-proxy.
 
   # ─────────────────────────────────────────
   # MYSQL — Primary Database
