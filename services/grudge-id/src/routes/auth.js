@@ -201,10 +201,11 @@ router.get('/discord', (req, res) => {
   res.redirect(`https://discord.com/api/oauth2/authorize?${params}`);
 });
 
-// ── GET /auth/discord/start ───────────────────
-// Frontend-initiated: returns JSON { url } instead of 302
+// ── GET /auth/discord/start ───────────────
+// Frontend-initiated: returns JSON { url } instead of 302.
+// Accepts ?redirect_uri= to route the user back to the correct app after login.
 router.get('/discord/start', (req, res) => {
-  const state = req.query.state || 'https://grudgewarlords.com/';
+  const state = encodeOAuthState(req.query.redirect_uri || req.query.state);
   const clientId = process.env.DISCORD_CLIENT_ID;
   if (!clientId) return res.status(503).json({ error: 'Discord OAuth not configured' });
   const params = new URLSearchParams({
@@ -217,9 +218,9 @@ router.get('/discord/start', (req, res) => {
   res.json({ url: `https://discord.com/api/oauth2/authorize?${params}` });
 });
 
-// ── GET /auth/google/start ────────────────────
+// ── GET /auth/google/start ────────────────
 router.get('/google/start', (req, res) => {
-  const state = req.query.state || 'https://grudgewarlords.com/';
+  const state = encodeOAuthState(req.query.redirect_uri || req.query.state);
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) return res.status(503).json({ error: 'Google OAuth not configured' });
   const redirectUri = process.env.GOOGLE_REDIRECT_URI || `https://id.grudge-studio.com/auth/google/callback`;
@@ -235,9 +236,9 @@ router.get('/google/start', (req, res) => {
   res.json({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
 });
 
-// ── GET /auth/github/start ────────────────────
+// ── GET /auth/github/start ────────────────
 router.get('/github/start', (req, res) => {
-  const state = req.query.state || 'https://grudgewarlords.com/';
+  const state = encodeOAuthState(req.query.redirect_uri || req.query.state);
   const clientId = process.env.GITHUB_CLIENT_ID;
   if (!clientId) return res.status(503).json({ error: 'GitHub OAuth not configured' });
   const params = new URLSearchParams({
