@@ -5,12 +5,14 @@ COPY shared /app/shared
 
 FROM base AS development
 RUN npm install
+RUN ln -s /app/grudge-id/node_modules /app/node_modules
 COPY grudge-id/src ./src
 EXPOSE 3001
 CMD ["npx", "nodemon", "src/index.js"]
 
 FROM base AS production
 RUN npm install --omit=dev
+RUN ln -s /app/grudge-id/node_modules /app/node_modules
 COPY grudge-id/src ./src
 EXPOSE 3001
 CMD ["node", "src/index.js"]
