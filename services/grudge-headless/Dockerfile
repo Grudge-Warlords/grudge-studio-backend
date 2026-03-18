@@ -23,9 +23,9 @@ WORKDIR /opt/grudge-server
 
 # Copy the Linux server binary and data
 # The bin/ directory is excluded from git - upload separately
-COPY bin/ ./bin/
-COPY config/ ./config/
-COPY scripts/ ./scripts/
+COPY grudge-headless/bin/ ./bin/
+COPY grudge-headless/config/ ./config/
+COPY grudge-headless/scripts/ ./scripts/
 
 RUN chmod +x ./bin/GrudgeLinuxServer.x86_64 \
     && chmod +x ./scripts/*.sh
@@ -35,7 +35,7 @@ EXPOSE 7777/udp
 
 VOLUME ["/opt/grudge-server/data", "/opt/grudge-server/logs"]
 
-COPY entrypoint.sh /entrypoint.sh
+COPY grudge-headless/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

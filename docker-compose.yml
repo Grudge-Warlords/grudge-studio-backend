@@ -1,5 +1,3 @@
-version: "3.9"
-
 networks:
   grudge-net:
     driver: bridge
@@ -30,8 +28,8 @@ services:
   # ─────────────────────────────────────────
   grudge-id:
     build:
-      context: .
-      dockerfile: services/grudge-id/Dockerfile
+      context: ./services
+      dockerfile: grudge-id/Dockerfile
     container_name: grudge-id
     restart: unless-stopped
     environment:
@@ -71,7 +69,9 @@ services:
   # WALLET SERVICE
   # ─────────────────────────────────────────
   wallet-service:
-    build: ./services/wallet-service
+    build:
+      context: ./services
+      dockerfile: wallet-service/Dockerfile
     container_name: wallet-service
     restart: unless-stopped
     environment:
@@ -97,8 +97,8 @@ services:
   # ─────────────────────────────────────────
   game-api:
     build:
-      context: .
-      dockerfile: services/game-api/Dockerfile
+      context: ./services
+      dockerfile: game-api/Dockerfile
     container_name: game-api
     restart: unless-stopped
     environment:
@@ -134,7 +134,9 @@ services:
   # AI AGENT — Dynamic Missions, Companions, Faction Intel
   # ─────────────────────────────────────────
   ai-agent:
-    build: ./services/ai-agent
+    build:
+      context: ./services
+      dockerfile: ai-agent/Dockerfile
     container_name: ai-agent
     restart: unless-stopped
     environment:
@@ -162,8 +164,8 @@ services:
   # ─────────────────────────────────────────────
   account-api:
     build:
-      context: .
-      dockerfile: services/account-api/Dockerfile
+      context: ./services
+      dockerfile: account-api/Dockerfile
     container_name: account-api
     restart: unless-stopped
     environment:
@@ -202,8 +204,8 @@ services:
   # ─────────────────────────────────────────────
   launcher-api:
     build:
-      context: .
-      dockerfile: services/launcher-api/Dockerfile
+      context: ./services
+      dockerfile: launcher-api/Dockerfile
     container_name: launcher-api
     restart: unless-stopped
     environment:
@@ -243,8 +245,8 @@ services:
   # ─────────────────────────────────────────────
   asset-service:
     build:
-      context: .
-      dockerfile: services/asset-service/Dockerfile
+      context: ./services
+      dockerfile: asset-service/Dockerfile
     container_name: asset-service
     restart: unless-stopped
     environment:
@@ -284,8 +286,8 @@ services:
   # ─────────────────────────────────────────────
   ws-service:
     build:
-      context: .
-      dockerfile: services/ws-service/Dockerfile
+      context: ./services
+      dockerfile: ws-service/Dockerfile
     container_name: ws-service
     restart: unless-stopped
     environment:
@@ -340,7 +342,9 @@ services:
   # Start with: docker compose --profile gameserver up -d grudge-headless
   # ─────────────────────────────────────────────
   grudge-headless:
-    build: ./services/grudge-headless
+    build:
+      context: ./services
+      dockerfile: grudge-headless/Dockerfile
     container_name: grudge-headless
     profiles: ["gameserver"]
     restart: unless-stopped
