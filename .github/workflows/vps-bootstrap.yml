@@ -1,4 +1,4 @@
-name: Bootstrap VPS + Deploy All Services # run11
+name: Bootstrap VPS + Deploy All Services # run12
 
 on:
   workflow_dispatch:
@@ -168,7 +168,7 @@ jobs:
               --build-arg BUILDKIT_INLINE_CACHE=1 \
               grudge-id wallet-service game-api ai-agent account-api launcher-api asset-service ws-service
             docker compose up -d --no-deps \
-              grudge-id wallet-service game-api ai-agent account-api launcher-api asset-service ws-service
+              traefik grudge-id wallet-service game-api ai-agent account-api launcher-api asset-service ws-service
             echo "All services started"
             docker compose ps
 
