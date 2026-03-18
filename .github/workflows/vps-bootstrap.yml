@@ -219,7 +219,7 @@ jobs:
         run: |
           curl -sf -X POST "${{ secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d '{"embeds":[{"title":"✅ Grudge Studio VPS Bootstrap Complete","color":4978687,"description":"All services deployed and healthy on 74.208.155.229"}]}' || true
+            -d '{"embeds":[{"title":"✅ Grudge Studio VPS Bootstrap Complete","color":4978687,"description":"All services deployed and healthy on 74.208.155.229 ✓"}]}' || true
 
       - name: Notify Discord (failure)
         if: failure()
