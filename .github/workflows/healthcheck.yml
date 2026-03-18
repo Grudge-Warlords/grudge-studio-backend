@@ -1,0 +1,70 @@
+name: External Health Check
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"  # Every 5 minutes
+  workflow_dispatch: {}     # Manual trigger
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Health check all services
+        id: health
+        run: |
+          FAIL=0
+          REPORT=""
+
+          declare -A ENDPOINTS=(
+            [grudge-id]="https://id.grudge-studio.com/health"
+            [game-api]="https://api.grudge-studio.com/health"
+            [account-api]="https://account.grudge-studio.com/health"
+            [launcher-api]="https://launcher.grudge-studio.com/health"
+            [asset-service]="https://assets-api.grudge-studio.com/health"
+            [ws-service]="https://ws.grudge-studio.com/health"
+          )
+
+          for SVC in "${!ENDPOINTS[@]}"; do
+            URL="${ENDPOINTS[$SVC]}"
+            HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 10 "$URL" 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+              echo "  ✅ $SVC ($HTTP_CODE)"
+              REPORT="$REPORT\n✅ $SVC"
+            else
+              echo "  ❌ $SVC ($HTTP_CODE)"
+              REPORT="$REPORT\n❌ $SVC (HTTP $HTTP_CODE)"
+              FAIL=$((FAIL+1))
+            fi
+          done
+
+          echo "fail_count=$FAIL" >> $GITHUB_OUTPUT
+          echo "report<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$REPORT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          if [ $FAIL -gt 0 ]; then
+            echo "⚠️ $FAIL service(s) down!"
+            exit 1
+          fi
+          echo "All services healthy!"
+
+      - name: Discord alert on failure
+        if: failure() && steps.health.outputs.fail_count != '0'
+        continue-on-error: true
+        run: |
+          if [ -z "${{ secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN }}" ]; then
+            echo "No Discord webhook configured, skipping."
+            exit 0
+          fi
+          curl -sf -X POST "${{ secrets.DISCORD_SYSTEM_WEBHOOK_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"embeds\": [{
+                \"title\": \"🚨 Grudge Studio — Services DOWN\",
+                \"color\": 15158332,
+                \"description\": \"External health check detected ${{ steps.health.outputs.fail_count }} service(s) down:\\n${{ steps.health.outputs.report }}\",
+                \"footer\": {\"text\": \"GitHub Actions external check\"},
+                \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+              }]
+            }"
