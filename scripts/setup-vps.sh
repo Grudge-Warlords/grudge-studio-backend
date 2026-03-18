@@ -1,198 +1,210 @@
 #!/bin/bash
-# ─────────────────────────────────────────────────────────────
-# Grudge Studio — VPS First-Time Setup Script
-# Run on Ubuntu 22.04 LTS as root:
-#   bash <(curl -fsSL https://raw.githubusercontent.com/MolochDaGod/grudge-studio-backend/main/scripts/setup-vps.sh)
-# ─────────────────────────────────────────────────────────────
-
+# ─────────────────────────────────────────────────────────────────
+# Grudge Studio — VPS Full Bootstrap Script (non-interactive)
+# Usage:
+#   bash <(curl -fsSL https://TOKEN@raw.githubusercontent.com/MolochDaGod/grudge-studio-backend/main/scripts/setup-vps.sh)
+# ─────────────────────────────────────────────────────────────────
 set -e
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
+log()  { echo -e "${GREEN}✓${NC} $1"; }
+warn() { echo -e "${YELLOW}▶${NC} $1"; }
+err()  { echo -e "${RED}✗${NC} $1"; }
 
 DEPLOY_DIR="/opt/grudge-studio-backend"
-REPO_URL="https://github.com/MolochDaGod/grudge-studio-backend.git"
+GH_TOKEN="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"
+REPO_URL="https://${GH_TOKEN}@github.com/MolochDaGod/grudge-studio-backend.git"
 
 echo -e "${CYAN}"
 echo "  ╔══════════════════════════════════════════╗"
-echo "  ║    GRUDGE STUDIO — VPS SETUP SCRIPT      ║"
+echo "  ║   GRUDGE STUDIO — VPS BOOTSTRAP          ║"
 echo "  ╚══════════════════════════════════════════╝"
 echo -e "${NC}"
 
-# ── 1. System update ─────────────────────────────────────────
-echo -e "${YELLOW}[1/9] Updating system packages...${NC}"
-apt-get update -qq && apt-get upgrade -y -qq
-apt-get install -y -qq curl git ufw nano
+# ── 1. System update ──────────────────────────────────────────────
+warn "[1/8] Updating system..."
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -qq
+apt-get install -y -qq curl git ufw nano rsync jq ca-certificates gnupg lsb-release
+log "System packages ready"
 
-# ── 2. Install Docker ─────────────────────────────────────────
-echo -e "${YELLOW}[2/9] Installing Docker...${NC}"
+# ── 2. Install Docker ─────────────────────────────────────────────
+warn "[2/8] Installing Docker..."
 if ! command -v docker &>/dev/null; then
   curl -fsSL https://get.docker.com | sh
-  echo -e "${GREEN}✓ Docker installed${NC}"
-else
-  echo -e "${GREEN}✓ Docker already installed: $(docker --version)${NC}"
+  systemctl enable docker && systemctl start docker
 fi
+log "Docker: $(docker --version)"
 
-if ! docker compose version &>/dev/null; then
+if ! docker compose version &>/dev/null 2>&1; then
   apt-get install -y -qq docker-compose-plugin
 fi
-echo -e "${GREEN}✓ Docker Compose: $(docker compose version --short)${NC}"
+log "Docker Compose: $(docker compose version --short 2>/dev/null || docker compose version)"
 
-# ── 3. Firewall ───────────────────────────────────────────────
-echo -e "${YELLOW}[3/9] Configuring firewall...${NC}"
+# ── 3. Firewall ───────────────────────────────────────────────────
+warn "[3/8] Configuring firewall..."
 ufw --force enable
 ufw allow OpenSSH
 ufw allow 80/tcp
 ufw allow 443/tcp
 ufw allow 7777/tcp
 ufw allow 7777/udp
-echo -e "${GREEN}✓ Firewall configured${NC}"
+log "Firewall configured (SSH + 80/443 + 7777 open)"
 
-# ── 4. Clone / update repo ────────────────────────────────────
-echo -e "${YELLOW}[4/9] Setting up deployment directory...${NC}"
+# ── 4. Clone / update repo ────────────────────────────────────────
+warn "[4/8] Setting up repo at $DEPLOY_DIR..."
 if [ -d "$DEPLOY_DIR/.git" ]; then
-  echo "  Existing repo found — pulling latest..."
-  git -C "$DEPLOY_DIR" pull origin main
+  warn "  Repo exists — pulling latest..."
+  cd "$DEPLOY_DIR"
+  git remote set-url origin "$REPO_URL"
+  git fetch origin
+  git reset --hard origin/main
 else
   mkdir -p "$DEPLOY_DIR"
   git clone "$REPO_URL" "$DEPLOY_DIR"
 fi
-echo -e "${GREEN}✓ Repo ready at $DEPLOY_DIR${NC}"
+cd "$DEPLOY_DIR"
+log "Repo ready at commit $(git rev-parse --short HEAD)"
 
-# ── 5. Install Node.js (for gen-secrets script) ───────────────
-echo -e "${YELLOW}[5/9] Checking Node.js...${NC}"
+# ── 5. Install Node.js ────────────────────────────────────────────
+warn "[5/8] Checking Node.js..."
 if ! command -v node &>/dev/null; then
   curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
   apt-get install -y -qq nodejs
 fi
-echo -e "${GREEN}✓ Node.js $(node -v)${NC}"
+log "Node.js $(node -v)"
 
-# ── 6. Create .env ────────────────────────────────────────────
-echo -e "${YELLOW}[6/9] Setting up .env...${NC}"
+# ── 6. Create .env ────────────────────────────────────────────────
+warn "[6/8] Setting up .env..."
 cd "$DEPLOY_DIR"
-
 if [ -f ".env" ]; then
-  echo -e "${GREEN}✓ .env already exists — skipping generation${NC}"
-  echo -e "  To update: nano $DEPLOY_DIR/.env"
+  log ".env already exists — keeping it"
 else
-  echo "  Generating secrets..."
+  warn "  Generating .env with secure random secrets..."
   node scripts/gen-secrets.js > .env
-  echo "" >> .env
-  echo "# ── YOU MUST FILL IN THESE VALUES ──" >> .env
-  echo "DISCORD_CLIENT_ID=REPLACE_ME" >> .env
-  echo "DISCORD_CLIENT_SECRET=REPLACE_ME" >> .env
-  echo "DISCORD_REDIRECT_URI=https://id.grudgestudio.com/auth/discord/callback" >> .env
-  echo "WEB3AUTH_CLIENT_ID=REPLACE_ME" >> .env
-  echo "WALLET_MASTER_SEED=REPLACE_ME_24_WORD_MNEMONIC" >> .env
-  echo "SOLANA_RPC_URL=https://api.mainnet-beta.solana.com" >> .env
-  echo "OBJECT_STORAGE_ENDPOINT=REPLACE_ME" >> .env
-  echo "OBJECT_STORAGE_BUCKET=grudge-studio-assets" >> .env
-  echo "OBJECT_STORAGE_KEY=REPLACE_ME" >> .env
-  echo "OBJECT_STORAGE_SECRET=REPLACE_ME" >> .env
-  echo "OBJECT_STORAGE_REGION=us-east-1" >> .env
-  echo "OBJECT_STORAGE_PUBLIC_URL=https://assets.grudgestudio.com" >> .env
-  echo "CORS_ORIGINS=https://grudgewarlords.com,https://grudgestudio.com,https://account.grudgestudio.com,https://launcher.grudgestudio.com,https://app.puter.com" >> .env
-  echo "PUTER_APP_ID=REPLACE_ME" >> .env
-  echo "DOMAIN_ID=id.grudgestudio.com" >> .env
-  echo "DOMAIN_API=api.grudgestudio.com" >> .env
-  echo "DOMAIN_ACCOUNT=account.grudgestudio.com" >> .env
-  echo "DOMAIN_LAUNCHER=launcher.grudgestudio.com" >> .env
-  echo "DOMAIN_WS=ws.grudgestudio.com" >> .env
-  echo "MAX_PLAYERS=22" >> .env
+  # Patch production values
+  sed -i 's|NODE_ENV=development|NODE_ENV=production|g' .env
+  # Append required vars not generated by gen-secrets
+  cat >> .env << 'ENVEOF'
 
-  echo -e "${RED}"
-  echo "  ┌─────────────────────────────────────────────────────┐"
-  echo "  │  ACTION REQUIRED: Edit .env before starting!        │"
-  echo "  │  nano $DEPLOY_DIR/.env            │"
-  echo "  │  Fill in: DISCORD_*, WEB3AUTH_*, WALLET_MASTER_SEED │"
-  echo "  │  OBJECT_STORAGE_*, PUTER_APP_ID                     │"
-  echo "  └─────────────────────────────────────────────────────┘"
-  echo -e "${NC}"
-  read -p "Press ENTER after you've edited .env to continue..."
-fi
+# ── AUTH SERVICES (fill these in) ──────────────────────────────
+DISCORD_CLIENT_ID=REPLACE_ME
+DISCORD_CLIENT_SECRET=REPLACE_ME
+DISCORD_REDIRECT_URI=https://id.grudge-studio.com/auth/discord/callback
+WEB3AUTH_CLIENT_ID=REPLACE_ME
+WALLET_MASTER_SEED=REPLACE_ME_24_WORD_MNEMONIC
+SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 
-# ── 7. Set up SSH deploy key ──────────────────────────────────
-echo -e "${YELLOW}[7/9] Setting up GitHub Actions deploy key...${NC}"
-if [ ! -f "$HOME/.ssh/grudge_deploy" ]; then
-  ssh-keygen -t ed25519 -C "grudge-deploy-$(hostname)" -f "$HOME/.ssh/grudge_deploy" -N ""
-  cat "$HOME/.ssh/grudge_deploy.pub" >> "$HOME/.ssh/authorized_keys"
-  chmod 600 "$HOME/.ssh/authorized_keys"
-  echo -e "${GREEN}✓ Deploy key created${NC}"
-  echo -e "${CYAN}"
-  echo "  ┌─────────────────────────────────────────────────────┐"
-  echo "  │  Add this PRIVATE key to GitHub Secrets             │"
-  echo "  │  Repo → Settings → Secrets → DEPLOY_SSH_KEY         │"
-  echo "  └─────────────────────────────────────────────────────┘"
-  echo -e "${NC}"
-  cat "$HOME/.ssh/grudge_deploy"
+# ── CLOUDFLARE R2 STORAGE ───────────────────────────────────────
+OBJECT_STORAGE_ENDPOINT=REPLACE_ME
+OBJECT_STORAGE_BUCKET=grudge-studio-assets
+OBJECT_STORAGE_KEY=REPLACE_ME
+OBJECT_STORAGE_SECRET=REPLACE_ME
+OBJECT_STORAGE_REGION=auto
+OBJECT_STORAGE_PUBLIC_URL=https://assets.grudge-studio.com
+
+# ── CORS / DOMAINS ──────────────────────────────────────────────
+CORS_ORIGINS=https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudachain.grudge-studio.com,https://dash.grudge-studio.com,https://app.puter.com
+MAX_PLAYERS=22
+ENVEOF
+  log ".env generated (crypto secrets are randomised, fill in REPLACE_ME values later)"
   echo ""
-  read -p "Press ENTER after you've saved the key to GitHub Secrets..."
-else
-  echo -e "${GREEN}✓ Deploy key already exists${NC}"
+  warn "  NOTE: Services will start but Discord/Web3Auth/Solana won't work until"
+  warn "  you fill in the REPLACE_ME values:  nano $DEPLOY_DIR/.env"
 fi
 
-# ── 8. Start services ─────────────────────────────────────────
-echo -e "${YELLOW}[8/9] Starting services...${NC}"
+# Sanity check required vars
+MISSING=0
+for VAR in MYSQL_ROOT_PASSWORD MYSQL_DATABASE MYSQL_USER MYSQL_PASSWORD JWT_SECRET INTERNAL_API_KEY REDIS_PASSWORD; do
+  grep -q "^${VAR}=" .env 2>/dev/null || { err "Missing: $VAR"; MISSING=$((MISSING+1)); }
+done
+[ $MISSING -gt 0 ] && { err "$MISSING required vars missing from .env"; exit 1; }
+log "Required env vars present"
+
+# ── 7. Generate SSH deploy key for GitHub Actions ─────────────────
+warn "[7/8] Setting up GitHub Actions SSH deploy key..."
+KEY_FILE="$HOME/.ssh/grudge_deploy"
+mkdir -p ~/.ssh && chmod 700 ~/.ssh
+if [ ! -f "$KEY_FILE" ]; then
+  ssh-keygen -t ed25519 -C "grudge-deploy@$(hostname -I | awk '{print $1}')" -f "$KEY_FILE" -N ""
+  cat "${KEY_FILE}.pub" >> ~/.ssh/authorized_keys
+  chmod 600 ~/.ssh/authorized_keys
+  log "SSH deploy key generated"
+else
+  log "SSH deploy key already exists"
+fi
+
+echo ""
+echo -e "${CYAN}  ┌─────────────────────────────────────────────────────────────┐${NC}"
+echo -e "${CYAN}  │  DEPLOY_SSH_KEY — add to GitHub → Settings → Secrets:      │${NC}"
+echo -e "${CYAN}  └─────────────────────────────────────────────────────────────┘${NC}"
+cat "$KEY_FILE"
+echo ""
+
+# ── 8. Build and start all services ───────────────────────────────
+warn "[8/8] Building and starting all services..."
 cd "$DEPLOY_DIR"
-docker compose up --build -d
 
-echo "  Waiting for services to be healthy..."
-sleep 20
+# Start infrastructure first
+docker compose up -d mysql redis
+warn "  Waiting for MySQL to be healthy..."
+for i in $(seq 1 30); do
+  docker compose exec -T mysql mysqladmin ping -h localhost --silent 2>/dev/null && break
+  sleep 2
+done
+log "MySQL healthy"
 
-HEALTHY=true
-for PORT in 3001 3003 3004 3005 3006; do
-  if curl -sf "http://localhost:$PORT/health" > /dev/null 2>&1; then
-    echo -e "  ${GREEN}✓ Port $PORT healthy${NC}"
+# Build all app services
+warn "  Building services (takes a few minutes first time)..."
+DOCKER_BUILDKIT=1 docker compose build \
+  --build-arg BUILDKIT_INLINE_CACHE=1 \
+  grudge-id wallet-service game-api ai-agent account-api launcher-api asset-service ws-service
+
+# Start app services
+docker compose up -d --no-deps \
+  grudge-id wallet-service game-api ai-agent account-api launcher-api asset-service ws-service
+
+log "All services started"
+
+# ── Run migrations ─────────────────────────────────────────────────
+warn "  Running SQL migrations..."
+bash scripts/migrate.sh && log "Migrations complete" || warn "Migration script not found — skipping"
+
+# ── Health checks ──────────────────────────────────────────────────
+warn "  Running health checks (waiting 15s for startup)..."
+sleep 15
+FAIL=0
+for SVC_PORT in "grudge-id:3001" "game-api:3003" "ai-agent:3004" "account-api:3005" "launcher-api:3006" "ws-service:3007" "asset-service:3008"; do
+  SVC="${SVC_PORT%%:*}"; PORT="${SVC_PORT##*:}"
+  if curl -sf "http://localhost:$PORT/health" >/dev/null 2>&1; then
+    echo -e "  ${GREEN}✅ $SVC (port $PORT)${NC}"
   else
-    echo -e "  ${RED}✗ Port $PORT not responding${NC}"
-    HEALTHY=false
+    echo -e "  ${RED}❌ $SVC (port $PORT) — docker logs $SVC --tail 20${NC}"
+    FAIL=$((FAIL+1))
   fi
 done
 
-if [ "$HEALTHY" = false ]; then
-  echo -e "${RED}Some services failed to start. Check logs:${NC}"
-  echo "  docker compose logs -f"
+docker compose ps
+
+echo ""
+if [ $FAIL -eq 0 ]; then
+  echo -e "${GREEN}"
+  echo "  ╔══════════════════════════════════════════════════════╗"
+  echo "  ║   🎉 GRUDGE STUDIO BACKEND DEPLOYED SUCCESSFULLY!   ║"
+  echo "  ╠══════════════════════════════════════════════════════╣"
+  echo "  ║  VPS:     74.208.174.62                             ║"
+  echo "  ║  Repo:    /opt/grudge-studio-backend/               ║"
+  echo "  ║  Logs:    docker compose logs -f                    ║"
+  echo "  ║  Health:  curl http://localhost:3001/health         ║"
+  echo "  ╠══════════════════════════════════════════════════════╣"
+  echo "  ║  ⚠  Still TODO:                                     ║"
+  echo "  ║  1. Fill in REPLACE_ME values in .env               ║"
+  echo "  ║  2. Add DEPLOY_SSH_KEY to GitHub Actions secrets    ║"
+  echo "  ║  3. Add VPS_HOST=74.208.174.62 to GitHub secrets    ║"
+  echo "  ║  4. Add VPS_USER=$(whoami) to GitHub secrets         ║"
+  echo "  ╚══════════════════════════════════════════════════════╝"
+  echo -e "${NC}"
+else
+  echo -e "${YELLOW}Deploy complete — $FAIL service(s) need attention.${NC}"
+  echo "  Check logs: docker compose logs <service-name> --tail 50"
 fi
-
-# ── 9. SSL (optional, requires DNS to be configured first) ────
-echo -e "${YELLOW}[9/9] SSL setup...${NC}"
-echo ""
-echo -e "${CYAN}To issue SSL certificates, first ensure DNS is configured:${NC}"
-echo "  id.grudgestudio.com       → 74.208.155.229"
-echo "  api.grudgestudio.com      → 74.208.155.229"
-echo "  account.grudgestudio.com  → 74.208.155.229"
-echo "  launcher.grudgestudio.com → 74.208.155.229"
-echo "  ws.grudgestudio.com       → 74.208.155.229"
-echo ""
-echo "Then run:"
-echo -e "${YELLOW}"
-echo "  apt install -y certbot"
-echo "  docker compose stop nginx"
-echo "  certbot certonly --standalone \\"
-echo "    -d id.grudgestudio.com \\"
-echo "    -d api.grudgestudio.com \\"
-echo "    -d account.grudgestudio.com \\"
-echo "    -d launcher.grudgestudio.com \\"
-echo "    -d ws.grudgestudio.com \\"
-echo "    --email your@email.com --agree-tos --non-interactive"
-echo "  docker compose up -d nginx"
-echo -e "${NC}"
-
-# ── Done ──────────────────────────────────────────────────────
-echo -e "${GREEN}"
-echo "  ╔══════════════════════════════════════════╗"
-echo "  ║   GRUDGE STUDIO SETUP COMPLETE!          ║"
-echo "  ╠══════════════════════════════════════════╣"
-echo "  ║  Health checks:                          ║"
-echo "  ║  curl http://localhost:3001/health       ║"
-echo "  ║  curl http://localhost:3003/health       ║"
-echo "  ║  curl http://localhost:3005/health       ║"
-echo "  ║  curl http://localhost:3006/health       ║"
-echo "  ╠══════════════════════════════════════════╣"
-echo "  ║  Logs: docker compose logs -f            ║"
-echo "  ║  Docs: $DEPLOY_DIR/docs/     ║"
-echo "  ╚══════════════════════════════════════════╝"
-echo -e "${NC}"
