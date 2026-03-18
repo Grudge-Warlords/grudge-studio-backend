@@ -1,4 +1,4 @@
-name: Bootstrap VPS + Deploy All Services # run13
+name: Bootstrap VPS + Deploy All Services # run14
 
 on:
   workflow_dispatch:
@@ -167,8 +167,9 @@ jobs:
             DOCKER_BUILDKIT=1 docker compose build \
               --build-arg BUILDKIT_INLINE_CACHE=1 \
               grudge-id wallet-service game-api ai-agent account-api launcher-api asset-service ws-service
+            # Note: traefik not started here — coolify-proxy already owns ports 80/443
             docker compose up -d --no-deps \
-              traefik grudge-id wallet-service game-api ai-agent account-api launcher-api asset-service ws-service
+              grudge-id wallet-service game-api ai-agent account-api launcher-api asset-service ws-service
             echo "All services started"
             docker compose ps
 

@@ -4,9 +4,11 @@ networks:
   grudge-net:
     driver: bridge
   coolify:
-    driver: bridge
-    # NOTE: Named 'coolify' to stay compatible with Coolify-managed Traefik labels.
-    # When self-hosting (no Coolify), Traefik runs as a service in this stack.
+    external: true
+    name: coolify
+    # NOTE: Uses Coolify's existing 'coolify' Docker network so coolify-proxy
+    # (Traefik) picks up our service labels automatically. On a plain VPS without
+    # Coolify, create this network first: docker network create coolify
 
 volumes:
   mysql-data:
