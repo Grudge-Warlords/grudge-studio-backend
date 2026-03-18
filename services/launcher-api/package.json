@@ -16,6 +16,7 @@
     "mysql2": "^3.6.5",
     "@aws-sdk/client-s3": "^3.490.0",
     "@aws-sdk/s3-request-presigner": "^3.490.0",
+    "multer": "^1.4.5-lts.1",
     "dotenv": "^16.3.1"
   },
   "devDependencies": {
