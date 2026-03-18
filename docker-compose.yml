@@ -27,7 +27,9 @@ services:
   # GRUDGE ID — Unified Identity Service
   # ─────────────────────────────────────────
   grudge-id:
-    build: ./services/grudge-id
+    build:
+      context: .
+      dockerfile: services/grudge-id/Dockerfile
     container_name: grudge-id
     restart: unless-stopped
     environment:
@@ -92,7 +94,9 @@ services:
   # GAME API — GAME_API_GRUDA
   # ─────────────────────────────────────────
   game-api:
-    build: ./services/game-api
+    build:
+      context: .
+      dockerfile: services/game-api/Dockerfile
     container_name: game-api
     restart: unless-stopped
     environment:
@@ -155,7 +159,9 @@ services:
   # ACCOUNT API — Profiles, Social, Achievements, Puter Cloud
   # ─────────────────────────────────────────────
   account-api:
-    build: ./services/account-api
+    build:
+      context: .
+      dockerfile: services/account-api/Dockerfile
     container_name: account-api
     restart: unless-stopped
     environment:
@@ -193,7 +199,9 @@ services:
   # LAUNCHER API — Version Manifest, Computer Registration, Launch Tokens
   # ─────────────────────────────────────────────
   launcher-api:
-    build: ./services/launcher-api
+    build:
+      context: .
+      dockerfile: services/launcher-api/Dockerfile
     container_name: launcher-api
     restart: unless-stopped
     environment:
@@ -232,7 +240,9 @@ services:
   # ASSET SERVICE — Upload, metadata, conversions, export bundles
   # ─────────────────────────────────────────────
   asset-service:
-    build: ./services/asset-service
+    build:
+      context: .
+      dockerfile: services/asset-service/Dockerfile
     container_name: asset-service
     restart: unless-stopped
     environment:
@@ -271,7 +281,9 @@ services:
   # Namespaces: /game (island rooms), /crew, /global
   # ─────────────────────────────────────────────
   ws-service:
-    build: ./services/ws-service
+    build:
+      context: .
+      dockerfile: services/ws-service/Dockerfile
     container_name: ws-service
     restart: unless-stopped
     environment:
