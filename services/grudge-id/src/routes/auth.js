@@ -31,6 +31,20 @@ function decodeOAuthState(state) {
   return DEFAULT_AUTH_REDIRECT;
 }
 
+// ── SSO cookie helper ─────────────────────────
+const SSO_COOKIE_NAME = 'grudge_sso';
+const SSO_COOKIE_OPTS = {
+  httpOnly: true,
+  secure: true,
+  sameSite: 'none',
+  path: '/',
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days (match JWT)
+};
+
+function setSsoCookie(res, token) {
+  res.cookie(SSO_COOKIE_NAME, token, SSO_COOKIE_OPTS);
+}
+
 // ── Web3Auth JWKS cache ───────────────────────
 let _jwksCache = null;
 let _jwksCachedAt = 0;
@@ -162,8 +176,10 @@ router.post('/wallet', verifyTurnstile, async (req, res, next) => {
     const db = getDB();
     const user = await getOrCreateUser(db, 'wallet_address', wallet_address);
     const token = issueToken(user);
+    setSsoCookie(res, token);
 
-    res.json({ token, grudge_id: user.grudge_id, puter_id: user.puter_id });
+    res.json({
+      token, grudge_id: user.grudge_id, puter_id: user.puter_id });
   } catch (err) {
     if (err.banned) return res.status(403).json({ error: err.message });
     next(err);
@@ -185,6 +201,54 @@ router.get('/discord', (req, res) => {
   res.redirect(`https://discord.com/api/oauth2/authorize?${params}`);
 });
 
+// ── GET /auth/discord/start ───────────────────
+// Frontend-initiated: returns JSON { url } instead of 302
+router.get('/discord/start', (req, res) => {
+  const state = req.query.state || 'https://grudgewarlords.com/';
+  const clientId = process.env.DISCORD_CLIENT_ID;
+  if (!clientId) return res.status(503).json({ error: 'Discord OAuth not configured' });
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: process.env.DISCORD_REDIRECT_URI,
+    response_type: 'code',
+    scope: 'identify email',
+    state,
+  });
+  res.json({ url: `https://discord.com/api/oauth2/authorize?${params}` });
+});
+
+// ── GET /auth/google/start ────────────────────
+router.get('/google/start', (req, res) => {
+  const state = req.query.state || 'https://grudgewarlords.com/';
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) return res.status(503).json({ error: 'Google OAuth not configured' });
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI || `https://id.grudge-studio.com/auth/google/callback`;
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: 'openid email profile',
+    state,
+    access_type: 'offline',
+    prompt: 'select_account',
+  });
+  res.json({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
+});
+
+// ── GET /auth/github/start ────────────────────
+router.get('/github/start', (req, res) => {
+  const state = req.query.state || 'https://grudgewarlords.com/';
+  const clientId = process.env.GITHUB_CLIENT_ID;
+  if (!clientId) return res.status(503).json({ error: 'GitHub OAuth not configured' });
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: process.env.GITHUB_REDIRECT_URI || `https://id.grudge-studio.com/auth/github/callback`,
+    scope: 'read:user user:email',
+    state,
+  });
+  res.json({ url: `https://github.com/login/oauth/authorize?${params}` });
+});
+
 // ── GET /auth/discord/callback ────────────────
 // Discord redirects here after user approves. We decode the state param
 // to determine which app to send the user back to.
@@ -192,6 +256,7 @@ router.get('/discord/callback', async (req, res, next) => {
   try {
     const { code, state } = req.query;
     if (!code) return res.status(400).json({ error: 'No code provided' });
+    const returnUrl = state || 'https://grudgewarlords.com/';
 
     // Decode redirect_uri from state (falls back to DEFAULT_AUTH_REDIRECT)
     const appRedirect = decodeOAuthState(state || '');
@@ -225,6 +290,7 @@ router.get('/discord/callback', async (req, res, next) => {
     });
 
     const token = issueToken(user);
+    setSsoCookie(res, token);
 
     // Redirect to the calling app (or default) with token
     const sep = appRedirect.includes('?') ? '&' : '?';
@@ -234,7 +300,6 @@ router.get('/discord/callback', async (req, res, next) => {
     next(err);
   }
 });
-
 // ── POST /auth/verify ─────────────────────────
 // Verify a Grudge JWT and return the payload
 router.post('/verify', (req, res) => {
@@ -245,6 +310,104 @@ router.post('/verify', (req, res) => {
     res.json({ valid: true, payload });
   } catch {
     res.status(401).json({ valid: false, error: 'Invalid or expired token' });
+  }
+});
+
+// ── GET /auth/user ────────────────────────────
+// Returns current user profile from JWT Bearer token.
+// Used by useAuth() hook on all frontends.
+router.get('/user', async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization required' });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(authHeader.substring(7), JWT_SECRET);
+    } catch {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    const db = getDB();
+    const [rows] = await db.query('SELECT * FROM users WHERE grudge_id = ? LIMIT 1', [decoded.grudge_id]);
+    const user = rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.is_banned) return res.status(403).json({ error: user.ban_reason || 'Account banned' });
+
+    res.json({
+      id: user.id,
+      grudgeId: user.grudge_id,
+      username: user.username,
+      displayName: user.display_name || user.username,
+      email: user.email || null,
+      avatarUrl: user.avatar_url || null,
+      isPremium: false,
+      isGuest: !!user.is_guest,
+      gold: user.gold || 1000,
+      gbuxBalance: user.gbux_balance || 0,
+      walletAddress: user.wallet_address || null,
+      serverWalletAddress: user.server_wallet_address || null,
+      faction: user.faction || null,
+      race: user.race || null,
+      class: user.class || null,
+    });
+  } catch (err) { next(err); }
+});
+
+// Also support GET /auth/me as alias
+router.get('/me', (req, res, next) => {
+  req.url = '/user';
+  router.handle(req, res, next);
+});
+
+// Also support GET /auth/verify via Bearer token
+router.get('/verify', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ valid: false, error: 'No token' });
+    }
+    const payload = jwt.verify(authHeader.substring(7), JWT_SECRET);
+    res.json({ valid: true, payload });
+  } catch {
+    res.status(401).json({ valid: false, error: 'Invalid or expired token' });
+  }
+});
+
+// ── POST /auth/phone-send ─────────────────────
+// Send SMS verification code via Twilio Verify
+router.post('/phone-send', async (req, res, next) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ error: 'Phone number required' });
+
+    const normalized = phone.startsWith('+') ? phone : `+1${phone.replace(/\D/g, '')}`;
+
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken  = process.env.TWILIO_AUTH_TOKEN;
+    const verifySid  = process.env.TWILIO_VERIFY_SID;
+    if (!accountSid || !authToken || !verifySid) {
+      return res.status(503).json({ error: 'Phone auth not configured' });
+    }
+
+    const twilioResp = await axios.post(
+      `https://verify.twilio.com/v2/Services/${verifySid}/Verifications`,
+      new URLSearchParams({ To: normalized, Channel: 'sms' }),
+      {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        auth: { username: accountSid, password: authToken },
+      }
+    );
+
+    if (twilioResp.data.status === 'pending') {
+      res.json({ success: true, message: 'Verification code sent' });
+    } else {
+      res.status(400).json({ error: 'Failed to send verification code' });
+    }
+  } catch (err) {
+    console.error('[grudge-id] phone-send error:', err.message);
+    next(err);
   }
 });
 
@@ -279,6 +442,7 @@ router.post('/login', verifyTurnstile, async (req, res, next) => {
 
     await db.query('UPDATE users SET last_login = NOW() WHERE grudge_id = ?', [user.grudge_id]);
     const token = issueToken(user);
+    setSsoCookie(res, token);
 
     res.json({
       success: true,
@@ -305,7 +469,7 @@ router.post('/login', verifyTurnstile, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── POST /auth/register ───────────────────────
+// ── POST /auth/register
 router.post('/register', verifyTurnstile, async (req, res, next) => {
   try {
     const { username, email, password } = req.body;
@@ -361,12 +525,14 @@ router.post('/register', verifyTurnstile, async (req, res, next) => {
     const [rows] = await db.query('SELECT * FROM users WHERE grudge_id = ? LIMIT 1', [grudge_id]);
     const user = rows[0];
     const token = issueToken(user);
+    setSsoCookie(res, token);
 
     res.status(201).json({
       success: true,
       token,
       grudgeId: user.grudge_id,
       username: user.username,
+      isNewUser: true,
       message: `Welcome to GRUDGE Warlords! Your GRUDGE ID: ${user.grudge_id}`,
       user: {
         id: user.id,
@@ -421,6 +587,7 @@ router.post('/guest', async (req, res, next) => {
     }
 
     const token = issueToken(user);
+    setSsoCookie(res, token);
 
     res.status(isNewUser ? 201 : 200).json({
       success: true,
@@ -585,6 +752,7 @@ router.post('/puter', async (req, res, next) => {
     }
 
     const token = issueToken(user);
+    setSsoCookie(res, token);
     res.status(isNewUser ? 201 : 200).json(formatAuthResponse(user, token, isNewUser));
   } catch (err) {
     if (err.banned) return res.status(403).json({ error: err.message });
@@ -592,7 +760,7 @@ router.post('/puter', async (req, res, next) => {
   }
 });
 
-// ── POST /auth/puter-link ─────────────────────
+// ── POST /auth/puter-link
 // Link Puter UUID to an existing authenticated account
 router.post('/puter-link', async (req, res, next) => {
   try {
@@ -719,6 +887,7 @@ router.post('/google/exchange', async (req, res, next) => {
     }
 
     const token = issueToken(user);
+    setSsoCookie(res, token);
     res.json(formatAuthResponse(user, token, isNewUser));
   } catch (err) {
     if (err.banned) return res.status(403).json({ error: err.message });
@@ -726,7 +895,7 @@ router.post('/google/exchange', async (req, res, next) => {
   }
 });
 
-// ── POST /auth/github/exchange ────────────────
+// ── POST /auth/github/exchange
 // GitHub OAuth code exchange (used by platform proxy)
 router.post('/github/exchange', async (req, res, next) => {
   try {
@@ -823,6 +992,7 @@ router.post('/github/exchange', async (req, res, next) => {
     }
 
     const token = issueToken(user);
+    setSsoCookie(res, token);
     res.json(formatAuthResponse(user, token, isNewUser));
   } catch (err) {
     if (err.banned) return res.status(403).json({ error: err.message });
@@ -901,6 +1071,7 @@ router.get('/google/callback', async (req, res, next) => {
     }
 
     const token = issueToken(user);
+    setSsoCookie(res, token);
     const sep = appRedirect.includes('?') ? '&' : '?';
     res.redirect(`${appRedirect}${sep}token=${token}&grudge_id=${user.grudge_id}&provider=google`);
   } catch (err) {
@@ -990,6 +1161,7 @@ router.get('/github/callback', async (req, res, next) => {
     }
 
     const token = issueToken(user);
+    setSsoCookie(res, token);
     const sep = appRedirect.includes('?') ? '&' : '?';
     res.redirect(`${appRedirect}${sep}token=${token}&grudge_id=${user.grudge_id}&provider=github`);
   } catch (err) {
@@ -998,7 +1170,7 @@ router.get('/github/callback', async (req, res, next) => {
   }
 });
 
-// ── POST /auth/phone-verify ───────────────
+// ── POST /auth/phone-verify ─────────────
 // Verify SMS OTP via Twilio, login/register
 router.post('/phone-verify', async (req, res, next) => {
   try {
@@ -1067,11 +1239,44 @@ router.post('/phone-verify', async (req, res, next) => {
     }
 
     const token = issueToken(user);
+    setSsoCookie(res, token);
     res.json(formatAuthResponse(user, token, isNewUser));
   } catch (err) {
     if (err.banned) return res.status(403).json({ error: err.message });
     next(err);
   }
+});
+
+// ── GET /auth/sso-check ───────────────────────
+// Cross-app SSO: reads grudge_sso cookie, redirects with token if valid
+router.get('/sso-check', (req, res) => {
+  const returnUrl = req.query.return;
+  if (!returnUrl || !isAllowedOrigin(returnUrl)) {
+    return res.status(400).json({ error: 'Invalid or missing return URL' });
+  }
+
+  const ssoCookie = req.cookies?.[SSO_COOKIE_NAME];
+  const sep = returnUrl.includes('?') ? '&' : '?';
+
+  if (ssoCookie) {
+    try {
+      jwt.verify(ssoCookie, JWT_SECRET);
+      // Valid session — redirect with token
+      return res.redirect(`${returnUrl}${sep}sso_token=${ssoCookie}`);
+    } catch {
+      // Expired/invalid — clear cookie and redirect without token
+      res.clearCookie(SSO_COOKIE_NAME, SSO_COOKIE_OPTS);
+    }
+  }
+
+  // No valid session — redirect back, app shows login
+  res.redirect(`${returnUrl}${sep}sso_required=true`);
+});
+
+// ── POST /auth/logout (clears SSO cookie) ─────
+router.post('/logout', (req, res) => {
+  res.clearCookie(SSO_COOKIE_NAME, SSO_COOKIE_OPTS);
+  res.json({ success: true });
 });
 
 module.exports = router;

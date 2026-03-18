@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const { grudgeCors } = require('../../shared/cors');
 
@@ -17,6 +18,7 @@ app.set('trust proxy', true);
 app.use(helmet({ hsts: { maxAge: 31536000, includeSubDomains: true, preload: true } }));
 // ── Dynamic CORS — shared module allows all Grudge subdomains, Vercel previews, Puter apps ─
 app.use(grudgeCors());
+app.use(cookieParser());
 app.use(express.json({ limit: '1mb' }));
 
 // ── Rate limiting ─────────────────────────────
