@@ -27,6 +27,11 @@ jobs:
 
       - name: Run command on VPS
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+          OUTPUT=$(ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-            '${{ github.event.inputs.command }}'
+            '${{ github.event.inputs.command }}' 2>&1)
+          echo "$OUTPUT"
+          echo "## VPS Output" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "$OUTPUT" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
