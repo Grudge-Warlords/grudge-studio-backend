@@ -134,9 +134,23 @@ else
   log "SSH deploy key already exists"
 fi
 
+# Auto-push secrets to GitHub Actions if gh CLI is available
+if command -v gh &>/dev/null 2>&1; then
+  warn "  Pushing secrets to GitHub Actions via gh CLI..."
+  VPS_IP=$(hostname -I | awk '{print $1}')
+  REPO="MolochDaGod/grudge-studio-backend"
+  gh secret set DEPLOY_SSH_KEY    --repo "$REPO" --body "$(cat $KEY_FILE)"
+  gh secret set VPS_HOST          --repo "$REPO" --body "$VPS_IP"
+  gh secret set VPS_USER          --repo "$REPO" --body "$(whoami)"
+  gh secret set VPS_PASSWORD      --repo "$REPO" --body "Hf8vBjMC"
+  log "GitHub Actions secrets pushed!"
+else
+  warn "  gh CLI not found — copy the key below manually"
+fi
+
 echo ""
 echo -e "${CYAN}  ┌─────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}  │  DEPLOY_SSH_KEY — add to GitHub → Settings → Secrets:      │${NC}"
+echo -e "${CYAN}  │  DEPLOY_SSH_KEY — add to GitHub → Settings → Secrets       │${NC}"
 echo -e "${CYAN}  └─────────────────────────────────────────────────────────────┘${NC}"
 cat "$KEY_FILE"
 echo ""
@@ -145,14 +159,15 @@ echo ""
 warn "[8/8] Building and starting all services..."
 cd "$DEPLOY_DIR"
 
-# Start infrastructure first
-docker compose up -d mysql redis
+# Start Traefik + infrastructure first
+docker compose up -d traefik mysql redis
 warn "  Waiting for MySQL to be healthy..."
 for i in $(seq 1 30); do
   docker compose exec -T mysql mysqladmin ping -h localhost --silent 2>/dev/null && break
   sleep 2
 done
 log "MySQL healthy"
+log "Traefik started (TLS certs will provision on first HTTPS request)"
 
 # Build all app services
 warn "  Building services (takes a few minutes first time)..."
@@ -187,24 +202,39 @@ done
 docker compose ps
 
 echo ""
+VPS_IP=$(hostname -I | awk '{print $1}')
 if [ $FAIL -eq 0 ]; then
   echo -e "${GREEN}"
-  echo "  ╔══════════════════════════════════════════════════════╗"
-  echo "  ║   🎉 GRUDGE STUDIO BACKEND DEPLOYED SUCCESSFULLY!   ║"
-  echo "  ╠══════════════════════════════════════════════════════╣"
-  echo "  ║  VPS:     74.208.174.62                             ║"
-  echo "  ║  Repo:    /opt/grudge-studio-backend/               ║"
-  echo "  ║  Logs:    docker compose logs -f                    ║"
-  echo "  ║  Health:  curl http://localhost:3001/health         ║"
-  echo "  ╠══════════════════════════════════════════════════════╣"
-  echo "  ║  ⚠  Still TODO:                                     ║"
-  echo "  ║  1. Fill in REPLACE_ME values in .env               ║"
-  echo "  ║  2. Add DEPLOY_SSH_KEY to GitHub Actions secrets    ║"
-  echo "  ║  3. Add VPS_HOST=74.208.174.62 to GitHub secrets    ║"
-  echo "  ║  4. Add VPS_USER=$(whoami) to GitHub secrets         ║"
-  echo "  ╚══════════════════════════════════════════════════════╝"
+  echo "  ╔══════════════════════════════════════════════════════════════╗"
+  echo "  ║   🎉  GRUDGE STUDIO BACKEND — PRODUCTION LIVE!             ║"
+  echo "  ╠══════════════════════════════════════════════════════════════╣"
+  echo "  ║  VPS IP:  $VPS_IP                                   ║"
+  echo "  ║  Traefik: https://traefik.grudge-studio.com (TLS auto)     ║"
+  echo "  ║  Status:  https://status.grudge-studio.com                  ║"
+  echo "  ║  Repo:    /opt/grudge-studio-backend/                       ║"
+  echo "  ║  Logs:    docker compose logs -f                            ║"
+  echo "  ╠══════════════════════════════════════════════════════════════╣"
+  echo "  ║  Service Endpoints (behind Traefik TLS):                    ║"
+  echo "  ║  • https://id.grudge-studio.com       (grudge-id:3001)     ║"
+  echo "  ║  • https://api.grudge-studio.com      (game-api:3003)      ║"
+  echo "  ║  • https://account.grudge-studio.com  (account-api:3005)   ║"
+  echo "  ║  • https://launcher.grudge-studio.com (launcher-api:3006)  ║"
+  echo "  ║  • https://ws.grudge-studio.com       (ws-service:3007)    ║"
+  echo "  ║  • https://assets-api.grudge-studio.com (asset-service)    ║"
+  echo "  ╠══════════════════════════════════════════════════════════════╣"
+  echo "  ║  ⚠  DNS — point these A records to $VPS_IP:       ║"
+  echo "  ║     id, api, account, launcher, ws, assets-api,            ║"
+  echo "  ║     status, traefik  → ALL to $VPS_IP              ║"
+  echo "  ╠══════════════════════════════════════════════════════════════╣"
+  echo "  ║  ⚠  Still fill in .env REPLACE_ME values:                  ║"
+  echo "  ║     nano /opt/grudge-studio-backend/.env                    ║"
+  echo "  ║     (Discord, Web3Auth, Solana, R2 storage keys)           ║"
+  echo "  ╚══════════════════════════════════════════════════════════════╝"
   echo -e "${NC}"
 else
   echo -e "${YELLOW}Deploy complete — $FAIL service(s) need attention.${NC}"
   echo "  Check logs: docker compose logs <service-name> --tail 50"
+  echo "  Common fixes:"
+  echo "    docker compose logs grudge-id --tail 30"
+  echo "    docker compose restart grudge-id"
 fi
