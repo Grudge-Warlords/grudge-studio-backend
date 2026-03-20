@@ -13,7 +13,7 @@ const puterRoutes        = require('./routes/puter');
 
 const app  = express();
 const PORT = process.env.PORT || 3005;
-app.set('trust proxy', true);
+app.set('trust proxy', 1); // Trust one proxy hop (Traefik/Coolify) — required by express-rate-limit v7
 
 const { grudgeCors } = require('../../shared/cors');
 

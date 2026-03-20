@@ -13,7 +13,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // ── Trust Cloudflare proxy (real IP, HTTPS detection, rate limit accuracy) ──
-app.set('trust proxy', true);
+app.set('trust proxy', 1); // Trust one proxy hop (Traefik/Coolify) — required by express-rate-limit v7
 // ── Security middleware ───────────────────────
 app.use(helmet({ hsts: { maxAge: 31536000, includeSubDomains: true, preload: true } }));
 // ── Dynamic CORS — shared module allows all Grudge subdomains, Vercel previews, Puter apps ─
