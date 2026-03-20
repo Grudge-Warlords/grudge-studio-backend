@@ -29,6 +29,28 @@ const authLimiter = rateLimit({
 });
 
 // ── Routes ────────────────────────────────────
+app.get('/', (req, res) => res.json({
+  service: 'grudge-id',
+  version: '1.0.0',
+  description: 'Grudge Studio — Identity & Authentication API',
+  endpoints: {
+    health: 'GET /health',
+    auth: {
+      wallet: 'POST /auth/wallet',
+      discord: 'GET /auth/discord',
+      discord_callback: 'GET /auth/discord/callback',
+      login: 'POST /auth/login',
+      register: 'POST /auth/register',
+      guest: 'POST /auth/guest',
+      verify: 'POST /auth/verify',
+    },
+    identity: {
+      me: 'GET /identity/me (Bearer JWT)',
+      update: 'PATCH /identity/me (Bearer JWT)',
+    },
+  },
+  docs: 'https://github.com/MolochDaGod/grudge-studio-backend/blob/main/docs/API.md',
+}));
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'grudge-id' }));
 app.use('/auth', authLimiter, authRoutes);
 app.use('/identity', identityRoutes);

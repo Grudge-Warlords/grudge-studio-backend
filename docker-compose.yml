@@ -1,12 +1,10 @@
+version: "3.9"
+
 networks:
   grudge-net:
     driver: bridge
   coolify:
     external: true
-    name: coolify
-    # NOTE: Uses Coolify's existing 'coolify' Docker network so coolify-proxy
-    # (Traefik) picks up our service labels automatically. On a plain VPS without
-    # Coolify, create this network first: docker network create coolify
 
 volumes:
   mysql-data:
@@ -18,7 +16,7 @@ volumes:
 # All externally-exposed services share this default.
 # Override per-env by setting CORS_ORIGINS in .env
 x-cors-origins: &cors-origins
-  CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://www.grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudgeplatform.com,https://www.grudgeplatform.com,https://grudachain.grudgestudio.com,https://grudachain.grudge-studio.com,https://grudachain-rho.vercel.app,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://grudge-builder.vercel.app,https://gruda-wars.vercel.app,https://grudge-engine-web.vercel.app,https://starwaygruda-webclient-as2n.vercel.app,https://app.puter.com,https://molochdagod.github.io}
+  CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://www.grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudgeplatform.com,https://www.grudgeplatform.com,https://grudachain.grudgestudio.com,https://grudachain-rho.vercel.app,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://gruda-wars.vercel.app,https://grudge-engine-web.vercel.app,https://starwaygruda-webclient-as2n.vercel.app,https://app.puter.com,https://molochdagod.github.io}
 
 services:
 
@@ -26,9 +24,7 @@ services:
   # GRUDGE ID — Unified Identity Service
   # ─────────────────────────────────────────
   grudge-id:
-    build:
-      context: ./services
-      dockerfile: grudge-id/Dockerfile
+    build: ./services/grudge-id
     container_name: grudge-id
     restart: unless-stopped
     environment:
@@ -44,18 +40,18 @@ services:
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
       DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-https://id.grudge-studio.com/auth/google/callback}
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
-      GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-https://id.grudge-studio.com/auth/github/callback}
       WEB3AUTH_CLIENT_ID: ${WEB3AUTH_CLIENT_ID}
       WALLET_SERVICE_URL: http://wallet-service:3002
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       CF_TURNSTILE_SECRET_KEY: ${CF_TURNSTILE_SECRET_KEY}
       CF_TURNSTILE_SITE_KEY: ${CF_TURNSTILE_SITE_KEY}
       <<: *cors-origins
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       mysql:
         condition: service_healthy
@@ -74,9 +70,7 @@ services:
   # WALLET SERVICE
   # ─────────────────────────────────────────
   wallet-service:
-    build:
-      context: ./services
-      dockerfile: wallet-service/Dockerfile
+    build: ./services/wallet-service
     container_name: wallet-service
     restart: unless-stopped
     environment:
@@ -101,9 +95,7 @@ services:
   # GAME API — GAME_API_GRUDA
   # ─────────────────────────────────────────
   game-api:
-    build:
-      context: ./services
-      dockerfile: game-api/Dockerfile
+    build: ./services/game-api
     container_name: game-api
     restart: unless-stopped
     environment:
@@ -119,6 +111,12 @@ services:
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       AI_AGENT_URL: http://ai-agent:3004
       <<: *cors-origins
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3003/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       mysql:
         condition: service_healthy
@@ -139,9 +137,7 @@ services:
   # AI AGENT — Dynamic Missions, Companions, Faction Intel
   # ─────────────────────────────────────────
   ai-agent:
-    build:
-      context: ./services
-      dockerfile: ai-agent/Dockerfile
+    build: ./services/ai-agent
     container_name: ai-agent
     restart: unless-stopped
     environment:
@@ -153,10 +149,6 @@ services:
       DB_USER: ${MYSQL_USER}
       DB_PASS: ${MYSQL_PASSWORD}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
-      REDIS_URL: redis://:${REDIS_PASSWORD}@grudge-redis:6379
     depends_on:
       mysql:
         condition: service_healthy
@@ -168,9 +160,7 @@ services:
   # ACCOUNT API — Profiles, Social, Achievements, Puter Cloud
   # ─────────────────────────────────────────────
   account-api:
-    build:
-      context: ./services
-      dockerfile: account-api/Dockerfile
+    build: ./services/account-api
     container_name: account-api
     restart: unless-stopped
     environment:
@@ -190,6 +180,12 @@ services:
       OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-auto}
       OBJECT_STORAGE_PUBLIC_URL: ${OBJECT_STORAGE_PUBLIC_URL}
       <<: *cors-origins
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3005/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       mysql:
         condition: service_healthy
@@ -208,9 +204,7 @@ services:
   # LAUNCHER API — Version Manifest, Computer Registration, Launch Tokens
   # ─────────────────────────────────────────────
   launcher-api:
-    build:
-      context: ./services
-      dockerfile: launcher-api/Dockerfile
+    build: ./services/launcher-api
     container_name: launcher-api
     restart: unless-stopped
     environment:
@@ -231,6 +225,12 @@ services:
       OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-auto}
       OBJECT_STORAGE_PUBLIC_URL: ${OBJECT_STORAGE_PUBLIC_URL}
       <<: *cors-origins
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3006/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       mysql:
         condition: service_healthy
@@ -249,9 +249,7 @@ services:
   # ASSET SERVICE — Upload, metadata, conversions, export bundles
   # ─────────────────────────────────────────────
   asset-service:
-    build:
-      context: ./services
-      dockerfile: asset-service/Dockerfile
+    build: ./services/asset-service
     container_name: asset-service
     restart: unless-stopped
     environment:
@@ -271,6 +269,12 @@ services:
       OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-auto}
       OBJECT_STORAGE_PUBLIC_URL: ${OBJECT_STORAGE_PUBLIC_URL}
       <<: *cors-origins
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3008/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       mysql:
         condition: service_healthy
@@ -290,9 +294,7 @@ services:
   # Namespaces: /game (island rooms), /crew, /global
   # ─────────────────────────────────────────────
   ws-service:
-    build:
-      context: ./services
-      dockerfile: ws-service/Dockerfile
+    build: ./services/ws-service
     container_name: ws-service
     restart: unless-stopped
     environment:
@@ -302,6 +304,12 @@ services:
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       REDIS_URL: redis://:${REDIS_PASSWORD}@grudge-redis:6379
       <<: *cors-origins
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3007/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       redis:
         condition: service_healthy
@@ -347,9 +355,7 @@ services:
   # Start with: docker compose --profile gameserver up -d grudge-headless
   # ─────────────────────────────────────────────
   grudge-headless:
-    build:
-      context: ./services
-      dockerfile: grudge-headless/Dockerfile
+    build: ./services/grudge-headless
     container_name: grudge-headless
     profiles: ["gameserver"]
     restart: unless-stopped
@@ -370,10 +376,6 @@ services:
         condition: service_healthy
     networks:
       - grudge-net
-
-  # NOTE: Traefik reverse proxy is managed by Coolify (coolify-proxy container).
-  # It owns ports 80/443 and handles TLS + routing for all services via Docker labels.
-  # Do NOT add a separate traefik service here — it will conflict with coolify-proxy.
 
   # ─────────────────────────────────────────
   # MYSQL — Primary Database

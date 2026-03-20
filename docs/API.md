@@ -29,6 +29,12 @@ x-internal-key: <INTERNAL_API_KEY>
 
 ## grudge-id — Identity & Auth (port 3001)
 
+### Service Info
+```
+GET /
+→ { service, version, description, endpoints, docs }
+```
+
 ### Health
 ```
 GET /health

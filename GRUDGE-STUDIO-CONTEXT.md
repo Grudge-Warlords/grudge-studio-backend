@@ -658,22 +658,22 @@ All frontends should authenticate via `id.grudge-studio.com` and call `api.grudg
 |----------|-------------|-------------------|--------|
 | grudge-platform.vercel.app | Own Vercel functions (`/api/login`) | N/A | ⚠ Should forward to `id.grudge-studio.com` |
 | grudgewarlords.com | Own Vercel API (`/api/auth/*`) | Own Vercel API | ⚠ Should connect to VPS for game data |
-| warlord-crafting-suite.vercel.app | auth-gateway-flax.vercel.app (Neon) | `grudge-crafting.replit.app` (DEAD) | ❌ Needs VPS migration |
-| gdevelop-assistant.vercel.app | auth-gateway-flax.vercel.app (Neon) | `gruda-legion-production.up.railway.app` (DEAD) | ❌ Needs VPS migration |
-| grudachain.grudgestudio.com | N/A | Static links only | ✅ OK |
+| warlord-crafting-suite.vercel.app | `id.grudge-studio.com` (VPS) | `api.grudge-studio.com` (VPS) | ✅ Code migrated |
+| gdevelop-assistant.vercel.app | `id.grudge-studio.com` (VPS) | `api.grudge-studio.com` (VPS) | ✅ Code migrated |
+| grudachain.grudgestudio.com | N/A | GrudaChain frontend (Cloudflare Pages) — NOT Grudge Legion | ✅ OK |
 | dash.grudge-studio.com | Cloudflare Worker + `DASH_API_KEY` | VPS APIs | ✅ OK |
 
 ### Required CORS_ORIGINS (VPS .env)
 ```
-https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudachain.grudgestudio.com,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://app.puter.com
+https://grudgewarlords.com,https://www.grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudgeplatform.com,https://www.grudgeplatform.com,https://grudachain.grudgestudio.com,https://grudachain-rho.vercel.app,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://gruda-wars.vercel.app,https://grudge-engine-web.vercel.app,https://starwaygruda-webclient-as2n.vercel.app,https://app.puter.com,https://molochdagod.github.io
 ```
 
-### Dead Service References to Replace
-| Old URL (DEAD) | Replace With | Affected Projects |
-|----------------|-------------|--------------------|
-| `gruda-legion-production.up.railway.app` | `api.grudge-studio.com` | GDevelopAssistant (`shared/grudachain.ts`) |
-| `grudge-crafting.replit.app` | `api.grudge-studio.com` | WCS (`client/src/lib/api.ts`) |
-| `auth-gateway-flax.vercel.app` (Neon) | `id.grudge-studio.com` (VPS MySQL) | GDevelopAssistant, WCS |
+### Dead Service References — Migration Complete
+| Old URL (DEAD) | Replaced With | Affected Projects | Status |
+|----------------|-------------|--------------------|---------|
+| `gruda-legion-production.up.railway.app` | `api.grudge-studio.com` | GDevelopAssistant (`shared/grudachain.ts`, `.env`, docs) | ✅ DONE |
+| `grudge-crafting.replit.app` | `api.grudge-studio.com` | WCS (services.ts, puter workers, HTML, deploy config, docs) | ✅ DONE |
+| `auth-gateway-flax.vercel.app` | `id.grudge-studio.com` | GDevelopAssistant (.env, docs), WCS (services.ts) | ✅ DONE |
 
 ---
 
