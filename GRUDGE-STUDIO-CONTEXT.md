@@ -551,8 +551,9 @@ nano /opt/grudge-studio-backend/.env
 
 **Cloudflare Workers secrets** (set via `npx wrangler secret put`):
 ```
-DASH_API_KEY   → Internal API key for dashboard worker
+DASH_API_KEY   → Standalone admin password for dash.grudge-studio.com (store in password manager)
 ```
+To reset: npx wrangler secret put DASH_API_KEY --config cloudflare/workers/dashboard/wrangler.toml
 
 ---
 

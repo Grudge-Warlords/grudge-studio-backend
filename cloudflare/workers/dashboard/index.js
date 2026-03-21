@@ -9,7 +9,7 @@
  *
  * Deploy:  npx wrangler deploy  (from cloudflare/workers/dashboard/)
  * Secret:  npx wrangler secret put DASH_API_KEY
- *          → paste value of INTERNAL_API_KEY from .env
+ *          → set a standalone admin password (keep in a password manager, NOT in .env or git)
  */
 
 // ── Session helpers ───────────────────────────────────────────
@@ -56,6 +56,15 @@ CREATE TABLE IF NOT EXISTS dash_players (
 );
 CREATE TABLE IF NOT EXISTS dash_metrics (
   key TEXT PRIMARY KEY, value TEXT,
+  ts INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE TABLE IF NOT EXISTS health_pings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  service TEXT NOT NULL,
+  status TEXT NOT NULL,
+  code INTEGER,
+  ms INTEGER,
+  error TEXT,
   ts INTEGER NOT NULL DEFAULT (unixepoch())
 );`;
 
@@ -146,12 +155,15 @@ export default {
 // ── API implementations ───────────────────────────────────────
 async function apiHealth(env) {
   const endpoints = {
-    'Identity':  env.IDENTITY_API  || 'https://id.grudge-studio.com',
-    'Game API':  env.GAME_API      || 'https://api.grudge-studio.com',
-    'Account':   env.ACCOUNT_API   || 'https://account.grudge-studio.com',
-    'Launcher':  env.LAUNCHER_API  || 'https://launcher.grudge-studio.com',
-    'WebSocket': env.WS_API        || 'https://ws.grudge-studio.com',
-    'Asset CDN': env.CDN_URL       || 'https://assets.grudge-studio.com',
+    'Identity':   env.IDENTITY_API  || 'https://id.grudge-studio.com',
+    'Game API':   env.GAME_API      || 'https://api.grudge-studio.com',
+    'Account':    env.ACCOUNT_API   || 'https://account.grudge-studio.com',
+    'Launcher':   env.LAUNCHER_API  || 'https://launcher.grudge-studio.com',
+    'WebSocket':  env.WS_API        || 'https://ws.grudge-studio.com',
+    'Asset CDN':  env.CDN_URL       || 'https://assets.grudge-studio.com',
+    'Asset API':  'https://assets-api.grudge-studio.com',
+    'Status':     'https://status.grudge-studio.com',
+    'Main Site':  'https://grudge-studio.com',
   };
   const results = await Promise.allSettled(
     Object.entries(endpoints).map(async ([name, base]) => {
@@ -394,11 +406,41 @@ async function cronSync(env) {
   const now    = Math.floor(Date.now() / 1000);
   let synced   = 0;
 
-  // Check if VPS is reachable before full sync
-  try {
-    const probe = await fetch(`${base}/health`, { signal: AbortSignal.timeout(5000) });
-    if (!probe.ok) return; // VPS down — skip sync silently
-  } catch { return; }
+  // ── Health sweep: ping all endpoints and record to D1 ────────
+  const healthEndpoints = {
+    'grudge-id':    `${idBase}/health`,
+    'game-api':     `${base}/health`,
+    'account-api':  (env.ACCOUNT_API  || 'https://account.grudge-studio.com') + '/health',
+    'launcher-api': (env.LAUNCHER_API || 'https://launcher.grudge-studio.com') + '/health',
+    'ws-service':   (env.WS_API       || 'https://ws.grudge-studio.com') + '/health',
+    'asset-cdn':    (env.CDN_URL      || 'https://assets.grudge-studio.com') + '/health',
+    'asset-api':    'https://assets-api.grudge-studio.com/health',
+    'status':       'https://status.grudge-studio.com',
+    'main-site':    'https://grudge-studio.com',
+  };
+  const pings = await Promise.allSettled(
+    Object.entries(healthEndpoints).map(async ([name, url]) => {
+      const t = Date.now();
+      try {
+        const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        return { name, status: r.ok ? 'up' : 'degraded', code: r.status, ms: Date.now() - t, error: null };
+      } catch (e) {
+        return { name, status: 'down', code: 0, ms: Date.now() - t, error: e.message };
+      }
+    })
+  );
+  const pingResults = pings.map(p => p.value ?? p.reason);
+
+  if (env.DB) {
+    try {
+      const stmt = env.DB.prepare('INSERT INTO health_pings (service, status, code, ms, error, ts) VALUES (?, ?, ?, ?, ?, ?)');
+      await env.DB.batch(pingResults.map(r => stmt.bind(r.name, r.status, r.code, r.ms, r.error, now)));
+    } catch {}
+  }
+
+  // Check if VPS is reachable before data sync
+  const vpsUp = pingResults.find(r => r.name === 'game-api')?.status === 'up';
+  if (!vpsUp) return;
 
   // Pull metrics from identity service
   if (env.KV) {
@@ -448,7 +490,7 @@ async function cronSync(env) {
     if (synced > 0) {
       try {
         await env.DB.prepare('INSERT INTO dash_events (service, event, payload, ts) VALUES (?, ?, ?, ?)')
-          .bind('dashboard', 'cron_sync', JSON.stringify({ synced }), now).run();
+          .bind('dashboard', 'cron_sync', JSON.stringify({ synced, pings: pingResults.length }), now).run();
       } catch {}
     }
   }
@@ -458,9 +500,11 @@ async function cronSync(env) {
 async function apiSystem(env) {
   const data = {
     workers: [
-      { name: 'grudge-dashboard', domain: 'dash.grudge-studio.com', status: 'deployed' },
+      { name: 'grudge-studio-site', domain: 'grudge-studio.com', status: 'deployed', cron: '* * * * *' },
+      { name: 'grudge-dashboard', domain: 'dash.grudge-studio.com', status: 'deployed', cron: '*/10 * * * *' },
       { name: 'grudge-health-ping', domain: 'grudge-health-ping.grudge.workers.dev', status: 'deployed', cron: '*/5 * * * *' },
       { name: 'grudge-r2-cdn', domain: 'assets.grudge-studio.com', status: 'deployed' },
+      { name: 'grudge-auth-gateway', domain: 'auth.grudgestudio.com', status: 'deployed' },
     ],
     vps: {
       ip: env.VPS_IP || '74.208.155.229',
@@ -472,7 +516,8 @@ async function apiSystem(env) {
         { name: 'account-api', port: 3005, domain: 'account.grudge-studio.com' },
         { name: 'launcher-api', port: 3006, domain: 'launcher.grudge-studio.com' },
         { name: 'ws-service', port: 3007, domain: 'ws.grudge-studio.com' },
-        { name: 'asset-service', port: 3008, domain: null },
+        { name: 'asset-service', port: 3008, domain: 'assets-api.grudge-studio.com' },
+        { name: 'uptime-kuma', port: 3001, domain: 'status.grudge-studio.com' },
       ],
     },
     cloudflare: {
@@ -481,6 +526,7 @@ async function apiSystem(env) {
       r2: 'grudge-assets',
     },
     dns: [
+      { sub: '(root)', target: 'Worker', proxied: true },
       { sub: 'dash', target: 'Worker', proxied: true },
       { sub: 'assets', target: 'Worker', proxied: true },
       { sub: 'id', target: 'VPS', proxied: true },
@@ -488,6 +534,8 @@ async function apiSystem(env) {
       { sub: 'account', target: 'VPS', proxied: true },
       { sub: 'launcher', target: 'VPS', proxied: true },
       { sub: 'ws', target: 'VPS', proxied: true },
+      { sub: 'assets-api', target: 'VPS', proxied: true },
+      { sub: 'status', target: 'VPS', proxied: true },
     ],
   };
   return json(data);
@@ -650,7 +698,7 @@ tr:hover td{background:rgba(212,175,55,0.03)}
 <body>
 <header>
   <div class="logo">⚔ Grudge Studio</div>
-  <div class="badge">Backend v2</div>
+  <div class="badge">Backend v3</div>
   <nav>
     <button class="active" onclick="tab('overview',this)">Overview</button>
     <button onclick="tab('servers',this)">Servers</button>
