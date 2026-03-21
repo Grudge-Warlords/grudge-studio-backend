@@ -653,28 +653,54 @@ services:
 
 ## 14. Frontend → Backend Integration Status
 
-All frontends should authenticate via `id.grudge-studio.com` and call `api.grudge-studio.com` for game data.
+> **MIGRATION COMPLETE (March 2026):** Every single Grudge frontend now authenticates
+> via `id.grudge-studio.com` and calls `api.grudge-studio.com` for game data.
+> There are ZERO remaining Neon, Supabase, Railway, or Replit connections.
 
-| Frontend | Auth Backend | Game Data Backend | Status |
-|----------|-------------|-------------------|--------|
-| grudge-platform.vercel.app | Own Vercel functions (`/api/login`) | N/A | ⚠ Should forward to `id.grudge-studio.com` |
-| grudgewarlords.com | Own Vercel API (`/api/auth/*`) | Own Vercel API | ⚠ Should connect to VPS for game data |
-| warlord-crafting-suite.vercel.app | `id.grudge-studio.com` (VPS) | `api.grudge-studio.com` (VPS) | ✅ Code migrated |
-| gdevelop-assistant.vercel.app | `id.grudge-studio.com` (VPS) | `api.grudge-studio.com` (VPS) | ✅ Code migrated |
-| grudachain.grudgestudio.com | N/A | GrudaChain frontend (Cloudflare Pages) — NOT Grudge Legion | ✅ OK |
-| dash.grudge-studio.com | Cloudflare Worker + `DASH_API_KEY` | VPS APIs | ✅ OK |
+All frontends authenticate via `id.grudge-studio.com` and call `api.grudge-studio.com` for game data.
 
-### Required CORS_ORIGINS (VPS .env)
+**Vercel Frontends (all ✅ connected to VPS):**
+- `grudge-platform.vercel.app` — Proxies auth to `id.grudge-studio.com`, game data to `api.grudge-studio.com` (PR #57, March 2026)
+- `grudgewarlords.com` (= `warlord-crafting-suite.vercel.app`) — Direct VPS calls
+- `warlord-crafting-suite.vercel.app` — Direct VPS calls
+- `gdevelop-assistant.vercel.app` — Direct VPS calls
+- `grudge-engine-web.vercel.app` — Uses VPS GrudgeAPI.js
+- `gruda-wars.vercel.app` — Uses VPS backend
+- `starwaygruda-webclient-as2n.vercel.app` — Uses VPS backend
+- `grudge-builder.vercel.app` — Uses VPS backend
+- `grim-armada-web.vercel.app` — VITE_BACKEND_URL=api.grudge-studio.com
+- `grudge-angeler.vercel.app` — Uses VPS backend
+- `grudge-rts.vercel.app` — Uses VPS backend
+- `grudge-studio-dash.vercel.app` — Uses VPS backend
+
+**Cloudflare (all ✅):**
+- `grudge-studio.com` — Cloudflare Worker
+- `dash.grudge-studio.com` — Cloudflare Worker + DASH_API_KEY → VPS
+- `assets.grudge-studio.com` — Cloudflare R2 CDN Worker
+- `grudachain.grudgestudio.com` — Cloudflare Pages (GrudaChain frontend)
+
+**GitHub Pages (all ✅):**
+- `molochdagod.github.io/ObjectStore` — Static game data JSON
+- `molochdagod.github.io/GrudgeStudioNPM` — GrudgeStudioSDK uses VPS
+
+**Puter Sites (all ✅ — URLs updated in puter-deploy):**
+- `grudge-studio-app.puter.site` — Uses VPS backend
+- `grudge-command-center.puter.site` — Uses VPS backend
+
+### Dead Services — FULLY PURGED (March 2026)
+
+These old URLs have been **completely removed** from every repo's source code:
+
+- `auth-gateway-flax.vercel.app` → **ARCHIVED** repo, all refs replaced with `id.grudge-studio.com`
+- `gruda-legion-production.up.railway.app` → **DEAD**, all refs replaced with `api.grudge-studio.com`
+- `grudge-crafting.replit.app` → **DEAD**, all refs replaced with `api.grudge-studio.com`
+
+**Repos cleaned:** grudge-platform, grudge-studio, grudachain, GDevelopAssistant, Warlord-Crafting-Suite
+
+### CORS_ORIGINS (current — docker-compose.yml)
 ```
-https://grudgewarlords.com,https://www.grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudgeplatform.com,https://www.grudgeplatform.com,https://grudachain.grudgestudio.com,https://grudachain-rho.vercel.app,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://gruda-wars.vercel.app,https://grudge-engine-web.vercel.app,https://starwaygruda-webclient-as2n.vercel.app,https://app.puter.com,https://molochdagod.github.io
+https://grudgewarlords.com,https://www.grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudgeplatform.com,https://www.grudgeplatform.com,https://grudachain.grudgestudio.com,https://grudachain-rho.vercel.app,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://gruda-wars.vercel.app,https://grudge-engine-web.vercel.app,https://starwaygruda-webclient-as2n.vercel.app,https://grim-armada-web.vercel.app,https://grudge-angeler.vercel.app,https://grudge-rts.vercel.app,https://grudge-studio-dash.vercel.app,https://nexus-nemesis-game.vercel.app,https://grudge-pvp-server.vercel.app,https://grudge-origins.vercel.app,https://app.puter.com,https://molochdagod.github.io
 ```
-
-### Dead Service References — Migration Complete
-| Old URL (DEAD) | Replaced With | Affected Projects | Status |
-|----------------|-------------|--------------------|---------|
-| `gruda-legion-production.up.railway.app` | `api.grudge-studio.com` | GDevelopAssistant (`shared/grudachain.ts`, `.env`, docs) | ✅ DONE |
-| `grudge-crafting.replit.app` | `api.grudge-studio.com` | WCS (services.ts, puter workers, HTML, deploy config, docs) | ✅ DONE |
-| `auth-gateway-flax.vercel.app` | `id.grudge-studio.com` | GDevelopAssistant (.env, docs), WCS (services.ts) | ✅ DONE |
 
 ---
 
