@@ -1,6 +1,6 @@
 /**
- * Grudge Studio — Main Site Worker  v2.0
- * Serves grudge-studio.com — landing page, API status, docs, tools
+ * Grudge Studio — Main Site Worker  v2.1
+ * Serves grudge-studio.com — landing page, API status, docs, tools, sub-pages
  *
  * Status system:
  *   - Health checks run via Cron Trigger every 60s (not per-visitor)
@@ -8,9 +8,19 @@
  *   - /api/status serves from KV — instant, zero outbound fetches
  *   - Maintenance mode via KV key  status:mode = "maintenance"
  *
+ * Page routes:
+ *   /backend  — Backend Architecture roadmap
+ *   /client   — Client Portal (also served at client.grudge-studio.com)
+ *   /infra    — Master Infrastructure Bible
+ *   /systems  — Full Stack Master System
+ *
  * Deploy:  npx wrangler deploy  (from cloudflare/workers/site/)
  * KV:     npx wrangler kv namespace create "STATUS_KV"
  */
+import backendPage from './pages/backend.html';
+import clientPage from './pages/client.html';
+import infraPage from './pages/infra.html';
+import systemsPage from './pages/systems.html';
 
 const SERVICES = [
   { key: 'id',       label: 'Identity API',   url: 'https://id.grudge-studio.com/health' },
@@ -31,13 +41,24 @@ const STALE_THRESHOLD = 90;  // if cache older than this, trigger live refresh
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    const host = url.hostname;
     const path = url.pathname;
+
+    // Subdomain routing — client.grudge-studio.com serves Client Portal
+    if (host === 'client.grudge-studio.com') return serveHTML(clientPage);
+    // Subdomain routing — wallet.grudge-studio.com serves Wallet UI
+    if (host === 'wallet.grudge-studio.com') return handleWalletPage(env);
 
     if (path === '/api/status') return handleStatus(env, ctx);
     if (path === '/api/docs.json') return handleDocsJson();
     if (path === '/discord/events') return handleDiscordWebhookEvent(request, env);
     if (path === '/tos') return handleTos();
     if (path === '/privacy') return handlePrivacy();
+    // Sub-pages — corrected architecture docs
+    if (path === '/backend') return serveHTML(backendPage);
+    if (path === '/client') return serveHTML(clientPage);
+    if (path === '/infra') return serveHTML(infraPage);
+    if (path === '/systems') return serveHTML(systemsPage);
     return handlePage(env);
   },
 
@@ -163,6 +184,107 @@ function statusHeaders() {
     'Access-Control-Allow-Origin': '*',
     'X-Status-Version': '2.0',
   };
+}
+
+// ── Serve static HTML pages (imported as text modules) ────────────────────
+function serveHTML(html) {
+  return new Response(html, {
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'public, max-age=300',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
+}
+
+// ── wallet.grudge-studio.com page ─────────────────────────────────────
+function handleWalletPage(env) {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grudge Studio — Wallet</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a0a0f;--bg2:#12121a;--border:#2a2a3a;--gold:#d4af37;--gold-dim:#8b7355;--text:#e8e8e8;--dim:#888;--green:#33aa55;--purple:#8855cc}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px}
+  .logo{font-family:'Cinzel',serif;font-size:28px;color:var(--gold);letter-spacing:2px;margin-bottom:8px}
+  .sub{color:var(--dim);font-size:14px;letter-spacing:3px;text-transform:uppercase;margin-bottom:48px}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:36px;max-width:500px;width:100%;text-align:center}
+  .card h2{font-family:'Cinzel',serif;color:var(--gold);font-size:20px;margin-bottom:16px}
+  .card p{color:var(--dim);font-size:14px;line-height:1.7;margin-bottom:28px}
+  .wallet-addr{background:#0a0a12;border:1px solid var(--border);border-radius:8px;padding:16px;font-family:monospace;font-size:13px;color:var(--purple);word-break:break-all;margin-bottom:20px;display:none}
+  .btn{padding:12px 28px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;border:none;transition:all .2s}
+  .btn-primary{background:linear-gradient(135deg,var(--gold),var(--gold-dim));color:#000}
+  .btn-primary:hover{filter:brightness(1.15);transform:translateY(-2px)}
+  .btn-outline{background:transparent;border:1px solid var(--border);color:var(--text);margin-left:12px}
+  .btn-outline:hover{border-color:var(--gold);color:var(--gold)}
+  .features{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:36px;max-width:500px;width:100%}
+  .feat{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:18px;text-align:left}
+  .feat h4{color:var(--gold);font-size:13px;margin-bottom:6px}
+  .feat p{color:var(--dim);font-size:12px;line-height:1.5}
+  .back{color:var(--dim);font-size:13px;margin-top:32px;text-decoration:none}
+  .back:hover{color:var(--gold)}
+  #status{font-size:12px;color:var(--dim);margin-top:12px}
+</style>
+</head>
+<body>
+  <div class="logo">GRUDGE STUDIO</div>
+  <div class="sub">Server-Side Wallet</div>
+  <div class="card">
+    <h2>◎ Solana Wallet</h2>
+    <p>Your server-side Solana wallet is managed securely by the Grudge backend. Connect your account to view your wallet address, balance, and transaction history.</p>
+    <div class="wallet-addr" id="wallet-addr"></div>
+    <div>
+      <button class="btn btn-primary" onclick="connectWallet()">Connect Account</button>
+      <a href="https://grudge-studio.com" class="btn btn-outline">Back to Studio</a>
+    </div>
+    <div id="status"></div>
+  </div>
+  <div class="features">
+    <div class="feat"><h4>🔒 Server-Side Custody</h4><p>Your wallet private key is stored securely on the Grudge VPS — never exposed to the browser.</p></div>
+    <div class="feat"><h4>💰 GBux Balance</h4><p>View your in-game gold and on-chain token balance in one place.</p></div>
+    <div class="feat"><h4>⛓️ NFT Holdings</h4><p>See your minted character and island cNFTs from Grudge Warlords.</p></div>
+    <div class="feat"><h4>📊 Transaction History</h4><p>Full ledger of all wallet activity — mints, transfers, and rewards.</p></div>
+  </div>
+  <a class="back" href="https://grudge-studio.com">← grudge-studio.com</a>
+<script>
+async function connectWallet() {
+  document.getElementById('status').textContent = 'Redirecting to login...';
+  // Redirect to id.grudge-studio.com for auth, then back here with JWT
+  const redirectUrl = encodeURIComponent('https://wallet.grudge-studio.com');
+  window.location.href = 'https://id.grudge-studio.com/auth/web3auth?redirect=' + redirectUrl;
+}
+// Check if we have a token in the URL hash (returned from auth)
+const params = new URLSearchParams(window.location.search);
+const token = params.get('token');
+if (token) {
+  (async () => {
+    try {
+      const res = await fetch('${env.ACCOUNT_API || 'https://account.grudge-studio.com'}/profile/wallet', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      if (data.wallet_address) {
+        document.getElementById('wallet-addr').style.display = 'block';
+        document.getElementById('wallet-addr').textContent = data.wallet_address;
+        document.getElementById('status').textContent = 'Wallet loaded \u2714';
+      } else {
+        document.getElementById('status').textContent = 'No wallet found — one will be created on first game login.';
+      }
+    } catch(e) {
+      document.getElementById('status').textContent = 'Error loading wallet: ' + e.message;
+    }
+  })();
+}
+</script>
+</body>
+</html>`;
+  return new Response(html, {
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=60' },
+  });
 }
 
 // ── Minimal OpenAPI reference ────────────────────────────────────────────────
@@ -378,8 +500,12 @@ function handlePage(env) {
     <a href="#api">API</a>
     <a href="#tools">Tools</a>
     <a href="#games">Games & Apps</a>
+    <a href="/backend">Backend</a>
+    <a href="/infra">Infra</a>
+    <a href="/systems">Systems</a>
+    <a href="/client">Client</a>
   </div>
-  <a class="nav-cta" href="https://dash.grudge-studio.com" target="_blank">Dashboard</a>
+    <a class="nav-cta" href="https://client.grudge-studio.com" target="_blank">Client Portal</a>
 </nav>
 
 <!-- HERO -->
@@ -606,11 +732,19 @@ function handlePage(env) {
   <div class="f-logo">GRUDGE STUDIO</div>
   <p>Grudge Warlords game backend infrastructure — built for scale, built for battle.</p>
   <div class="f-links">
+    <a href="https://client.grudge-studio.com" target="_blank">Client Portal</a>
+    <div class="f-divider"></div>
+    <a href="https://wallet.grudge-studio.com" target="_blank">Wallet</a>
+    <div class="f-divider"></div>
     <a href="https://dash.grudge-studio.com" target="_blank">Dashboard</a>
     <div class="f-divider"></div>
     <a href="https://api.grudge-studio.com/health" target="_blank">API Health</a>
     <div class="f-divider"></div>
     <a href="/api/docs.json" target="_blank">API Spec</a>
+    <div class="f-divider"></div>
+    <a href="/backend">Architecture</a>
+    <div class="f-divider"></div>
+    <a href="/infra">Infrastructure</a>
     <div class="f-divider"></div>
     <a href="https://assets.grudge-studio.com" target="_blank">CDN</a>
     <div class="f-divider"></div>

@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grudge Studio — Backend Architecture (Live)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --border: #1e1e2e;
+    --accent: #ff4d00;
+    --accent2: #00d4ff;
+    --accent3: #7c3aed;
+    --gold: #f5a623;
+    --green: #00ff88;
+    --text: #e0e0f0;
+    --muted: #5a5a7a;
+    --card: #13131f;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* HEADER */
+  .header {
+    background: linear-gradient(135deg, #0a0a0f 0%, #1a0a1f 50%, #0a0f1a 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 40px 60px 30px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(255,77,0,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -100px; left: 20%;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(0,212,255,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .studio-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .studio-tag::before {
+    content: '';
+    width: 24px; height: 2px;
+    background: var(--accent);
+    display: inline-block;
+  }
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(42px, 6vw, 72px);
+    letter-spacing: 2px;
+    line-height: 0.95;
+    color: #fff;
+  }
+  h1 span { color: var(--accent); }
+  .header-sub {
+    margin-top: 14px;
+    color: var(--muted);
+    font-size: 14px;
+    font-family: 'Space Mono', monospace;
+    max-width: 600px;
+  }
+  .version-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.3);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    color: var(--accent2);
+    font-family: 'Space Mono', monospace;
+    margin-top: 16px;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* NAV TABS */
+  .nav {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0 60px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav-tab {
+    padding: 14px 22px;
+    font-size: 13px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.2s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    letter-spacing: 0.5px;
+  }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* MAIN CONTENT */
+  .content {
+    padding: 40px 60px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* SECTION HEADER */
+  .section-header {
+    margin-bottom: 32px;
+  }
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 1px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .section-title .icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+  .section-desc { color: var(--muted); font-size: 14px; margin-top: 6px; max-width: 700px; }
+
+  /* CARDS GRID */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: rgba(255,77,0,0.3); }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+    background: var(--accent);
+  }
+  .card.blue::before { background: var(--accent2); }
+  .card.purple::before { background: var(--accent3); }
+  .card.gold::before { background: var(--gold); }
+  .card.green::before { background: var(--green); }
+
+  .card-tag {
+    font-size: 10px;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    color: var(--accent);
+  }
+  .card.blue .card-tag { color: var(--accent2); }
+  .card.purple .card-tag { color: var(--accent3); }
+  .card.gold .card-tag { color: var(--gold); }
+  .card.green .card-tag { color: var(--green); }
+
+  .card h3 { font-size: 18px; font-weight: 600; margin-bottom: 10px; color: #fff; }
+  .card p { font-size: 13.5px; color: #9090b0; line-height: 1.65; }
+
+  /* CODE BLOCKS */
+  .code-block {
+    background: #080810;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: #a0a0c0;
+    margin: 14px 0;
+    overflow-x: auto;
+    line-height: 1.8;
+  }
+  .code-block .kw { color: #ff4d00; }
+  .code-block .str { color: #00d4ff; }
+  .code-block .fn { color: #00ff88; }
+  .code-block .cm { color: #444466; }
+  .code-block .key { color: #f5a623; }
+
+  /* PHASE ROADMAP */
+  .phase-list { display: flex; flex-direction: column; gap: 16px; }
+  .phase {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 24px;
+    display: grid;
+    grid-template-columns: 80px 1fr auto;
+    gap: 20px;
+    align-items: start;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .phase:hover { border-color: rgba(255,77,0,0.2); transform: translateX(4px); }
+  .phase-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    line-height: 1;
+    color: var(--border);
+  }
+  .phase.now .phase-num { color: var(--accent); }
+  .phase.next .phase-num { color: var(--gold); }
+  .phase.future .phase-num { color: var(--accent3); }
+
+  .phase-content h3 { font-size: 18px; font-weight: 600; color: #fff; margin-bottom: 6px; }
+  .phase-content p { font-size: 13.5px; color: #8080a0; }
+  .phase-tasks {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .task-chip {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .task-chip.done {
+    background: rgba(0,255,136,0.1);
+    border-color: rgba(0,255,136,0.3);
+    color: var(--green);
+  }
+  .task-chip.doing {
+    background: rgba(255,77,0,0.1);
+    border-color: rgba(255,77,0,0.3);
+    color: var(--accent);
+  }
+  .phase-badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    white-space: nowrap;
+    align-self: start;
+  }
+  .badge-now { background: rgba(255,77,0,0.15); border: 1px solid var(--accent); color: var(--accent); }
+  .badge-next { background: rgba(245,166,35,0.12); border: 1px solid var(--gold); color: var(--gold); }
+  .badge-future { background: rgba(124,58,237,0.12); border: 1px solid var(--accent3); color: var(--accent3); }
+
+  /* SYSTEM DIAGRAM */
+  .diagram {
+    background: #080810;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    margin-top: 16px;
+    text-align: center;
+  }
+  .diagram-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin: 8px 0;
+    flex-wrap: wrap;
+  }
+  .dnode {
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    border: 1px solid;
+    white-space: nowrap;
+  }
+  .dnode-client { background: rgba(0,212,255,0.1); border-color: rgba(0,212,255,0.4); color: var(--accent2); }
+  .dnode-api { background: rgba(255,77,0,0.1); border-color: rgba(255,77,0,0.4); color: var(--accent); }
+  .dnode-db { background: rgba(124,58,237,0.1); border-color: rgba(124,58,237,0.4); color: #a78bfa; }
+  .dnode-ext { background: rgba(245,166,35,0.1); border-color: rgba(245,166,35,0.4); color: var(--gold); }
+  .dnode-wallet { background: rgba(0,255,136,0.1); border-color: rgba(0,255,136,0.4); color: var(--green); }
+  .arrow { color: var(--muted); font-size: 18px; }
+  .diagram-label { font-size: 10px; color: var(--muted); font-family: 'Space Mono', monospace; margin: 4px 0 12px; }
+
+  /* CHECKLIST */
+  .checklist { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .checklist li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(255,255,255,0.02);
+    border-radius: 8px;
+    border: 1px solid transparent;
+    font-size: 13.5px;
+    color: #9090b0;
+    transition: all 0.15s;
+  }
+  .checklist li:hover { border-color: var(--border); }
+  .check-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .checklist li strong { color: var(--text); font-weight: 500; }
+
+  /* TABLE */
+  .tech-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    margin-top: 16px;
+  }
+  .tech-table th {
+    text-align: left;
+    padding: 10px 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+  }
+  .tech-table td {
+    padding: 13px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    color: #9090b0;
+    vertical-align: top;
+  }
+  .tech-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .tech-table td:first-child { color: var(--text); font-weight: 500; }
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+  }
+  .pill-red { background: rgba(255,77,0,0.15); color: var(--accent); }
+  .pill-blue { background: rgba(0,212,255,0.12); color: var(--accent2); }
+  .pill-green { background: rgba(0,255,136,0.12); color: var(--green); }
+  .pill-gold { background: rgba(245,166,35,0.12); color: var(--gold); }
+
+  /* DIVIDER */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+
+  /* ALERT BOX */
+  .alert {
+    background: rgba(255,77,0,0.08);
+    border: 1px solid rgba(255,77,0,0.3);
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-size: 13.5px;
+    color: #c0806a;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .alert.info { background: rgba(0,212,255,0.06); border-color: rgba(0,212,255,0.25); color: #6ab0c0; }
+  .alert.success { background: rgba(0,255,136,0.06); border-color: rgba(0,255,136,0.25); color: #50c080; }
+  .alert-icon { font-size: 18px; flex-shrink: 0; }
+
+  @media (max-width: 900px) {
+    .header, .nav, .content { padding-left: 20px; padding-right: 20px; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .phase { grid-template-columns: 60px 1fr; }
+    .phase-badge { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="studio-tag">Grudge Studio</div>
+  <h1>BACKEND<br><span>MASTER PLAN</span></h1>
+  <p class="header-sub">Architecture · Best Practices · Deployment Roadmap · Web3 Integration</p>
+  <div class="version-badge"><span class="dot"></span> v1.0 — March 2026</div>
+</div>
+
+<nav class="nav">
+  <button class="nav-tab active" onclick="showTab('practices')">Best Practices</button>
+  <button class="nav-tab" onclick="showTab('architecture')">Architecture</button>
+  <button class="nav-tab" onclick="showTab('accounts')">Accounts & Auth</button>
+  <button class="nav-tab" onclick="showTab('characters')">Characters & NFTs</button>
+  <button class="nav-tab" onclick="showTab('gbux')">GBux & Wallets</button>
+  <button class="nav-tab" onclick="showTab('crossmint')">Crossmint & cNFT</button>
+  <button class="nav-tab" onclick="showTab('roadmap')">Roadmap</button>
+  <button class="nav-tab" onclick="showTab('checklist')">Launch Checklist</button>
+</nav>
+
+<div class="content">
+
+  <!-- BEST PRACTICES -->
+  <div id="practices" class="section active">
+    <div class="section-header">
+      <div class="section-title"><span class="icon" style="background:rgba(255,77,0,0.15)">⚙️</span> Game Studio Backend Best Practices</div>
+      <p class="section-desc">Production patterns Grudge Studio should follow for a scalable, secure, game-grade backend.</p>
+    </div>
+
+    <div class="alert info"><span class="alert-icon">ℹ️</span><span><strong>Principle:</strong> Treat your backend like a game server — deterministic, atomic, auditable. Every state change (currency, inventory, ownership) must be logged and reversible.</span></div>
+
+    <div class="grid-2" style="margin-bottom:20px">
+      <div class="card">
+        <div class="card-tag">API Design</div>
+        <h3>Versioned REST + tRPC</h3>
+        <p>All game APIs should be versioned (<code>/api/v1/</code>). Use tRPC for type-safe internal calls. Never expose internal IDs — use UUIDs. Rate-limit every endpoint per user, not just per IP.</p>
+      </div>
+      <div class="card blue">
+        <div class="card-tag">Data Integrity</div>
+        <h3>Atomic Transactions Always</h3>
+        <p>Any operation that touches GBux, inventory, or NFT state must be wrapped in a DB transaction. Never do partial updates. Use optimistic locking to prevent race conditions on inventory.</p>
+      </div>
+      <div class="card purple">
+        <div class="card-tag">Auth Pattern</div>
+        <h3>JWT + Server Sessions</h3>
+        <p>Short-lived JWTs (15min) with refresh tokens stored in httpOnly cookies. Never store tokens in localStorage. Verify wallet signatures server-side with nonce-based challenges.</p>
+      </div>
+      <div class="card gold">
+        <div class="card-tag">Serverless Caution</div>
+        <h3>Know Your Vercel Limits</h3>
+        <p>Docker containers have 10s/60s execution limits. Long-running jobs (NFT minting, batch rewards) must use queues (Bull/BullMQ (Redis queue), BullMQ) or PM2 cron. Never block the main thread for blockchain calls.</p>
+      </div>
+      <div class="card green">
+        <div class="card-tag">Observability</div>
+        <h3>Log Everything Game-Critical</h3>
+        <p>Log every GBux transaction, every NFT mint, every character state change with timestamps, user IDs, and before/after values. Use structured JSON logs. Tools: Axiom, Datadog, or Logtail.</p>
+      </div>
+      <div class="card">
+        <div class="card-tag">Security</div>
+        <h3>Never Trust the Client</h3>
+        <p>All game logic validation must happen server-side. Players cannot grant themselves GBux, items, or characters. Input sanitize everything. Use Zod schemas at every API boundary.</p>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="section-title" style="font-size:26px;margin-bottom:16px"><span class="icon" style="background:rgba(0,212,255,0.1)">🗄️</span> Recommended Tech Stack</div>
+    <table class="tech-table">
+      <tr><th>Layer</th><th>Recommended</th><th>Why</th><th>Priority</th></tr>
+      <tr><td>Framework</td><td>Express.js + Docker (VPS)</td><td>Express REST API, Docker Compose, Traefik reverse proxy</td><td><span class="pill pill-red">Core</span></td></tr>
+      <tr><td>Database</td><td>MySQL 8 (Docker)</td><td>Docker container, game-critical data, Redis cache layer</td><td><span class="pill pill-red">Core</span></td></tr>
+      <tr><td>ORM</td><td>Prisma, Drizzle, or Knex.js</td><td>Type-safe queries, migration management, game schema evolution</td><td><span class="pill pill-red">Core</span></td></tr>
+      <tr><td>Auth</td><td>Web3Auth + Discord OAuth + JWT</td><td>Email, wallet, OAuth — covers all player auth types</td><td><span class="pill pill-red">Core</span></td></tr>
+      <tr><td>Queue / Jobs</td><td>Bull/BullMQ (Redis queue)</td><td>Redis-backed job queue, retry logic, great for NFT mint queues</td><td><span class="pill pill-blue">Important</span></td></tr>
+      <tr><td>Cache</td><td>Redis 7 (Docker)</td><td>Rate limiting, session cache, leaderboards, pub/sub</td><td><span class="pill pill-blue">Important</span></td></tr>
+      <tr><td>NFT / Web3</td><td>Crossmint API</td><td>Custodial wallets, minting, no-code NFT for players</td><td><span class="pill pill-blue">Important</span></td></tr>
+      <tr><td>File Storage</td><td>Cloudflare R2 / Cloudflare R2</td><td>Character assets, island maps, NFT metadata images</td><td><span class="pill pill-blue">Important</span></td></tr>
+      <tr><td>Monitoring</td><td>PM2 logs + Cloudflare Analytics</td><td>Structured logging, error tracking, game analytics</td><td><span class="pill pill-gold">Nice to have</span></td></tr>
+      <tr><td>Testing</td><td>Vitest + Playwright</td><td>Unit tests for game logic, E2E for critical flows</td><td><span class="pill pill-gold">Nice to have</span></td></tr>
+    </table>
+  </div>
+
+  <!-- ARCHITECTURE -->
+  <div id="architecture" class="section">
+    <div class="section-header">
+      <div class="section-title"><span class="icon" style="background:rgba(124,58,237,0.15)">🏗️</span> System Architecture</div>
+      <p class="section-desc">How all Grudge Studio systems connect — from player to blockchain.</p>
+    </div>
+
+    <div class="diagram">
+      <div class="diagram-label">CLIENT LAYER</div>
+      <div class="diagram-row">
+        <div class="dnode dnode-client">Web App (Vercel)</div>
+        <div class="dnode dnode-client">Mobile (React Native)</div>
+        <div class="dnode dnode-client">Game Client</div>
+      </div>
+      <div class="diagram-row"><span class="arrow">↓</span></div>
+      <div class="diagram-label">API LAYER — Docker Services (VPS 74.208.155.229)</div>
+      <div class="diagram-row">
+        <div class="dnode dnode-api">/api/auth</div>
+        <div class="dnode dnode-api">/api/characters</div>
+        <div class="dnode dnode-api">/api/gbux</div>
+        <div class="dnode dnode-api">/api/islands</div>
+        <div class="dnode dnode-api">/api/nfts</div>
+      </div>
+      <div class="diagram-row"><span class="arrow">↓</span></div>
+      <div class="diagram-label">DATA LAYER</div>
+      <div class="diagram-row">
+        <div class="dnode dnode-db">MySQL 8</div>
+        <div class="dnode dnode-db">Redis 7 (Docker)</div>
+        <div class="dnode dnode-db">Cloudflare R2</div>
+      </div>
+      <div class="diagram-row"><span class="arrow">↓</span></div>
+      <div class="diagram-label">EXTERNAL / WEB3 SERVICES</div>
+      <div class="diagram-row">
+        <div class="dnode dnode-wallet">Crossmint Wallets</div>
+        <div class="dnode dnode-ext">Crossmint Mint API</div>
+        <div class="dnode dnode-ext">Stripe / Payments</div>
+        <div class="dnode dnode-ext">Bull/BullMQ (Redis queue) Jobs</div>
+      </div>
+      <div class="diagram-row"><span class="arrow">↓</span></div>
+      <div class="diagram-label">BLOCKCHAIN LAYER</div>
+      <div class="diagram-row">
+        <div class="dnode dnode-wallet">Solana (cNFTs)</div>
+        <div class="dnode dnode-wallet">Polygon (EVM alt)</div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="grid-2">
+      <div>
+        <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--accent);margin-bottom:12px;letter-spacing:2px">DATABASE SCHEMA — KEY TABLES</div>
+        <div class="code-block">
+<span class="cm">-- Core player account</span>
+<span class="kw">CREATE TABLE</span> <span class="fn">players</span> (
+  id          UUID PRIMARY KEY,
+  username    TEXT UNIQUE NOT NULL,
+  email       TEXT UNIQUE,
+  wallet_id   TEXT, <span class="cm">-- Crossmint custodial</span>
+  gbux_balance BIGINT DEFAULT 0,
+  created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+<span class="cm">-- Characters owned by players</span>
+<span class="kw">CREATE TABLE</span> <span class="fn">characters</span> (
+  id          UUID PRIMARY KEY,
+  player_id   UUID REFERENCES players(id),
+  name        TEXT NOT NULL,
+  class       TEXT NOT NULL,
+  nft_mint_id TEXT, <span class="cm">-- on-chain address</span>
+  metadata    JSONB,
+  is_minted   TINYINT(1) DEFAULT 0
+);
+
+<span class="cm">-- GBux transaction ledger</span>
+<span class="kw">CREATE TABLE</span> <span class="fn">gbux_transactions</span> (
+  id          UUID PRIMARY KEY,
+  player_id   UUID REFERENCES players(id),
+  amount      BIGINT NOT NULL, <span class="cm">-- positive or negative</span>
+  reason      TEXT NOT NULL,
+  ref_id      UUID, <span class="cm">-- item, quest, purchase</span>
+  created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+<span class="cm">-- Islands</span>
+<span class="kw">CREATE TABLE</span> <span class="fn">islands</span> (
+  id          UUID PRIMARY KEY,
+  owner_id    UUID REFERENCES players(id),
+  name        TEXT,
+  nft_mint_id TEXT,
+  tier        INT DEFAULT 1,
+  data        JSONB
+);
+        </div>
+      </div>
+      <div>
+        <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--accent2);margin-bottom:12px;letter-spacing:2px">API ROUTE PATTERN</div>
+        <div class="code-block">
+<span class="cm">// services/game-api/routes/economy.js — Express route</span>
+<span class="kw">import</span> { auth } from <span class="str">'@/lib/auth'</span>
+<span class="kw">import</span> { db } from <span class="str">'@/lib/db'</span>
+<span class="kw">import</span> { z } from <span class="str">'zod'</span>
+
+<span class="kw">const</span> <span class="fn">Schema</span> = z.object({
+  toPlayerId: z.string().uuid(),
+  amount: z.number().int().positive().max(10000),
+  reason: z.string().min(1).max(100)
+})
+
+<span class="kw">export async function</span> <span class="fn">POST</span>(req) {
+  <span class="kw">const</span> session = await <span class="fn">auth</span>()
+  <span class="kw">if</span> (!session) return <span class="fn">unauthorized</span>()
+
+  <span class="kw">const</span> body = Schema.<span class="fn">parse</span>(await req.<span class="fn">json</span>())
+
+  <span class="cm">// Atomic transaction — never partial</span>
+  <span class="kw">await</span> db.<span class="fn">transaction</span>(async (tx) => {
+    await tx.<span class="fn">debitPlayer</span>(session.id, body.amount)
+    await tx.<span class="fn">creditPlayer</span>(body.toPlayerId, body.amount)
+    await tx.<span class="fn">logTransaction</span>({ ...body })
+  })
+}
+        </div>
+        <div class="alert success" style="margin-top:14px"><span class="alert-icon">✅</span><span>Always: validate input with Zod → check auth → atomic DB operation → return minimal response. This is the pattern for <strong>every</strong> game state mutation.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACCOUNTS -->
+  <div id="accounts" class="section">
+    <div class="section-header">
+      <div class="section-title"><span class="icon" style="background:rgba(0,212,255,0.15)">👤</span> Accounts & Authentication</div>
+      <p class="section-desc">Player account system supporting email, social, and wallet-based auth.</p>
+    </div>
+
+    <div class="grid-3" style="margin-bottom:24px">
+      <div class="card blue">
+        <div class="card-tag">Step 1</div>
+        <h3>Email / Password Auth</h3>
+        <p>Set up Web3Auth + JWT with email verification. Players get a UUID player ID on signup. Create a <code>players</code> row automatically via database trigger.</p>
+      </div>
+      <div class="card blue">
+        <div class="card-tag">Step 2</div>
+        <h3>OAuth (Google/Discord)</h3>
+        <p>Enable OAuth providers in Grudge Backend (MySQL 8). Discord is critical for game communities. Link social accounts to the same player ID using a <code>player_accounts</code> join table.</p>
+      </div>
+      <div class="card blue">
+        <div class="card-tag">Step 3</div>
+        <h3>Wallet Connect</h3>
+        <p>Allow players to link an external wallet. Use nonce-based signature challenge. Store wallet address in <code>players.external_wallet</code>. Crossmint custodial wallet is auto-created separately.</p>
+      </div>
+    </div>
+
+    <div class="code-block">
+<span class="cm">// lib/auth/wallet-connect.ts — Nonce signature verification</span>
+<span class="kw">export async function</span> <span class="fn">verifyWalletSignature</span>(address, signature, nonce) {
+  <span class="cm">// 1. Fetch nonce from Redis (expires in 5 min)</span>
+  <span class="kw">const</span> storedNonce = await redis.<span class="fn">get</span>(<span class="str">`nonce:${address}`</span>)
+  <span class="kw">if</span> (!storedNonce || storedNonce !== nonce) <span class="kw">throw</span> new Error(<span class="str">'Invalid nonce'</span>)
+
+  <span class="cm">// 2. Verify signature matches wallet address</span>
+  <span class="kw">const</span> recovered = ethers.utils.<span class="fn">verifyMessage</span>(nonce, signature)
+  <span class="kw">if</span> (recovered.toLowerCase() !== address.toLowerCase()) <span class="kw">throw</span> new Error(<span class="str">'Bad sig'</span>)
+
+  <span class="cm">// 3. Delete nonce (one-time use)</span>
+  await redis.<span class="fn">del</span>(<span class="str">`nonce:${address}`</span>)
+  <span class="kw">return true</span>
+}
+    </div>
+
+    <div class="alert"><span class="alert-icon">⚠️</span><span><strong>Critical:</strong> Auto-provision a Crossmint custodial wallet for EVERY new player at account creation. Don't wait for them to request it. Call <code>POST /api/2022-06-09/wallets</code> immediately after player row is inserted.</span></div>
+  </div>
+
+  <!-- CHARACTERS -->
+  <div id="characters" class="section">
+    <div class="section-header">
+      <div class="section-title"><span class="icon" style="background:rgba(0,255,136,0.15)">🧙</span> Characters & Inventory</div>
+      <p class="section-desc">Character creation, progression, and optional NFT minting flow.</p>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:24px">
+      <div class="card green">
+        <div class="card-tag">Character Lifecycle</div>
+        <h3>Create → Play → Mint</h3>
+        <p>Characters exist as DB records first. Players can play without minting. When they choose to mint, the character becomes a cNFT on Solana via Crossmint. The <code>nft_mint_id</code> field gets populated. Future trades happen on-chain.</p>
+      </div>
+      <div class="card green">
+        <div class="card-tag">Metadata Standard</div>
+        <h3>Dynamic NFT Metadata</h3>
+        <p>Store character stats in Grudge Backend (MySQL 8). NFT metadata URI points to your API endpoint which returns live stats. This lets characters evolve without re-minting. Use <code>/api/metadata/character/[id]</code> as the token URI.</p>
+      </div>
+    </div>
+
+    <div class="code-block">
+<span class="cm">// Character NFT metadata endpoint — /api/metadata/character/[id]/route.ts</span>
+<span class="kw">export async function</span> <span class="fn">GET</span>(req, { params }) {
+  <span class="kw">const</span> character = await db.characters.<span class="fn">findUnique</span>({ where: { id: params.id } })
+
+  <span class="cm">// Returns Metaplex-compatible metadata</span>
+  <span class="kw">return</span> Response.<span class="fn">json</span>({
+    <span class="key">name</span>: character.name,
+    <span class="key">description</span>: <span class="str">`Grudge Island character — ${character.class}`</span>,
+    <span class="key">image</span>: <span class="str">`${CDN_URL}/characters/${character.id}/avatar.png`</span>,
+    <span class="key">external_url</span>: <span class="str">`https://grudgestudio.com/character/${character.id}`</span>,
+    <span class="key">attributes</span>: [
+      { <span class="key">trait_type</span>: <span class="str">'Class'</span>, <span class="key">value</span>: character.class },
+      { <span class="key">trait_type</span>: <span class="str">'Level'</span>, <span class="key">value</span>: character.metadata.level },
+      { <span class="key">trait_type</span>: <span class="str">'Island'</span>, <span class="key">value</span>: character.metadata.island_name },
+    ],
+    <span class="key">properties</span>: { <span class="key">category</span>: <span class="str">'image'</span>, <span class="key">creators</span>: [{ <span class="key">address</span>: STUDIO_WALLET }] }
+  })
+}
+    </div>
+  </div>
+
+  <!-- GBUX -->
+  <div id="gbux" class="section">
+    <div class="section-header">
+      <div class="section-title"><span class="icon" style="background:rgba(245,166,35,0.15)">💰</span> GBux & Server-Side Wallets</div>
+      <p class="section-desc">Virtual currency system with ledger accounting and on-chain settlement options.</p>
+    </div>
+
+    <div class="alert"><span class="alert-icon">⚠️</span><span><strong>GBux is real money equivalent.</strong> Treat it like a bank ledger. Every change must be logged. Never update <code>gbux_balance</code> directly — always insert a <code>gbux_transactions</code> row and update balance atomically.</span></div>
+
+    <div class="grid-3" style="margin-bottom:24px">
+      <div class="card gold">
+        <div class="card-tag">Earn</div>
+        <h3>GBux Sources</h3>
+        <p>Quest completion, island activities, daily rewards, referrals, tournament prizes. Each source has a defined max per day to prevent farming exploits.</p>
+      </div>
+      <div class="card gold">
+        <div class="card-tag">Spend</div>
+        <h3>GBux Sinks</h3>
+        <p>Character upgrades, island expansion, cosmetic items, NFT minting fees, marketplace transactions. Sinks prevent inflation — design them deliberately.</p>
+      </div>
+      <div class="card gold">
+        <div class="card-tag">Convert</div>
+        <h3>On/Off Ramp</h3>
+        <p>Players can purchase GBux via Stripe. Premium GBux (real money) should be tracked separately from earned GBux for regulatory compliance and refund handling.</p>
+      </div>
+    </div>
+
+    <div class="code-block">
+<span class="cm">// lib/gbux.ts — The ONLY way to modify GBux</span>
+<span class="kw">export async function</span> <span class="fn">awardGbux</span>(playerId, amount, reason, refId?) {
+  <span class="kw">if</span> (amount <= 0) <span class="kw">throw</span> new Error(<span class="str">'Amount must be positive'</span>)
+
+  <span class="kw">return</span> db.<span class="fn">transaction</span>(async (tx) => {
+    <span class="cm">// Check daily earn limit</span>
+    <span class="kw">const</span> todayEarned = await tx.<span class="fn">getDailyEarned</span>(playerId)
+    <span class="kw">if</span> (todayEarned + amount > DAILY_EARN_LIMIT) <span class="kw">throw</span> new Error(<span class="str">'Daily limit reached'</span>)
+
+    <span class="cm">// Insert transaction record first</span>
+    <span class="kw">const</span> txn = await tx.gbuxTransactions.<span class="fn">create</span>({
+      data: { playerId, amount, reason, refId }
+    })
+
+    <span class="cm">// Update balance atomically</span>
+    await tx.players.<span class="fn">update</span>({
+      where: { id: playerId },
+      data: { gbuxBalance: { increment: amount } }
+    })
+
+    <span class="kw">return</span> txn
+  })
+}
+
+<span class="kw">export async function</span> <span class="fn">spendGbux</span>(playerId, amount, reason, refId?) {
+  <span class="kw">return</span> db.<span class="fn">transaction</span>(async (tx) => {
+    <span class="kw">const</span> player = await tx.players.<span class="fn">findUnique</span>({ where: { id: playerId } })
+    <span class="kw">if</span> (player.gbuxBalance < amount) <span class="kw">throw</span> new Error(<span class="str">'Insufficient GBux'</span>)
+
+    await tx.gbuxTransactions.<span class="fn">create</span>({
+      data: { playerId, amount: -amount, reason, refId }
+    })
+    await tx.players.<span class="fn">update</span>({
+      where: { id: playerId },
+      data: { gbuxBalance: { decrement: amount } }
+    })
+  })
+}
+    </div>
+
+    <div style="margin-top:20px">
+      <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--gold);margin-bottom:12px;letter-spacing:2px">CROSSMINT SERVER-SIDE WALLETS — AUTO-PROVISION FLOW</div>
+      <div class="code-block">
+<span class="cm">// lib/wallets.ts — Create custodial wallet for new player</span>
+<span class="kw">export async function</span> <span class="fn">provisionPlayerWallet</span>(playerId, email) {
+  <span class="kw">const</span> res = await <span class="fn">fetch</span>(<span class="str">'http://wallet-service:3002/wallet/create'</span>, {
+    method: <span class="str">'POST'</span>,
+    headers: {
+      <span class="str">'X-API-KEY'</span>: process.env.CROSSMINT_SERVER_KEY,
+      <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span>
+    },
+    body: JSON.<span class="fn">stringify</span>({
+      <span class="key">type</span>: <span class="str">'solana-custodial-wallet'</span>,
+      <span class="key">linkedUser</span>: <span class="str">`email:${email}`</span>
+    })
+  })
+  <span class="kw">const</span> { walletAddress } = await res.<span class="fn">json</span>()
+
+  <span class="cm">// Store wallet address on player record</span>
+  await db.players.<span class="fn">update</span>({
+    where: { id: playerId },
+    data: { walletId: walletAddress }
+  })
+
+  <span class="kw">return</span> walletAddress
+}
+      </div>
+    </div>
+  </div>
+
+  <!-- CROSSMINT -->
+  <div id="crossmint" class="section">
+    <div class="section-header">
+      <div class="section-title"><span class="icon" style="background:rgba(0,255,136,0.15)">⛓️</span> Crossmint & cNFT Minting</div>
+      <p class="section-desc">Compressed NFTs on Solana for characters and islands — cheap, fast, scalable.</p>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:24px">
+      <div class="card green">
+        <div class="card-tag">Why Compressed NFTs</div>
+        <h3>cNFT vs Standard NFT</h3>
+        <p>Compressed NFTs use Solana's state compression. Minting cost drops from ~$2 per NFT to ~$0.0005. Perfect for game items, characters, and islands at scale. Crossmint abstracts all of this.</p>
+      </div>
+      <div class="card green">
+        <div class="card-tag">Minting Strategy</div>
+        <h3>Lazy Minting Pattern</h3>
+        <p>Don't mint on character creation. Mint only when the player requests it or reaches a milestone. Use an Bull/BullMQ (Redis queue) background job so minting failures don't block the player.</p>
+      </div>
+    </div>
+
+    <div class="code-block">
+<span class="cm">// lib/nft/mint-character.ts — Via Crossmint Headless Minting</span>
+<span class="kw">export async function</span> <span class="fn">mintCharacterNFT</span>(characterId) {
+  <span class="kw">const</span> character = await db.characters.<span class="fn">findUnique</span>({
+    where: { id: characterId },
+    include: { player: true }
+  })
+
+  <span class="kw">if</span> (character.isMinted) <span class="kw">throw</span> new Error(<span class="str">'Already minted'</span>)
+
+  <span class="cm">// Mint compressed NFT to player's custodial wallet</span>
+  <span class="kw">const</span> res = await <span class="fn">fetch</span>(<span class="str">`http://wallet-service:3002/nft/collections/${COLLECTION_ID}/nfts`</span>, {
+    method: <span class="str">'POST'</span>,
+    headers: {
+      <span class="str">'X-API-KEY'</span>: process.env.CROSSMINT_SERVER_KEY,
+      <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span>
+    },
+    body: JSON.<span class="fn">stringify</span>({
+      <span class="key">recipient</span>: <span class="str">`solana:${character.player.walletId}`</span>,
+      <span class="key">metadata</span>: {
+        <span class="key">name</span>: character.name,
+        <span class="key">image</span>: <span class="str">`${CDN_URL}/characters/${characterId}/avatar.png`</span>,
+        <span class="key">description</span>: <span class="str">`Grudge Island — ${character.class}`</span>,
+        <span class="key">attributes</span>: <span class="fn">buildAttributes</span>(character)
+      },
+      <span class="key">compressed</span>: <span class="kw">true</span> <span class="cm">// cNFT flag</span>
+    })
+  })
+
+  <span class="kw">const</span> { id: mintJobId } = await res.<span class="fn">json</span>()
+
+  <span class="cm">// Poll for completion via webhook or Bull/BullMQ (Redis queue)</span>
+  await db.characters.<span class="fn">update</span>({
+    where: { id: characterId },
+    data: { mintJobId, isMinted: false } <span class="cm">// isMinted set true on webhook</span>
+  })
+}
+    </div>
+
+    <div style="margin-top:20px">
+      <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--green);margin-bottom:12px;letter-spacing:2px">CROSSMINT WEBHOOK — CONFIRM MINT SUCCESS</div>
+      <div class="code-block">
+<span class="cm">// app/api/webhooks/crossmint/route.ts</span>
+<span class="kw">export async function</span> <span class="fn">POST</span>(req) {
+  <span class="kw">const</span> event = await req.<span class="fn">json</span>()
+
+  <span class="kw">if</span> (event.type === <span class="str">'nft.minted'</span>) {
+    await db.characters.<span class="fn">update</span>({
+      where: { mintJobId: event.data.mintId },
+      data: {
+        isMinted: <span class="kw">true</span>,
+        nftMintId: event.data.onChain.mintAddress
+      }
+    })
+    <span class="cm">// Notify player via WebSocket or push notification</span>
+  }
+}
+      </div>
+    </div>
+  </div>
+
+  <!-- ROADMAP -->
+  <div id="roadmap" class="section">
+    <div class="section-header">
+      <div class="section-title"><span class="icon" style="background:rgba(255,77,0,0.15)">🗺️</span> Phased Roadmap</div>
+      <p class="section-desc">Ordered steps to get all systems operational. Do these in sequence.</p>
+    </div>
+
+    <div class="phase-list">
+      <div class="phase now">
+        <div class="phase-num">01</div>
+        <div class="phase-content">
+          <h3>Foundation — Auth & Accounts</h3>
+          <p>Get the player account system fully operational before everything else. This is the bedrock all other systems depend on.</p>
+          <div class="phase-tasks">
+            <span class="task-chip doing">VPS + Docker setup</span>
+            <span class="task-chip doing">Email auth + OAuth (Discord/Google)</span>
+            <span class="task-chip">Player DB schema deployed</span>
+            <span class="task-chip">Crossmint wallet auto-provision on signup</span>
+            <span class="task-chip">Session management (JWT + httpOnly cookies)</span>
+            <span class="task-chip">Player profile API</span>
+          </div>
+        </div>
+        <div class="phase-badge badge-now">DO NOW</div>
+      </div>
+
+      <div class="phase now">
+        <div class="phase-num">02</div>
+        <div class="phase-content">
+          <h3>GBux Ledger System</h3>
+          <p>Implement the virtual currency engine with full transaction logging. No earning or spending until this is bulletproof.</p>
+          <div class="phase-tasks">
+            <span class="task-chip">gbux_transactions table</span>
+            <span class="task-chip">awardGbux / spendGbux atomic functions</span>
+            <span class="task-chip">Daily earn limits + anti-cheat rules</span>
+            <span class="task-chip">Balance read API</span>
+            <span class="task-chip">Transaction history API</span>
+          </div>
+        </div>
+        <div class="phase-badge badge-now">DO NOW</div>
+      </div>
+
+      <div class="phase next">
+        <div class="phase-num">03</div>
+        <div class="phase-content">
+          <h3>Characters — Off-Chain First</h3>
+          <p>Characters as full DB entities with all game data. No blockchain yet — get the gameplay loop working first.</p>
+          <div class="phase-tasks">
+            <span class="task-chip">Character creation API</span>
+            <span class="task-chip">Character progression / stats</span>
+            <span class="task-chip">Character inventory system</span>
+            <span class="task-chip">Character ↔ Island binding</span>
+            <span class="task-chip">Dynamic metadata endpoint</span>
+          </div>
+        </div>
+        <div class="phase-badge badge-next">NEXT</div>
+      </div>
+
+      <div class="phase next">
+        <div class="phase-num">04</div>
+        <div class="phase-content">
+          <h3>Islands — Off-Chain First</h3>
+          <p>Island creation, ownership, and gameplay data. Islands are the core game world — get them stable before NFT-ing them.</p>
+          <div class="phase-tasks">
+            <span class="task-chip">Island creation + ownership</span>
+            <span class="task-chip">Island tier system</span>
+            <span class="task-chip">GBux earn mechanics on islands</span>
+            <span class="task-chip">Island → Character activity</span>
+          </div>
+        </div>
+        <div class="phase-badge badge-next">NEXT</div>
+      </div>
+
+      <div class="phase future">
+        <div class="phase-num">05</div>
+        <div class="phase-content">
+          <h3>Crossmint Collection Setup</h3>
+          <p>Create the on-chain collection on Crossmint. Set royalties, set studio wallet as creator. Test mint pipeline on Devnet.</p>
+          <div class="phase-tasks">
+            <span class="task-chip">Create Character Collection (Crossmint dashboard)</span>
+            <span class="task-chip">Create Island Collection</span>
+            <span class="task-chip">Set royalty % and creator wallet</span>
+            <span class="task-chip">Devnet test mint → verify metadata</span>
+            <span class="task-chip">Webhook endpoint for mint events</span>
+          </div>
+        </div>
+        <div class="phase-badge badge-future">PHASE 2</div>
+      </div>
+
+      <div class="phase future">
+        <div class="phase-num">06</div>
+        <div class="phase-content">
+          <h3>NFT Minting — Characters & Islands</h3>
+          <p>Enable the mint flow for players. Characters become cNFTs. Islands become cNFTs. All via Crossmint headless API with Bull/BullMQ (Redis queue) job queue.</p>
+          <div class="phase-tasks">
+            <span class="task-chip">Bull/BullMQ (Redis queue) mint job setup</span>
+            <span class="task-chip">Character mint API endpoint</span>
+            <span class="task-chip">Island mint API endpoint</span>
+            <span class="task-chip">Mint status polling + webhook confirm</span>
+            <span class="task-chip">GBux cost to mint</span>
+            <span class="task-chip">Player mint history UI</span>
+          </div>
+        </div>
+        <div class="phase-badge badge-future">PHASE 2</div>
+      </div>
+
+      <div class="phase future">
+        <div class="phase-num">07</div>
+        <div class="phase-content">
+          <h3>Marketplace & Trading</h3>
+          <p>Enable players to trade characters and islands. GBux marketplace for items. NFT marketplace integration for on-chain trades.</p>
+          <div class="phase-tasks">
+            <span class="task-chip">GBux item marketplace</span>
+            <span class="task-chip">Character/Island listing</span>
+            <span class="task-chip">NFT transfer via Crossmint</span>
+            <span class="task-chip">Royalty enforcement on resales</span>
+          </div>
+        </div>
+        <div class="phase-badge badge-future">PHASE 3</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHECKLIST -->
+  <div id="checklist" class="section">
+    <div class="section-header">
+      <div class="section-title"><span class="icon" style="background:rgba(0,212,255,0.15)">✅</span> Pre-Launch Checklist</div>
+      <p class="section-desc">Everything that must be true before opening to players.</p>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:2px;margin-bottom:12px">SECURITY</div>
+        <ul class="checklist">
+          <li><span class="check-icon">🔒</span><div><strong>Env vars in Vercel</strong> — no secrets in code. CROSSMINT_SERVER_KEY, DB_URL, etc.</div></li>
+          <li><span class="check-icon">🔒</span><div><strong>MySQL row security</strong> — row-level security on ALL game tables</div></li>
+          <li><span class="check-icon">🔒</span><div><strong>API rate limiting</strong> — Redis 7 (Docker) rate limiter on every endpoint</div></li>
+          <li><span class="check-icon">🔒</span><div><strong>Input validation</strong> — Zod schema on every POST/PATCH body</div></li>
+          <li><span class="check-icon">🔒</span><div><strong>Webhook verification</strong> — validate Crossmint webhook signatures</div></li>
+        </ul>
+      </div>
+      <div>
+        <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:2px;margin-bottom:12px">DATA INTEGRITY</div>
+        <ul class="checklist">
+          <li><span class="check-icon">🗄️</span><div><strong>DB migrations tracked</strong> — Prisma, Drizzle, or Knex.js migration history in git</div></li>
+          <li><span class="check-icon">🗄️</span><div><strong>Backups configured</strong> — MySQL daily backups enabled</div></li>
+          <li><span class="check-icon">🗄️</span><div><strong>GBux ledger tested</strong> — concurrent spend/earn stress tested</div></li>
+          <li><span class="check-icon">🗄️</span><div><strong>Atomic transactions</strong> — no GBux update without a transaction log entry</div></li>
+        </ul>
+      </div>
+      <div>
+        <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:2px;margin-bottom:12px">WEB3 READINESS</div>
+        <ul class="checklist">
+          <li><span class="check-icon">⛓️</span><div><strong>Crossmint staging tested</strong> — full mint → webhook → DB update flow verified</div></li>
+          <li><span class="check-icon">⛓️</span><div><strong>Wallet auto-provision</strong> — every new account gets a wallet immediately</div></li>
+          <li><span class="check-icon">⛓️</span><div><strong>Collection IDs stored</strong> — Character and Island collection addresses in env vars</div></li>
+          <li><span class="check-icon">⛓️</span><div><strong>Metadata endpoint live</strong> — /api/metadata/character/[id] returns valid JSON</div></li>
+        </ul>
+      </div>
+      <div>
+        <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:2px;margin-bottom:12px">OPERATIONS</div>
+        <ul class="checklist">
+          <li><span class="check-icon">📊</span><div><strong>Error monitoring</strong> — Vercel logs + Axiom or Sentry configured</div></li>
+          <li><span class="check-icon">📊</span><div><strong>Bull/BullMQ (Redis queue) dashboard</strong> — job queue visible, failed jobs alerting</div></li>
+          <li><span class="check-icon">📊</span><div><strong>Vercel preview deploys</strong> — all PRs get a preview URL</div></li>
+          <li><span class="check-icon">📊</span><div><strong>Staging environment</strong> — separate Crossmint staging + Grudge Backend (MySQL 8) project</div></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+
+<script>
+function showTab(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(name).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

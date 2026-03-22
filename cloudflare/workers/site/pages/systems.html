@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grudge Studio — Master System</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
+
+:root {
+  --ink: #05050f;
+  --paper: #0c0c1e;
+  --lift: #12122a;
+  --edge: #1e1e3a;
+  --edge2: #282850;
+  --fire: #ff3d00;
+  --neon: #00ffcc;
+  --volt: #ffe600;
+  --sky: #00b4ff;
+  --violet: #9d4edd;
+  --rose: #ff006e;
+  --text: #e8e8ff;
+  --dim: #7070a0;
+  --faint: #2a2a50;
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--ink);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ═══ SCANLINE OVERLAY ═══ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,204,0.012) 2px, rgba(0,255,204,0.012) 4px);
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* ═══ HEADER ═══ */
+.masthead {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  border-bottom: 1px solid var(--edge);
+}
+.masthead-inner {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  padding: 48px 64px 36px;
+  gap: 40px;
+  position: relative;
+  z-index: 2;
+}
+.masthead-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 700px 300px at 30% 100%, rgba(255,61,0,0.09) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 400px at 80% 0%, rgba(0,255,204,0.06) 0%, transparent 60%),
+    linear-gradient(180deg, #0f0a1a 0%, #05050f 100%);
+}
+.studio-id {
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--fire);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.studio-id::before { content:''; width:32px; height:1px; background:var(--fire); }
+.studio-id::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,var(--fire),transparent); }
+
+.masthead-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(52px, 7vw, 88px);
+  line-height: 0.92;
+  letter-spacing: 1px;
+  color: #fff;
+}
+.masthead-title .t-fire { color: var(--fire); }
+.masthead-title .t-neon { color: var(--neon); }
+
+.masthead-desc {
+  margin-top: 18px;
+  color: var(--dim);
+  font-size: 15px;
+  max-width: 560px;
+  line-height: 1.7;
+}
+
+.status-cluster {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+}
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  border-radius: 100px;
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+.sp-live { background:rgba(0,255,204,0.08); border-color:rgba(0,255,204,0.3); color:var(--neon); }
+.sp-build { background:rgba(255,230,0,0.08); border-color:rgba(255,230,0,0.3); color:var(--volt); }
+.sp-plan { background:rgba(157,78,221,0.08); border-color:rgba(157,78,221,0.3); color:#c084fc; }
+.sp-dot { width:6px; height:6px; border-radius:50%; background:currentColor; animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+/* ═══ NAV ═══ */
+.nav-bar {
+  background: var(--paper);
+  border-bottom: 1px solid var(--edge);
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.nav-bar::-webkit-scrollbar { display:none; }
+.nav-btn {
+  padding: 0 24px;
+  height: 50px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dim);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
+}
+.nav-btn:hover { color: var(--text); }
+.nav-btn.on { color: var(--fire); border-bottom-color: var(--fire); }
+.nav-sep {
+  width: 1px;
+  margin: 12px 0;
+  background: var(--edge);
+  flex-shrink: 0;
+}
+
+/* ═══ CONTENT ═══ */
+.body { padding: 44px 64px; max-width: 1440px; margin: 0 auto; }
+.pane { display: none; }
+.pane.on { display: block; }
+
+/* ═══ SECTION TITLE ═══ */
+.sec-head { margin-bottom: 32px; }
+.sec-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 40px;
+  letter-spacing: 1px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sec-title .ico { font-size: 32px; }
+.sec-sub { color: var(--dim); font-size: 14.5px; margin-top: 6px; max-width: 700px; line-height: 1.65; }
+
+/* ═══ GRIDS ═══ */
+.g2 { display: grid; grid-template-columns:1fr 1fr; gap:18px; }
+.g3 { display: grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+.g4 { display: grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+
+/* ═══ CARD ═══ */
+.card {
+  background: var(--lift);
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  padding: 22px 24px;
+  transition: border-color 0.2s, transform 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.card:hover { border-color:var(--edge2); }
+.card::before {
+  content:'';
+  position:absolute;
+  top:0; left:0;
+  width:100%; height:2px;
+}
+.card.fire::before { background:var(--fire); }
+.card.neon::before { background:var(--neon); }
+.card.volt::before { background:var(--volt); }
+.card.sky::before { background:var(--sky); }
+.card.violet::before { background:var(--violet); }
+.card.rose::before { background:var(--rose); }
+
+.card-tag {
+  font-family:'Fira Code',monospace;
+  font-size:10px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  margin-bottom:10px;
+}
+.fire .card-tag { color:var(--fire); }
+.neon .card-tag { color:var(--neon); }
+.volt .card-tag { color:var(--volt); }
+.sky .card-tag { color:var(--sky); }
+.violet .card-tag { color:var(--violet); }
+.rose .card-tag { color:var(--rose); }
+
+.card h3 { font-size:17px; font-weight:700; color:#fff; margin-bottom:8px; }
+.card p { font-size:13px; color:#8080b0; line-height:1.7; }
+
+/* ═══ AUDIT TABLE ═══ */
+.audit-table {
+  width:100%;
+  border-collapse:collapse;
+  margin-bottom:24px;
+}
+.audit-table thead tr {
+  background: var(--faint);
+}
+.audit-table th {
+  padding:10px 16px;
+  text-align:left;
+  font-family:'Fira Code',monospace;
+  font-size:10px;
+  letter-spacing:2px;
+  color:var(--dim);
+  text-transform:uppercase;
+  border-bottom:1px solid var(--edge);
+}
+.audit-table td {
+  padding:14px 16px;
+  border-bottom:1px solid rgba(255,255,255,0.03);
+  font-size:13px;
+  color:#9090b8;
+  vertical-align:top;
+}
+.audit-table tr:hover td { background:rgba(255,255,255,0.015); }
+.audit-table td:first-child { color:var(--text); font-weight:600; }
+.badge {
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:3px 10px;
+  border-radius:100px;
+  font-size:11px;
+  font-family:'Fira Code',monospace;
+  border:1px solid;
+}
+.b-live { background:rgba(0,255,204,0.1); border-color:rgba(0,255,204,0.35); color:var(--neon); }
+.b-build { background:rgba(255,230,0,0.1); border-color:rgba(255,230,0,0.3); color:var(--volt); }
+.b-missing { background:rgba(255,0,110,0.1); border-color:rgba(255,0,110,0.35); color:var(--rose); }
+.b-plan { background:rgba(157,78,221,0.1); border-color:rgba(157,78,221,0.3); color:#c084fc; }
+.b-ok { background:rgba(0,255,204,0.06); border-color:rgba(0,255,204,0.2); color:#70e0a0; }
+
+/* ═══ CODE ═══ */
+pre {
+  background:#030310;
+  border:1px solid var(--edge);
+  border-radius:10px;
+  padding:20px 22px;
+  font-family:'Fira Code',monospace;
+  font-size:12px;
+  line-height:1.9;
+  overflow-x:auto;
+  color:#8080b0;
+  margin:12px 0 20px;
+}
+.kw { color:#9d4edd; }
+.fn { color:var(--neon); }
+.str { color:var(--volt); }
+.cm { color:#2a2a55; }
+.key { color:var(--sky); }
+.val { color:#ff9090; }
+.op { color:var(--fire); }
+
+/* ═══ ENV TABLE ═══ */
+.env-block {
+  background:#030310;
+  border:1px solid var(--edge);
+  border-radius:10px;
+  overflow:hidden;
+  margin-bottom:20px;
+}
+.env-header {
+  background:var(--faint);
+  padding:10px 20px;
+  font-family:'Fira Code',monospace;
+  font-size:11px;
+  color:var(--dim);
+  letter-spacing:2px;
+  border-bottom:1px solid var(--edge);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.env-row {
+  display:grid;
+  grid-template-columns:260px 1fr auto;
+  gap:0;
+  border-bottom:1px solid rgba(255,255,255,0.03);
+}
+.env-row:last-child { border-bottom:none; }
+.env-key {
+  padding:11px 20px;
+  font-family:'Fira Code',monospace;
+  font-size:12px;
+  color:var(--neon);
+  border-right:1px solid var(--edge);
+}
+.env-desc {
+  padding:11px 20px;
+  font-size:12.5px;
+  color:#7070a0;
+  line-height:1.5;
+}
+.env-scope {
+  padding:11px 16px;
+  font-family:'Fira Code',monospace;
+  font-size:10px;
+  text-align:right;
+  white-space:nowrap;
+}
+.scope-all { color:var(--neon); }
+.scope-server { color:var(--fire); }
+.scope-client { color:var(--sky); }
+
+/* ═══ FLOW DIAGRAM ═══ */
+.flow-row {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  margin:20px 0;
+}
+.fnode {
+  padding:10px 18px;
+  border-radius:10px;
+  font-family:'Fira Code',monospace;
+  font-size:11px;
+  border:1px solid;
+  text-align:center;
+  min-width:110px;
+}
+.fn-fire { background:rgba(255,61,0,0.1); border-color:rgba(255,61,0,0.4); color:#ff7050; }
+.fn-neon { background:rgba(0,255,204,0.08); border-color:rgba(0,255,204,0.35); color:var(--neon); }
+.fn-volt { background:rgba(255,230,0,0.08); border-color:rgba(255,230,0,0.3); color:var(--volt); }
+.fn-sky { background:rgba(0,180,255,0.1); border-color:rgba(0,180,255,0.35); color:var(--sky); }
+.fn-violet { background:rgba(157,78,221,0.1); border-color:rgba(157,78,221,0.35); color:#c084fc; }
+.fn-rose { background:rgba(255,0,110,0.1); border-color:rgba(255,0,110,0.35); color:#ff6090; }
+.farrow { color:var(--edge2); font-size:20px; flex-shrink:0; }
+
+/* ═══ ALERT ═══ */
+.alert {
+  border-radius:10px;
+  padding:14px 20px;
+  margin-bottom:18px;
+  display:flex;
+  gap:12px;
+  font-size:13.5px;
+  line-height:1.65;
+  align-items:flex-start;
+}
+.a-fire { background:rgba(255,61,0,0.07); border:1px solid rgba(255,61,0,0.3); color:#d07060; }
+.a-neon { background:rgba(0,255,204,0.06); border:1px solid rgba(0,255,204,0.25); color:#60d0a0; }
+.a-volt { background:rgba(255,230,0,0.06); border:1px solid rgba(255,230,0,0.25); color:#c0a040; }
+.ai { font-size:18px; flex-shrink:0; line-height:1.4; }
+.a-fire strong, .a-neon strong, .a-volt strong { color:#fff; }
+
+/* ═══ CHECKLIST ═══ */
+.checklist { list-style:none; display:flex; flex-direction:column; gap:6px; }
+.checklist li {
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  padding:11px 16px;
+  background:rgba(255,255,255,0.02);
+  border:1px solid transparent;
+  border-radius:8px;
+  font-size:13px;
+  color:#8080b0;
+  transition:border-color 0.15s;
+}
+.checklist li:hover { border-color:var(--edge); }
+.ci { font-size:15px; flex-shrink:0; margin-top:1px; }
+.checklist strong { color:var(--text); font-weight:500; }
+
+/* ═══ DIVIDER ═══ */
+hr { border:none; border-top:1px solid var(--edge); margin:28px 0; }
+
+/* ═══ COLUMNS ═══ */
+.split { display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:start; }
+
+/* ═══ PUTER SECTION ═══ */
+.puter-block {
+  background: var(--lift);
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.puter-head {
+  padding: 14px 22px;
+  background: var(--faint);
+  border-bottom: 1px solid var(--edge);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.puter-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  letter-spacing: 1px;
+  color: #fff;
+}
+.puter-body { padding: 22px 24px; }
+
+/* ═══ SHARED COMPONENT ═══ */
+.sc-list { display:flex; flex-direction:column; gap:10px; }
+.sc-item {
+  display:grid;
+  grid-template-columns:200px 1fr auto;
+  gap:16px;
+  padding:13px 18px;
+  background:rgba(255,255,255,0.02);
+  border:1px solid var(--edge);
+  border-radius:9px;
+  align-items:center;
+}
+.sc-name { font-weight:600; font-size:13px; color:var(--text); }
+.sc-desc { font-size:12.5px; color:var(--dim); }
+
+@media(max-width:900px) {
+  .masthead-inner,.body { padding-left:20px; padding-right:20px; }
+  .g2,.g3,.g4,.split { grid-template-columns:1fr; }
+  .env-row { grid-template-columns:1fr; }
+  .sc-item { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- MASTHEAD -->
+<div class="masthead">
+  <div class="masthead-glow"></div>
+  <div class="masthead-inner">
+    <div>
+      <div class="studio-id">Grudge Studio · Master System · v1.0</div>
+      <div class="masthead-title">
+        FULL<br><span class="t-fire">STACK</span><br><span class="t-neon">MASTER</span>
+      </div>
+      <p class="masthead-desc">Every Vercel deployment, Puter app, Puter site, DOCKER SERVICE, and backend service — unified under one architecture. Shared auth, shared design, shared utilities, zero duplication.</p>
+    </div>
+    <div class="status-cluster">
+      <div class="status-pill sp-live"><span class="sp-dot"></span>Puter Auth · Active</div>
+      <div class="status-pill sp-live"><span class="sp-dot"></span>Vercel · Deploying</div>
+      <div class="status-pill sp-build"><span class="sp-dot"></span>Grudge Backend (MySQL 8) · Building</div>
+      <div class="status-pill sp-plan"><span class="sp-dot"></span>Crossmint · Staging</div>
+    </div>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav class="nav-bar">
+  <button class="nav-btn on" onclick="go('overview')">Overview</button>
+  <div class="nav-sep"></div>
+  <button class="nav-btn" onclick="go('vercel')">Vercel Projects</button>
+  <button class="nav-btn" onclick="go('puter')">Puter Apps/Sites/Workers</button>
+  <button class="nav-btn" onclick="go('env')">ENV & Secrets</button>
+  <div class="nav-sep"></div>
+  <button class="nav-btn" onclick="go('shared-auth')">Shared Auth</button>
+  <button class="nav-btn" onclick="go('shared-ui')">Shared UI System</button>
+  <button class="nav-btn" onclick="go('shared-backend')">Shared Backend</button>
+  <div class="nav-sep"></div>
+  <button class="nav-btn" onclick="go('models')">AI Models</button>
+  <button class="nav-btn" onclick="go('effects')">Effects & Rendering</button>
+  <button class="nav-btn" onclick="go('audit')">Audit Checklist</button>
+</nav>
+
+<!-- CONTENT -->
+<div class="body">
+
+<!-- ═══════════ OVERVIEW ═══════════ -->
+<div id="overview" class="pane on">
+  <div class="sec-head">
+    <div class="sec-title"><span class="ico">🗺️</span> The Grudge Studio Ecosystem</div>
+    <p class="sec-sub">All properties, their purpose, and how they share infrastructure. Every app pulls from the same auth, design tokens, AI utilities, and backend helpers.</p>
+  </div>
+
+  <div class="alert a-fire">
+    <span class="ai">🔥</span>
+    <span><strong>Core principle:</strong> One codebase of shared utilities, consumed by everything. When you fix a bug in the auth layer or upgrade a UI component, every app gets it automatically. No copy-pasting between projects.</span>
+  </div>
+
+  <!-- ECOSYSTEM MAP -->
+  <div style="background:var(--lift);border:1px solid var(--edge);border-radius:14px;padding:28px 32px;margin-bottom:24px;">
+    <div style="font-family:'Fira Code',monospace;font-size:10px;color:var(--dim);letter-spacing:2px;margin-bottom:20px">ECOSYSTEM MAP — DATA FLOWS</div>
+
+    <div class="flow-row">
+      <div class="fnode fn-neon">Puter Auth<br><small>Identity Layer</small></div>
+      <div class="farrow">→</div>
+      <div class="fnode fn-fire">shared/auth<br><small>Shared Package</small></div>
+      <div class="farrow">→</div>
+      <div class="fnode fn-sky">All Apps<br><small>One hook</small></div>
+    </div>
+    <div class="flow-row">
+      <div class="fnode fn-volt">@grudge/ui<br><small>Design System</small></div>
+      <div class="farrow">→</div>
+      <div class="fnode fn-sky">Vercel Web App</div>
+      <div class="farrow">+</div>
+      <div class="fnode fn-sky">Puter Apps</div>
+      <div class="farrow">+</div>
+      <div class="fnode fn-sky">Puter Sites</div>
+    </div>
+    <div class="flow-row">
+      <div class="fnode fn-violet">Grudge Backend (MySQL 8)<br><small>Game State</small></div>
+      <div class="farrow">→</div>
+      <div class="fnode fn-fire">DOCKER SERVICEs<br><small>API Layer</small></div>
+      <div class="farrow">→</div>
+      <div class="fnode fn-sky">All Clients</div>
+    </div>
+    <div class="flow-row">
+      <div class="fnode fn-rose">Crossmint<br><small>Wallets + NFT</small></div>
+      <div class="farrow">→</div>
+      <div class="fnode fn-fire">Next.js API Routes<br><small>Vercel</small></div>
+      <div class="farrow">→</div>
+      <div class="fnode fn-neon">Player Wallets<br><small>Solana cNFT</small></div>
+    </div>
+  </div>
+
+  <div class="g3">
+    <div class="card fire">
+      <div class="card-tag">Layer 1</div>
+      <h3>Vercel (Next.js)</h3>
+      <p>Main web app, marketing site, game hub. API routes for all server-side game logic — GBux, characters, islands, Crossmint webhooks. The authoritative backend.</p>
+    </div>
+    <div class="card neon">
+      <div class="card-tag">Layer 2</div>
+      <h3>Puter Platform</h3>
+      <p>Apps (full game interfaces), Sites (landing pages, docs), Workers (serverless API handlers that read from Puter's storage). Auth layer lives here — all apps share one Puter identity.</p>
+    </div>
+    <div class="card volt">
+      <div class="card-tag">Layer 3</div>
+      <h3>Shared Packages</h3>
+      <p>shared/auth, @grudge/ui, @grudge/api, @grudge/effects. Published privately via npm workspaces or GitHub Packages. Every app imports from here — zero duplication.</p>
+    </div>
+    <div class="card sky">
+      <div class="card-tag">Data</div>
+      <h3>Grudge Backend (MySQL 8)</h3>
+      <p>Postgres for all game-critical data. GBux ledger, characters, islands, inventory. Server-side only — never accessed directly from the client.</p>
+    </div>
+    <div class="card violet">
+      <div class="card-tag">Web3</div>
+      <h3>Crossmint</h3>
+      <p>Custodial wallets auto-provisioned on signup. cNFT minting for characters and islands. Webhooks confirm on-chain events → Grudge Backend (MySQL 8) updates.</p>
+    </div>
+    <div class="card rose">
+      <div class="card-tag">Cache</div>
+      <h3>Redis 7 (Docker)</h3>
+      <p>Rate limiting, session cache, leaderboards, real-time GBux balance cache. Serverless Redis — works on both Vercel and DOCKER SERVICEs.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ VERCEL ═══════════ -->
+<div id="vercel" class="pane">
+  <div class="sec-head">
+    <div class="sec-title"><span class="ico">▲</span> Vercel Projects — Audit & Standards</div>
+    <p class="sec-sub">How your Vercel deployments should be structured, named, and connected. Add your project names and we'll audit each one.</p>
+  </div>
+
+  <div class="alert a-volt">
+    <span class="ai">⚠️</span>
+    <span><strong>Before we review:</strong> Share your actual Vercel project names/URLs by connecting the browser extension or pasting them in chat. The table below shows the <em>target state</em> you should reach.</span>
+  </div>
+
+  <table class="audit-table">
+    <thead>
+      <tr>
+        <th>Project</th>
+        <th>Purpose</th>
+        <th>Framework</th>
+        <th>Status</th>
+        <th>Auth</th>
+        <th>Env Vars</th>
+        <th>Issues</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>grudge-web (main)</td>
+        <td>Main game hub + API routes</td>
+        <td>Next.js 14 App Router</td>
+        <td><span class="badge b-build">In Progress</span></td>
+        <td>Puter.js + sync</td>
+        <td>Full set (see ENV tab)</td>
+        <td style="color:#ff9070">Verify all routes locked</td>
+      </tr>
+      <tr>
+        <td>grudge-landing</td>
+        <td>Marketing + signup</td>
+        <td>Next.js / static</td>
+        <td><span class="badge b-plan">Planned</span></td>
+        <td>Puter.js only</td>
+        <td>Public only</td>
+        <td style="color:var(--dim)">—</td>
+      </tr>
+      <tr>
+        <td>grudge-admin</td>
+        <td>Studio ops dashboard</td>
+        <td>Next.js</td>
+        <td><span class="badge b-plan">Planned</span></td>
+        <td>Puter + role check</td>
+        <td>All secrets</td>
+        <td style="color:#ff9070">Must be non-public</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr>
+  <h3 style="color:#fff;font-size:18px;margin-bottom:16px">Vercel Project Best Practices</h3>
+  <div class="g2">
+    <div class="card fire">
+      <div class="card-tag">Branching</div>
+      <h3>Git Branch → Environment</h3>
+      <p><strong style="color:#fff">main</strong> → Production (grudgegame.com)<br>
+         <strong style="color:#fff">develop</strong> → Preview (dev.grudgegame.com)<br>
+         <strong style="color:#fff">feature/*</strong> → Automatic preview URL<br>
+         Never deploy untested code to main. All Crossmint calls in preview should use staging API keys.</p>
+    </div>
+    <div class="card neon">
+      <div class="card-tag">Performance</div>
+      <h3>Build Standards</h3>
+      <p>Enable Vercel Speed Insights on every project. Set <code>output: 'standalone'</code> in next.config.js. Use Next.js Image component for all assets. Enable ISR for character/island metadata pages — cache for 60s, revalidate on mint.</p>
+    </div>
+    <div class="card volt">
+      <div class="card-tag">Security</div>
+      <h3>Headers + Middleware</h3>
+      <p>Add middleware.ts to every Next.js project for auth verification. Set security headers in vercel.json: X-Frame-Options, CSP, HSTS. Rate limit all /api routes with Redis 7 (Docker).</p>
+    </div>
+    <div class="card sky">
+      <div class="card-tag">Monorepo</div>
+      <h3>Turborepo Setup</h3>
+      <p>Move all Vercel projects into a single Turborepo monorepo. Shared packages in <code>packages/</code>, apps in <code>apps/</code>. Turborepo handles build caching — rebuilds only what changed. One repo, one PR, all apps updated together.</p>
+    </div>
+  </div>
+
+  <pre>
+<span class="cm">// vercel.json — Standard security headers for ALL Grudge projects</span>
+{
+  <span class="key">"headers"</span>: [
+    {
+      <span class="key">"source"</span>: <span class="str">"/(.*)"</span>,
+      <span class="key">"headers"</span>: [
+        { <span class="key">"key"</span>: <span class="str">"X-Frame-Options"</span>,         <span class="key">"value"</span>: <span class="str">"DENY"</span> },
+        { <span class="key">"key"</span>: <span class="str">"X-Content-Type-Options"</span>,   <span class="key">"value"</span>: <span class="str">"nosniff"</span> },
+        { <span class="key">"key"</span>: <span class="str">"Referrer-Policy"</span>,          <span class="key">"value"</span>: <span class="str">"strict-origin"</span> },
+        { <span class="key">"key"</span>: <span class="str">"Permissions-Policy"</span>,       <span class="key">"value"</span>: <span class="str">"camera=(), microphone=()"</span> },
+        { <span class="key">"key"</span>: <span class="str">"Strict-Transport-Security"</span>, <span class="key">"value"</span>: <span class="str">"max-age=63072000"</span> }
+      ]
+    }
+  ],
+  <span class="key">"rewrites"</span>: [
+    { <span class="key">"source"</span>: <span class="str">"/api/health"</span>, <span class="key">"destination"</span>: <span class="str">"/api/health"</span> }
+  ]
+}
+  </pre>
+</div>
+
+<!-- ═══════════ PUTER ═══════════ -->
+<div id="puter" class="pane">
+  <div class="sec-head">
+    <div class="sec-title"><span class="ico">☁️</span> Puter Apps / Sites / Workers</div>
+    <p class="sec-sub">How each Puter product type should be used and what they should share. Apps, Sites, and Workers each have distinct roles — don't mix them up.</p>
+  </div>
+
+  <!-- APPS -->
+  <div class="puter-block">
+    <div class="puter-head">
+      <div class="puter-title">PUTER APPS — Full Game Interfaces</div>
+      <span class="badge b-live">Primary UI Layer</span>
+    </div>
+    <div class="puter-body">
+      <div class="g2">
+        <div>
+          <p style="color:var(--dim);font-size:13.5px;margin-bottom:14px">Puter Apps run inside the Puter desktop environment. They get the full Puter API: auth, storage, AI, KV, workers. Use these for full game screens — character creator, island view, inventory, marketplace.</p>
+          <div class="card neon" style="margin-bottom:12px">
+            <div class="card-tag">Best Use</div>
+            <h3>Grudge Game Hub App</h3>
+            <p>The main game interface. Full access to puter.fs (player cloud), puter.kv (local prefs/cache), puter.ai (in-game AI), puter.workers (calls to your API). Registered once in Puter, accessible everywhere.</p>
+          </div>
+          <div class="card volt">
+            <div class="card-tag">Standard Pattern</div>
+            <h3>Every Puter App Must:</h3>
+            <p>1. Import shared/auth and verify session on load<br>
+            2. Sync with Vercel backend on first render<br>
+            3. Use @grudge/ui design tokens for all styling<br>
+            4. Store preferences in puter.kv with <code>grudge:</code> prefix</p>
+          </div>
+        </div>
+        <pre>
+<span class="cm">// Standard Puter App bootstrap — grudge-app/index.js</span>
+<span class="cm">// Every Puter App starts with this pattern</span>
+
+<span class="kw">const</span> <span class="fn">GrudgeApp</span> = {
+  <span class="kw">async</span> <span class="fn">init</span>() {
+    <span class="cm">// 1. Ensure Puter auth</span>
+    <span class="kw">if</span> (!puter.auth.<span class="fn">isSignedIn</span>()) {
+      <span class="kw">await</span> puter.auth.<span class="fn">signIn</span>()
+    }
+
+    <span class="cm">// 2. Get Puter identity</span>
+    <span class="kw">const</span> user = <span class="kw">await</span> puter.auth.<span class="fn">getUser</span>()
+
+    <span class="cm">// 3. Sync with Grudge backend</span>
+    <span class="kw">const</span> session = <span class="kw">await</span> <span class="fn">fetch</span>(
+      <span class="str">`https://grudgegame.com/api/auth/sync`</span>, {
+        method: <span class="str">'POST'</span>,
+        body: JSON.<span class="fn">stringify</span>({ puterId: user.uuid, username: user.username })
+      }
+    ).<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+
+    <span class="cm">// 4. Cache session in Puter KV</span>
+    <span class="kw">await</span> puter.kv.<span class="fn">set</span>(<span class="str">'grudge:session'</span>, JSON.<span class="fn">stringify</span>(session))
+
+    <span class="cm">// 5. Load app with session context</span>
+    <span class="kw">await</span> <span class="fn">renderApp</span>(session)
+  }
+}
+
+document.<span class="fn">addEventListener</span>(<span class="str">'DOMContentLoaded'</span>, () => GrudgeApp.<span class="fn">init</span>())
+        </pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- SITES -->
+  <div class="puter-block">
+    <div class="puter-head">
+      <div class="puter-title">PUTER SITES — Static Hosting + Landing Pages</div>
+      <span class="badge b-build">Marketing Layer</span>
+    </div>
+    <div class="puter-body">
+      <div class="g2">
+        <div>
+          <p style="color:var(--dim);font-size:13.5px;margin-bottom:14px">Puter Sites are static websites hosted on Puter's CDN under a custom subdomain. Use these for landing pages, character galleries, island showcases, lore pages — anything public-facing that doesn't need a full game backend.</p>
+          <div class="card sky">
+            <div class="card-tag">Grudge Sites to Build</div>
+            <h3>Planned Puter Sites</h3>
+            <p>
+              <strong style="color:#fff">grudge.puter.site</strong> — Studio landing page<br>
+              <strong style="color:#fff">characters.grudge.puter.site</strong> — Public character gallery<br>
+              <strong style="color:#fff">islands.grudge.puter.site</strong> — Island marketplace preview<br>
+              <strong style="color:#fff">lore.grudge.puter.site</strong> — Game world/story
+            </p>
+          </div>
+        </div>
+        <pre>
+<span class="cm">// Deploy a Puter Site from code</span>
+
+<span class="kw">const</span> site = <span class="kw">await</span> puter.hosting.<span class="fn">create</span>(
+  <span class="str">'grudge-characters'</span>,  <span class="cm">// subdomain</span>
+  <span class="str">'./dist'</span>               <span class="cm">// built HTML/CSS/JS folder</span>
+)
+
+<span class="cm">// Result: grudge-characters.puter.site</span>
+<span class="cm">// Can also use custom domain: characters.grudgegame.com</span>
+
+<span class="cm">// Update a site (on deploy)</span>
+<span class="kw">await</span> puter.hosting.<span class="fn">update</span>(<span class="str">'grudge-characters'</span>, <span class="str">'./dist'</span>)
+
+<span class="cm">// All Puter Sites share the same @grudge/ui tokens
+// via a CDN-hosted CSS file:</span>
+<span class="cm">// &lt;link rel="stylesheet" href="https://grudgegame.com/shared.css"&gt;</span>
+        </pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- WORKERS -->
+  <div class="puter-block">
+    <div class="puter-head">
+      <div class="puter-title">DOCKER SERVICES — Serverless API + Background Jobs</div>
+      <span class="badge b-build">API Layer</span>
+    </div>
+    <div class="puter-body">
+      <p style="color:var(--dim);font-size:13.5px;margin-bottom:14px">Workers are the most powerful part of Puter for Grudge. They run server-side code, handle HTTP routes, and can access both the developer's Puter storage (<code>me.puter</code>) AND the user's storage (<code>user.puter</code>). Use them for lightweight API calls that don't need Grudge Backend (MySQL 8).</p>
+      <div class="g2" style="margin-bottom:16px">
+        <div class="card rose">
+          <div class="card-tag">Worker: me.puter context</div>
+          <h3>Studio-Owned Data</h3>
+          <p>Leaderboards, shared game config, server-side analytics, cached game data. Stored in your Puter account. Players can't modify it.</p>
+        </div>
+        <div class="card neon">
+          <div class="card-tag">Worker: user.puter context</div>
+          <h3>Player-Owned Data</h3>
+          <p>Character images, save files, screenshots, personal settings. Stored in each player's Puter cloud. Users pay for their own storage costs.</p>
+        </div>
+      </div>
+      <pre>
+<span class="cm">// DOCKER SERVICE: grudge-api-worker
+// Handles player requests with full routing</span>
+
+<span class="cm">// GET /api/player/profile</span>
+router.<span class="fn">get</span>(<span class="str">'/api/player/profile'</span>, <span class="kw">async</span> ({ user }) => {
+  <span class="kw">if</span> (!user) <span class="kw">return</span> { status: <span class="val">401</span>, error: <span class="str">'Auth required'</span> }
+
+  <span class="cm">// Read from user's own Puter KV (preferences)</span>
+  <span class="kw">const</span> prefs = <span class="kw">await</span> user.puter.kv.<span class="fn">get</span>(<span class="str">'grudge:preferences'</span>)
+
+  <span class="cm">// Read from studio-owned KV (player stats cache)</span>
+  <span class="kw">const</span> stats = <span class="kw">await</span> me.puter.kv.<span class="fn">get</span>(<span class="str">`player_stats:${user.uuid}`</span>)
+
+  <span class="kw">return</span> { prefs, stats, username: user.username }
+})
+
+<span class="cm">// POST /api/game/save</span>
+router.<span class="fn">post</span>(<span class="str">'/api/game/save'</span>, <span class="kw">async</span> ({ request, user }) => {
+  <span class="kw">if</span> (!user) <span class="kw">return</span> { status: <span class="val">401</span> }
+  <span class="kw">const</span> saveData = <span class="kw">await</span> request.<span class="fn">json</span>()
+
+  <span class="cm">// Save to user's Puter cloud (they own it, they pay)</span>
+  <span class="kw">await</span> user.puter.fs.<span class="fn">write</span>(
+    <span class="str">`grudge-studio/saves/autosave.json`</span>,
+    JSON.<span class="fn">stringify</span>(saveData)
+  )
+
+  <span class="kw">return</span> { saved: <span class="kw">true</span> }
+})
+      </pre>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ ENV ═══════════ -->
+<div id="env" class="pane">
+  <div class="sec-head">
+    <div class="sec-title"><span class="ico">🔐</span> ENV Variables & Secrets</div>
+    <p class="sec-sub">Every environment variable across all Grudge properties. Which scope each belongs to, and which apps need it.</p>
+  </div>
+
+  <div class="alert a-fire">
+    <span class="ai">🔒</span>
+    <span><strong>Rule:</strong> If an ENV var starts with <code>NEXT_PUBLIC_</code>, it's sent to the browser — never put secrets there. Server-only keys (Grudge Backend (MySQL 8) service key, Crossmint server key) must NEVER be prefixed NEXT_PUBLIC. Verify this on every project.</span>
+  </div>
+
+  <div class="env-block">
+    <div class="env-header">
+      <span>AUTH & IDENTITY</span>
+      <span style="color:var(--fire)">ALL VERCEL PROJECTS</span>
+    </div>
+    <div class="env-row">
+      <div class="env-key">NEXT_PUBLIC_PUTER_APP_ID</div>
+      <div class="env-desc">Your Puter app identifier. Register at puter.com/dashboard. Tells Puter which app is requesting auth.</div>
+      <div class="env-scope scope-client">CLIENT</div>
+    </div>
+    <div class="env-row">
+      <div class="env-key">PUTER_SERVER_TOKEN</div>
+      <div class="env-desc">Server-side Puter auth token for calling Puter APIs from Next.js API routes. Never expose to browser.</div>
+      <div class="env-scope scope-server">SERVER ONLY</div>
+    </div>
+    <div class="env-row">
+      <div class="env-key">NEXTAUTH_SECRET</div>
+      <div class="env-desc">32+ char random string for NextAuth session signing. Generate with: openssl rand -base64 32</div>
+      <div class="env-scope scope-server">SERVER ONLY</div>
+    </div>
+  </div>
+
+  <div class="env-block">
+    <div class="env-header">
+      <span>DATABASE — Grudge Backend (MySQL 8)</span>
+      <span style="color:var(--neon)">grudge-web + grudge-admin ONLY</span>
+    </div>
+    <div class="env-row">
+      <div class="env-key">NEXT_PUBLIC_Grudge Backend (MySQL 8)_URL</div>
+      <div class="env-desc">Your Grudge Backend (MySQL 8) project URL. Safe to expose — it's just the endpoint, not a secret.</div>
+      <div class="env-scope scope-client">CLIENT</div>
+    </div>
+    <div class="env-row">
+      <div class="env-key">NEXT_PUBLIC_Grudge Backend (MySQL 8)_ANON_KEY</div>
+      <div class="env-desc">Public anon key — safe to expose. RLS policies protect the data, not this key.</div>
+      <div class="env-scope scope-client">CLIENT</div>
+    </div>
+    <div class="env-row">
+      <div class="env-key">Grudge Backend (MySQL 8)_SERVICE_ROLE_KEY</div>
+      <div class="env-desc">⚠️ DANGER — bypasses RLS. Server API routes ONLY. Never in browser code. Rotate if ever exposed.</div>
+      <div class="env-scope scope-server">SERVER ONLY</div>
+    </div>
+    <div class="env-row">
+      <div class="env-key">MYSQL_DATABASE + MYSQL_USER + MYSQL_PASSWORD</div>
+      <div class="env-desc">Direct Postgres connection string. For Prisma/Drizzle migrations only. Never client-side.</div>
+      <div class="env-scope scope-server">SERVER ONLY</div>
+    </div>
+  </div>
+
+  <div class="env-block">
+    <div class="env-header">
+      <span>WEB3 — CROSSMINT</span>
+      <span style="color:var(--volt)">grudge-web ONLY</span>
+    </div>
+    <div class="env-row">
+      <div class="env-key">CROSSMINT_SERVER_KEY</div>
+      <div class="env-desc">Server-side API key for minting, wallet provisioning, transfers. Never expose to client. Rotate between staging/prod.</div>
+      <div class="env-scope scope-server">SERVER ONLY</div>
+    </div>
+    <div class="env-row">
+      <div class="env-key">NEXT_PUBLIC_CROSSMINT_CLIENT_KEY</div>
+      <div class="env-desc">Client-safe key for the Crossmint UI embed (checkout flows). Limited to read operations.</div>
+      <div class="env-scope scope-client">CLIENT</div>
+    </div>
+    <div class="env-row">
+      <div class="env-key">CROSSMINT_CHARACTER_COLLECTION_ID</div>
+      <div class="env-desc">The on-chain collection ID for Character cNFTs. Different values for staging vs production.</div>
+      <div class="env-scope scope-server">SERVER ONLY</div>
+    </div>
+    <div class="env-row">
+      <div class="env-key">CROSSMINT_ISLAND_COLLECTION_ID</div>
+      <div class="env-desc">The on-chain collection ID for Island cNFTs.</div>
+      <div class="env-scope scope-server">SERVER ONLY</div>
+    </div>
+    <div class="env-row">
+      <div class="env-key">CROSSMINT_PROJECT_ID</div>
+      <div class="env-desc">Used to verify incoming Crossmint webhook signatures. Prevent spoofed mint confirmations.</div>
+      <div class="env-scope scope-server">SERVER ONLY</div>
+    </div>
+  </div>
+
+  <div class="env-block">
+    <div class="env-header">
+      <span>CACHE + JOBS</span>
+      <span style="color:var(--sky)">grudge-web + workers</span>
+    </div>
+    <div class="env-row">
+      <div class="env-key">UPSTASH_REDIS_REST_URL</div>
+      <div class="env-desc">Redis 7 (Docker) endpoint for rate limiting and caching. Serverless-compatible.</div>
+      <div class="env-scope scope-server">SERVER ONLY</div>
+    </div>
+    <div class="env-row">
+      <div class="env-key">UPSTASH_REDIS_REST_TOKEN</div>
+      <div class="env-desc">Auth token for Redis 7 (Docker). Server only.</div>
+      <div class="env-scope scope-server">SERVER ONLY</div>
+    </div>
+    <div class="env-row">
+      <div class="env-key">Bull/BullMQ (Redis queue)_EVENT_KEY</div>
+      <div class="env-desc">For triggering Bull/BullMQ (Redis queue) background jobs (NFT mints, batch rewards). Server only.</div>
+      <div class="env-scope scope-server">SERVER ONLY</div>
+    </div>
+    <div class="env-row">
+      <div class="env-key">Bull/BullMQ (Redis queue)_SIGNING_KEY</div>
+      <div class="env-desc">Verifies Bull/BullMQ (Redis queue) webhook callbacks are legitimate. Server only.</div>
+      <div class="env-scope scope-server">SERVER ONLY</div>
+    </div>
+  </div>
+
+  <div class="alert a-neon" style="margin-top:20px">
+    <span class="ai">✅</span>
+    <span><strong>ENV checklist:</strong> (1) All vars in Vercel Dashboard → Settings → Environment Variables. (2) Separate values for Preview vs Production environments. (3) Crossmint staging keys in Preview, mainnet keys in Production. (4) Never commit .env.local to git — verify .gitignore covers it.</span>
+  </div>
+</div>
+
+<!-- ═══════════ SHARED AUTH ═══════════ -->
+<div id="shared-auth" class="pane">
+  <div class="sec-head">
+    <div class="sec-title"><span class="ico">🔑</span> Shared Auth System — shared/auth</div>
+    <p class="sec-sub">One auth package, consumed by every app. Puter identity → Grudge session → available everywhere with one hook.</p>
+  </div>
+
+  <pre>
+<span class="cm">// services/grudge-id/index.js — shared/auth
+// This single package handles auth for ALL Grudge properties</span>
+
+<span class="cm">// ─── Types ──────────────────────────────────</span>
+<span class="kw">export interface</span> GrudgeSession {
+  puterId:       <span class="kw">string</span>
+  playerId:      <span class="kw">string</span>
+  username:      <span class="kw">string</span>
+  walletAddress: <span class="kw">string</span>
+  gbuxBalance:   <span class="kw">number</span>
+  isNewPlayer:   <span class="kw">boolean</span>
+}
+
+<span class="cm">// ─── React Hook (Next.js + Puter Apps) ──────</span>
+<span class="kw">export function</span> <span class="fn">useGrudgeAuth</span>() {
+  <span class="kw">const</span> [session, setSession] = useState&lt;GrudgeSession | <span class="kw">null</span>&gt;(<span class="kw">null</span>)
+  <span class="kw">const</span> [loading, setLoading] = useState(<span class="kw">true</span>)
+
+  useEffect(<span class="kw">async</span> () => {
+    <span class="cm">// Check Puter first (fastest)</span>
+    <span class="kw">if</span> (!puter.auth.<span class="fn">isSignedIn</span>()) { setLoading(<span class="kw">false</span>); <span class="kw">return</span> }
+
+    <span class="cm">// Check cached Grudge session</span>
+    <span class="kw">const</span> cached = <span class="kw">await</span> puter.kv.<span class="fn">get</span>(<span class="str">'grudge:session'</span>)
+    <span class="kw">if</span> (cached) { <span class="fn">setSession</span>(JSON.<span class="fn">parse</span>(cached)); setLoading(<span class="kw">false</span>); <span class="kw">return</span> }
+
+    <span class="cm">// Fresh sync with backend</span>
+    <span class="kw">const</span> user = <span class="kw">await</span> puter.auth.<span class="fn">getUser</span>()
+    <span class="kw">const</span> grudge = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">`${GRUDGE_API}/api/auth/sync`</span>, {
+      method: <span class="str">'POST'</span>,
+      body: JSON.<span class="fn">stringify</span>({ puterId: user.uuid, username: user.username })
+    }).<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+
+    <span class="kw">await</span> puter.kv.<span class="fn">set</span>(<span class="str">'grudge:session'</span>, JSON.<span class="fn">stringify</span>(grudge))
+    <span class="fn">setSession</span>(grudge)
+    <span class="fn">setLoading</span>(<span class="kw">false</span>)
+  }, [])
+
+  <span class="kw">const</span> <span class="fn">signIn</span> = <span class="kw">async</span> () => { <span class="kw">await</span> puter.auth.<span class="fn">signIn</span>(); window.<span class="fn">location.reload</span>() }
+  <span class="kw">const</span> <span class="fn">signOut</span> = <span class="kw">async</span> () => {
+    <span class="kw">await</span> puter.kv.<span class="fn">del</span>(<span class="str">'grudge:session'</span>)
+    <span class="kw">await</span> puter.auth.<span class="fn">signOut</span>()
+  }
+
+  <span class="kw">return</span> { session, loading, signIn, signOut, isAuthed: !!session }
+}
+
+<span class="cm">// Usage in ANY app:
+// const { session, loading, signIn } = useGrudgeAuth()
+// if (!session) return &lt;SignInButton onClick={signIn} /&gt;</span>
+  </pre>
+</div>
+
+<!-- ═══════════ SHARED UI ═══════════ -->
+<div id="shared-ui" class="pane">
+  <div class="sec-head">
+    <div class="sec-title"><span class="ico">🎨</span> Shared UI System — @grudge/ui</div>
+    <p class="sec-sub">Design tokens, components, and effects that every Grudge property shares. One source of truth for all visual identity.</p>
+  </div>
+
+  <div class="g2" style="margin-bottom:24px">
+    <div>
+      <h3 style="color:#fff;margin-bottom:14px;font-size:17px">Design Token System</h3>
+      <pre>
+<span class="cm">/* packages/ui/tokens.css — Global design tokens
+   Import this in every app */</span>
+
+:root {
+  <span class="cm">/* ── Brand Colors ─────────────── */</span>
+  <span class="key">--g-fire</span>:     <span class="val">#ff3d00</span>;   <span class="cm">/* primary CTA */</span>
+  <span class="key">--g-neon</span>:     <span class="val">#00ffcc</span>;   <span class="cm">/* accent / positive */</span>
+  <span class="key">--g-volt</span>:     <span class="val">#ffe600</span>;   <span class="cm">/* GBux / currency */</span>
+  <span class="key">--g-sky</span>:      <span class="val">#00b4ff</span>;   <span class="cm">/* info / links */</span>
+  <span class="key">--g-violet</span>:   <span class="val">#9d4edd</span>;   <span class="cm">/* NFT / premium */</span>
+  <span class="key">--g-rose</span>:     <span class="val">#ff006e</span>;   <span class="cm">/* danger / rare */</span>
+
+  <span class="cm">/* ── Surfaces ─────────────────── */</span>
+  <span class="key">--g-bg</span>:       <span class="val">#05050f</span>;
+  <span class="key">--g-paper</span>:    <span class="val">#0c0c1e</span>;
+  <span class="key">--g-lift</span>:     <span class="val">#12122a</span>;
+  <span class="key">--g-edge</span>:     <span class="val">#1e1e3a</span>;
+
+  <span class="cm">/* ── Typography ───────────────── */</span>
+  <span class="key">--g-font-display</span>: <span class="str">'Bebas Neue'</span>, sans-serif;
+  <span class="key">--g-font-body</span>:    <span class="str">'Outfit'</span>, sans-serif;
+  <span class="key">--g-font-mono</span>:    <span class="str">'Fira Code'</span>, monospace;
+
+  <span class="cm">/* ── Motion ───────────────────── */</span>
+  <span class="key">--g-ease-snap</span>:  cubic-bezier(0.2, 0, 0, 1);
+  <span class="key">--g-ease-bounce</span>: cubic-bezier(0.34, 1.56, 0.64, 1);
+  <span class="key">--g-dur-fast</span>:   120ms;
+  <span class="key">--g-dur-mid</span>:    240ms;
+  <span class="key">--g-dur-slow</span>:   480ms;
+
+  <span class="cm">/* ── Rounding ─────────────────── */</span>
+  <span class="key">--g-r-sm</span>: 6px; <span class="key">--g-r-md</span>: 10px;
+  <span class="key">--g-r-lg</span>: 14px; <span class="key">--g-r-pill</span>: 100px;
+}
+      </pre>
+    </div>
+    <div>
+      <h3 style="color:#fff;margin-bottom:14px;font-size:17px">Shared Component Library</h3>
+      <div class="sc-list">
+        <div class="sc-item">
+          <div class="sc-name">GrudgeButton</div>
+          <div class="sc-desc">Fire/neon/volt/ghost variants. Hover glow, press animation, loading state.</div>
+          <span class="badge b-ok">Ready</span>
+        </div>
+        <div class="sc-item">
+          <div class="sc-name">GBuxDisplay</div>
+          <div class="sc-desc">Animated balance counter with volt glow. Increments/decrements with motion.</div>
+          <span class="badge b-build">Build</span>
+        </div>
+        <div class="sc-item">
+          <div class="sc-name">PlayerAvatar</div>
+          <div class="sc-desc">Puter cloud avatar + fallback. Ring color by tier. Hover shows stats.</div>
+          <span class="badge b-build">Build</span>
+        </div>
+        <div class="sc-item">
+          <div class="sc-name">CharacterCard</div>
+          <div class="sc-desc">NFT-style card with holographic shimmer effect, rarity glow, stats.</div>
+          <span class="badge b-build">Build</span>
+        </div>
+        <div class="sc-item">
+          <div class="sc-name">IslandTile</div>
+          <div class="sc-desc">Island preview tile with ownership badge, level, GBux yield rate.</div>
+          <span class="badge b-plan">Planned</span>
+        </div>
+        <div class="sc-item">
+          <div class="sc-name">WalletWidget</div>
+          <div class="sc-desc">Compact wallet address display with copy, Crossmint link, NFT count.</div>
+          <span class="badge b-plan">Planned</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ SHARED BACKEND ═══════════ -->
+<div id="shared-backend" class="pane">
+  <div class="sec-head">
+    <div class="sec-title"><span class="ico">⚙️</span> Shared Backend Utilities — @grudge/api</div>
+    <p class="sec-sub">Server-side helpers shared across all Next.js API routes and DOCKER SERVICEs. Zero duplication.</p>
+  </div>
+
+  <div class="g2">
+    <pre>
+<span class="cm">// packages/api/gbux.ts — Shared GBux utilities
+// Used by BOTH Vercel API routes AND DOCKER SERVICEs</span>
+
+<span class="kw">import</span> { Grudge Backend (MySQL 8) } <span class="kw">from</span> <span class="str">'./Grudge Backend (MySQL 8)'</span>
+
+<span class="kw">export const</span> gbux = {
+  <span class="kw">async</span> <span class="fn">award</span>(playerId: <span class="kw">string</span>, amount: <span class="kw">number</span>, reason: <span class="kw">string</span>) {
+    <span class="kw">return</span> Grudge Backend (MySQL 8).<span class="fn">rpc</span>(<span class="str">'award_gbux'</span>, { p_player_id: playerId, p_amount: amount, p_reason: reason })
+  },
+  <span class="kw">async</span> <span class="fn">spend</span>(playerId: <span class="kw">string</span>, amount: <span class="kw">number</span>, reason: <span class="kw">string</span>) {
+    <span class="kw">return</span> Grudge Backend (MySQL 8).<span class="fn">rpc</span>(<span class="str">'spend_gbux'</span>, { p_player_id: playerId, p_amount: amount, p_reason: reason })
+  },
+  <span class="kw">async</span> <span class="fn">balance</span>(playerId: <span class="kw">string</span>) {
+    <span class="kw">const</span> { data } = <span class="kw">await</span> Grudge Backend (MySQL 8)
+      .from(<span class="str">'players'</span>).select(<span class="str">'gbux_balance'</span>).eq(<span class="str">'id'</span>, playerId).single()
+    <span class="kw">return</span> data?.gbux_balance ?? <span class="val">0</span>
+  }
+}
+
+<span class="cm">// packages/api/validate.ts — Shared Zod schemas</span>
+<span class="kw">export const</span> PlayerSchema = z.object({
+  puterId:  z.string().uuid(),
+  username: z.string().min(3).max(20).regex(<span class="str">/^[a-zA-Z0-9_]+$/</span>),
+  email:    z.string().email().optional()
+})
+
+<span class="kw">export const</span> GbuxTransferSchema = z.object({
+  toPlayerId: z.string().uuid(),
+  amount:     z.number().int().positive().max(<span class="val">10000</span>),
+  reason:     z.string().min(1).max(100)
+})
+
+<span class="cm">// packages/api/ratelimit.ts — Shared rate limiter</span>
+<span class="kw">import</span> { Ratelimit } <span class="kw">from</span> <span class="str">'@upstash/ratelimit'</span>
+<span class="kw">import</span> { Redis } <span class="kw">from</span> <span class="str">'@upstash/redis'</span>
+
+<span class="kw">const</span> redis = Redis.<span class="fn">fromEnv</span>()
+<span class="kw">export const</span> rateLimits = {
+  api:     <span class="kw">new</span> <span class="fn">Ratelimit</span>({ redis, limiter: Ratelimit.<span class="fn">slidingWindow</span>(<span class="val">60</span>, <span class="str">'1m'</span>) }),
+  gbux:    <span class="kw">new</span> <span class="fn">Ratelimit</span>({ redis, limiter: Ratelimit.<span class="fn">slidingWindow</span>(<span class="val">10</span>, <span class="str">'1m'</span>) }),
+  minting: <span class="kw">new</span> <span class="fn">Ratelimit</span>({ redis, limiter: Ratelimit.<span class="fn">fixedWindow</span>(<span class="val">3</span>, <span class="str">'1h'</span>) })
+}
+    </pre>
+    <pre>
+<span class="cm">// packages/api/crossmint.ts — Shared Crossmint utilities</span>
+
+<span class="kw">const</span> CM_BASE = process.env.NODE_ENV === <span class="str">'production'</span>
+  ? <span class="str">'https://www.crossmint.com'</span>
+  : <span class="str">'https://staging.crossmint.com'</span>
+
+<span class="kw">export const</span> crossmint = {
+  <span class="kw">async</span> <span class="fn">provisionWallet</span>(email: <span class="kw">string</span>) {
+    <span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">`${CM_BASE}/api/2022-06-09/wallets`</span>, {
+      method: <span class="str">'POST'</span>,
+      headers: { <span class="str">'X-API-KEY'</span>: process.env.CROSSMINT_SERVER_KEY! },
+      body: JSON.<span class="fn">stringify</span>({ type: <span class="str">'solana-custodial-wallet'</span>, linkedUser: <span class="str">`email:${email}`</span> })
+    })
+    <span class="kw">return</span> (await res.<span class="fn">json</span>()).publicKey
+  },
+
+  <span class="kw">async</span> <span class="fn">mintCharacter</span>(walletAddress: <span class="kw">string</span>, metadata: object) {
+    <span class="kw">return</span> <span class="fn">fetch</span>(<span class="str">`${CM_BASE}/api/2022-06-09/collections/${process.env.CROSSMINT_CHARACTER_COLLECTION_ID}/nfts`</span>, {
+      method: <span class="str">'POST'</span>,
+      headers: { <span class="str">'X-API-KEY'</span>: process.env.CROSSMINT_SERVER_KEY! },
+      body: JSON.<span class="fn">stringify</span>({ recipient: <span class="str">`solana:${walletAddress}`</span>, metadata, compressed: <span class="kw">true</span> })
+    }).<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+  },
+
+  <span class="kw">async</span> <span class="fn">verifyWebhook</span>(body: <span class="kw">string</span>, signature: <span class="kw">string</span>) {
+    <span class="cm">// HMAC verification — always verify before trusting mint events</span>
+    <span class="kw">const</span> hmac = crypto.<span class="fn">createHmac</span>(<span class="str">'sha256'</span>, process.env.CROSSMINT_PROJECT_ID!)
+    <span class="kw">return</span> hmac.<span class="fn">update</span>(body).<span class="fn">digest</span>(<span class="str">'hex'</span>) === signature
+  }
+}
+    </pre>
+  </div>
+</div>
+
+<!-- ═══════════ AI MODELS ═══════════ -->
+<div id="models" class="pane">
+  <div class="sec-head">
+    <div class="sec-title"><span class="ico">🤖</span> AI Models — Best Usage Per Feature</div>
+    <p class="sec-sub">Which AI model to use for which Grudge feature. Puter gives you access to all of them — use the right tool for the job.</p>
+  </div>
+
+  <table class="audit-table">
+    <thead>
+      <tr><th>Feature</th><th>Model</th><th>Why</th><th>Access</th><th>Cost Bearer</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Character backstory generator</td>
+        <td>Claude Sonnet 4 (claude-sonnet-4-6)</td>
+        <td>Best narrative quality, follows lore rules, character voice</td>
+        <td>puter.ai.chat()</td>
+        <td>Player (Puter model)</td>
+      </tr>
+      <tr>
+        <td>NPC dialogue / in-game chat</td>
+        <td>GPT-4o mini</td>
+        <td>Fast, cheap, good for real-time dialogue. Low latency.</td>
+        <td>puter.ai.chat(model: 'gpt-4o-mini')</td>
+        <td>Player (Puter model)</td>
+      </tr>
+      <tr>
+        <td>Character avatar generation</td>
+        <td>DALL-E 3</td>
+        <td>Best stylistic consistency for game art. Prompt engineered.</td>
+        <td>puter.ai.txt2img()</td>
+        <td>Player (Puter model)</td>
+      </tr>
+      <tr>
+        <td>Island map generation</td>
+        <td>DALL-E 3 / Stable Diffusion</td>
+        <td>Top-down game map style. Output stored in player's Puter cloud.</td>
+        <td>puter.ai.txt2img()</td>
+        <td>Player (Puter model)</td>
+      </tr>
+      <tr>
+        <td>Admin: moderation / review</td>
+        <td>Claude Sonnet (API)</td>
+        <td>Content policy enforcement, cheat detection analysis</td>
+        <td>Anthropic API direct</td>
+        <td>Studio (server)</td>
+      </tr>
+      <tr>
+        <td>Game lore Q&amp;A</td>
+        <td>Claude with RAG</td>
+        <td>Answer player questions using your lore documents as context</td>
+        <td>Vercel API route</td>
+        <td>Studio (server)</td>
+      </tr>
+      <tr>
+        <td>Voice: character narration</td>
+        <td>puter.ai.txt2speech()</td>
+        <td>In-game narration, character voice lines. Free via Puter.</td>
+        <td>puter.ai.txt2speech()</td>
+        <td>Player (Puter model)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="alert a-neon">
+    <span class="ai">💡</span>
+    <span><strong>Strategy:</strong> Route expensive generative tasks (avatar/map creation) through Puter — players use their own AI credits. Route studio-critical AI (moderation, cheat detection, lore Q&A) through your own API keys on the server. This keeps your AI costs near zero while giving players rich AI features.</span>
+  </div>
+
+  <pre>
+<span class="cm">// services/ai-agent/index.js — Shared AI utilities for all apps</span>
+
+<span class="kw">export const</span> ai = {
+  <span class="cm">// Character generation — via player's Puter credits</span>
+  <span class="kw">async</span> <span class="fn">generateCharacterBackstory</span>(charName: <span class="kw">string</span>, charClass: <span class="kw">string</span>) {
+    <span class="kw">return</span> puter.ai.<span class="fn">chat</span>([
+      { role: <span class="str">'system'</span>, content: GRUDGE_LORE_SYSTEM_PROMPT },
+      { role: <span class="str">'user'</span>, content: <span class="str">`Create a backstory for ${charName}, a ${charClass} from Grudge Island.`</span> }
+    ], { model: <span class="str">'claude-sonnet-4-6'</span> })
+  },
+
+  <span class="cm">// Avatar generation — stored in player's Puter cloud</span>
+  <span class="kw">async</span> <span class="fn">generateAvatar</span>(description: <span class="kw">string</span>, playerId: <span class="kw">string</span>) {
+    <span class="kw">const</span> image = <span class="kw">await</span> puter.ai.<span class="fn">txt2img</span>(
+      <span class="str">`Game character portrait, ${description}, Grudge Island style, dark fantasy, detailed, square format`</span>
+    )
+    <span class="cm">// Save directly to their Puter cloud</span>
+    <span class="kw">await</span> puter.fs.<span class="fn">write</span>(<span class="str">`grudge-studio/characters/avatar-${Date.now()}.png`</span>, image)
+    <span class="kw">return</span> image
+  }
+}
+  </pre>
+</div>
+
+<!-- ═══════════ EFFECTS ═══════════ -->
+<div id="effects" class="pane">
+  <div class="sec-head">
+    <div class="sec-title"><span class="ico">✨</span> Effects & Rendering Standards</div>
+    <p class="sec-sub">The visual signature of all Grudge Studio interfaces. Shared effects, animations, and rendering patterns imported from @grudge/ui.</p>
+  </div>
+
+  <div class="g2" style="margin-bottom:24px">
+    <div>
+      <h3 style="color:#fff;margin-bottom:14px;font-size:17px">The Grudge Aesthetic</h3>
+      <div class="card fire" style="margin-bottom:12px">
+        <div class="card-tag">Identity Rule</div>
+        <h3>Dark + Electric</h3>
+        <p>Near-black surfaces (#05050f). Electric accent colors that feel like they're lit from within. Bebas Neue for all display headings. Scanline texture overlay at 1% opacity on all game screens.</p>
+      </div>
+      <div class="card neon">
+        <div class="card-tag">Motion Rule</div>
+        <h3>Purposeful, Not Decorative</h3>
+        <p>Staggered entrance animations (delay by 80ms per item). Card hovers: translateY(-2px) + border glow. Buttons: press scale(0.97) + brighten. GBux changes: number roll + glow flash.</p>
+      </div>
+    </div>
+    <pre style="height:fit-content">
+<span class="cm">/* packages/ui/effects.css — Shared visual effects
+   Import in every app for consistent look + feel */</span>
+
+<span class="cm">/* ── Card hover glow ─────────────────── */</span>
+.g-card-hover {
+  transition: transform <span class="val">200ms</span> var(--g-ease-snap),
+              border-color <span class="val">200ms</span> ease,
+              box-shadow <span class="val">200ms</span> ease;
+}
+.g-card-hover:hover {
+  transform: translateY(<span class="val">-2px</span>);
+  border-color: rgba(<span class="val">255,61,0,0.4</span>);
+  box-shadow: <span class="val">0 8px 32px rgba(255,61,0,0.15)</span>;
+}
+
+<span class="cm">/* ── Neon text glow ──────────────────── */</span>
+.g-glow-fire { text-shadow: <span class="val">0 0 20px rgba(255,61,0,0.6)</span>; }
+.g-glow-neon { text-shadow: <span class="val">0 0 20px rgba(0,255,204,0.6)</span>; }
+.g-glow-volt { text-shadow: <span class="val">0 0 20px rgba(255,230,0,0.6)</span>; }
+
+<span class="cm">/* ── NFT holographic shimmer ─────────── */</span>
+@keyframes holo-shift {
+  <span class="val">0%</span>   { background-position: <span class="val">0% 50%</span> }
+  <span class="val">50%</span>  { background-position: <span class="val">100% 50%</span> }
+  <span class="val">100%</span> { background-position: <span class="val">0% 50%</span> }
+}
+.g-holo {
+  background: linear-gradient(<span class="val">135deg</span>,
+    <span class="val">#ff3d00 0%, #ff006e 25%, #9d4edd 50%,
+     #00b4ff 75%, #00ffcc 100%</span>
+  );
+  background-size: <span class="val">300% 300%</span>;
+  animation: holo-shift <span class="val">4s</span> ease infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+<span class="cm">/* ── GBux flash (on earn) ────────────── */</span>
+@keyframes gbux-earn {
+  <span class="val">0%</span>   { transform: scale(<span class="val">1</span>); filter: brightness(<span class="val">1</span>); }
+  <span class="val">30%</span>  { transform: scale(<span class="val">1.15</span>); filter: brightness(<span class="val">1.5</span>); }
+  <span class="val">100%</span> { transform: scale(<span class="val">1</span>); filter: brightness(<span class="val">1</span>); }
+}
+.g-gbux-earned { animation: gbux-earn <span class="val">600ms</span> var(--g-ease-bounce); }
+
+<span class="cm">/* ── Entrance stagger ────────────────── */</span>
+.g-stagger > * {
+  opacity: <span class="val">0</span>;
+  transform: translateY(<span class="val">16px</span>);
+  animation: g-enter <span class="val">400ms</span> var(--g-ease-snap) forwards;
+}
+.g-stagger > *:nth-child(1) { animation-delay: <span class="val">0ms</span> }
+.g-stagger > *:nth-child(2) { animation-delay: <span class="val">80ms</span> }
+.g-stagger > *:nth-child(3) { animation-delay: <span class="val">160ms</span> }
+.g-stagger > *:nth-child(4) { animation-delay: <span class="val">240ms</span> }
+
+@keyframes g-enter {
+  to { opacity: <span class="val">1</span>; transform: translateY(<span class="val">0</span>); }
+}
+
+<span class="cm">/* ── Scanline overlay (game screens) ─── */</span>
+.g-scanlines::after {
+  content: <span class="str">''</span>;
+  position: fixed; inset: <span class="val">0</span>;
+  background: repeating-linear-gradient(
+    <span class="val">0deg</span>, transparent, transparent <span class="val">2px</span>,
+    rgba(<span class="val">0,255,204,0.012</span>) <span class="val">2px</span>, rgba(<span class="val">0,255,204,0.012</span>) <span class="val">4px</span>
+  );
+  pointer-events: none;
+  z-index: <span class="val">9999</span>;
+}
+    </pre>
+  </div>
+</div>
+
+<!-- ═══════════ AUDIT ═══════════ -->
+<div id="audit" class="pane">
+  <div class="sec-head">
+    <div class="sec-title"><span class="ico">📋</span> Full Audit Checklist</div>
+    <p class="sec-sub">Every property must pass these checks before going to production. Run this audit on each Vercel project and Puter deployment.</p>
+  </div>
+
+  <div class="g2">
+    <div>
+      <div style="font-family:'Fira Code',monospace;font-size:11px;color:var(--fire);letter-spacing:2px;margin-bottom:12px">SECURITY</div>
+      <ul class="checklist">
+        <li><span class="ci">🔒</span><div><strong>No secrets in NEXT_PUBLIC_ vars</strong> — audit every env var name</div></li>
+        <li><span class="ci">🔒</span><div><strong>MySQL row security</strong> on all tables — verified with a test anon query</div></li>
+        <li><span class="ci">🔒</span><div><strong>All API routes rate-limited</strong> via Redis 7 (Docker)</div></li>
+        <li><span class="ci">🔒</span><div><strong>Zod validation on every POST/PATCH</strong> — never trust raw body</div></li>
+        <li><span class="ci">🔒</span><div><strong>Crossmint webhooks verified</strong> via HMAC signature check</div></li>
+        <li><span class="ci">🔒</span><div><strong>vercel.json security headers</strong> present on all projects</div></li>
+        <li><span class="ci">🔒</span><div><strong>middleware.ts auth check</strong> on all protected routes</div></li>
+      </ul>
+    </div>
+    <div>
+      <div style="font-family:'Fira Code',monospace;font-size:11px;color:var(--neon);letter-spacing:2px;margin-bottom:12px">CONSISTENCY</div>
+      <ul class="checklist">
+        <li><span class="ci">✅</span><div><strong>@grudge/ui tokens imported</strong> — all colors from CSS vars, not hardcoded</div></li>
+        <li><span class="ci">✅</span><div><strong>shared/auth used</strong> — no custom auth logic per-app</div></li>
+        <li><span class="ci">✅</span><div><strong>@grudge/api utilities used</strong> — no duplicate GBux/Crossmint logic</div></li>
+        <li><span class="ci">✅</span><div><strong>Bebas Neue + Outfit + Fira Code</strong> — only these three fonts across all apps</div></li>
+        <li><span class="ci">✅</span><div><strong>g-scanlines class</strong> on all game screen body elements</div></li>
+        <li><span class="ci">✅</span><div><strong>g-stagger on all list renders</strong> — entrance animation on every content list</div></li>
+      </ul>
+    </div>
+    <div>
+      <div style="font-family:'Fira Code',monospace;font-size:11px;color:var(--volt);letter-spacing:2px;margin-bottom:12px">PERFORMANCE</div>
+      <ul class="checklist">
+        <li><span class="ci">⚡</span><div><strong>Vercel Speed Insights</strong> enabled on all projects</div></li>
+        <li><span class="ci">⚡</span><div><strong>next/image</strong> used for all character/island images</div></li>
+        <li><span class="ci">⚡</span><div><strong>ISR enabled</strong> on character and island metadata pages (60s)</div></li>
+        <li><span class="ci">⚡</span><div><strong>Puter KV caching</strong> for GBux balance (invalidate on spend/earn)</div></li>
+        <li><span class="ci">⚡</span><div><strong>Turborepo build cache</strong> — only rebuilds changed packages</div></li>
+      </ul>
+    </div>
+    <div>
+      <div style="font-family:'Fira Code',monospace;font-size:11px;color:var(--sky);letter-spacing:2px;margin-bottom:12px">PUTER SPECIFICS</div>
+      <ul class="checklist">
+        <li><span class="ci">☁️</span><div><strong>All puter.kv keys prefixed</strong> with <code>grudge:</code> to avoid collisions</div></li>
+        <li><span class="ci">☁️</span><div><strong>puter.fs paths namespaced</strong> — all files under <code>grudge-studio/</code></div></li>
+        <li><span class="ci">☁️</span><div><strong>Worker routes secured</strong> — all non-public endpoints check <code>user</code> param</div></li>
+        <li><span class="ci">☁️</span><div><strong>me.puter vs user.puter</strong> correctly separated in all Workers</div></li>
+        <li><span class="ci">☁️</span><div><strong>Puter Sites use shared.css CDN link</strong> — same design tokens as apps</div></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+</div><!-- /body -->
+
+<script>
+function go(id) {
+  document.querySelectorAll('.pane').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  event.currentTarget.classList.add('on');
+}
+</script>
+</body>
+</html>
