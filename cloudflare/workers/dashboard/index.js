@@ -398,7 +398,9 @@ async function apiVpsSync(env) {
   return json({ ok: true, synced: results, ts: Math.floor(Date.now()/1000) });
 }
 
-// ── Cron Sync (runs every 10 min via scheduled trigger) ───────
+// ── Cron Sync (runs every 10 min via scheduled trigger) ─────────
+// NOTE: Health pings are handled exclusively by grudge-health-ping worker (every 5 min).
+// This cron ONLY syncs VPS metrics, players, and economy data to D1/KV.
 async function cronSync(env) {
   const base   = env.GAME_API || 'https://api.grudge-studio.com';
   const idBase = env.IDENTITY_API || 'https://id.grudge-studio.com';
@@ -406,40 +408,12 @@ async function cronSync(env) {
   const now    = Math.floor(Date.now() / 1000);
   let synced   = 0;
 
-  // ── Health sweep: ping all endpoints and record to D1 ────────
-  const healthEndpoints = {
-    'grudge-id':    `${idBase}/health`,
-    'game-api':     `${base}/health`,
-    'account-api':  (env.ACCOUNT_API  || 'https://account.grudge-studio.com') + '/health',
-    'launcher-api': (env.LAUNCHER_API || 'https://launcher.grudge-studio.com') + '/health',
-    'ws-service':   (env.WS_API       || 'https://ws.grudge-studio.com') + '/health',
-    'asset-cdn':    (env.CDN_URL      || 'https://assets.grudge-studio.com') + '/health',
-    'asset-api':    'https://assets-api.grudge-studio.com/health',
-    'status':       'https://status.grudge-studio.com',
-    'main-site':    'https://grudge-studio.com',
-  };
-  const pings = await Promise.allSettled(
-    Object.entries(healthEndpoints).map(async ([name, url]) => {
-      const t = Date.now();
-      try {
-        const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        return { name, status: r.ok ? 'up' : 'degraded', code: r.status, ms: Date.now() - t, error: null };
-      } catch (e) {
-        return { name, status: 'down', code: 0, ms: Date.now() - t, error: e.message };
-      }
-    })
-  );
-  const pingResults = pings.map(p => p.value ?? p.reason);
-
-  if (env.DB) {
-    try {
-      const stmt = env.DB.prepare('INSERT INTO health_pings (service, status, code, ms, error, ts) VALUES (?, ?, ?, ?, ?, ?)');
-      await env.DB.batch(pingResults.map(r => stmt.bind(r.name, r.status, r.code, r.ms, r.error, now)));
-    } catch {}
-  }
-
-  // Check if VPS is reachable before data sync
-  const vpsUp = pingResults.find(r => r.name === 'game-api')?.status === 'up';
+  // Quick VPS reachability check (no D1 write — health-ping handles that)
+  let vpsUp = false;
+  try {
+    const r = await fetch(`${base}/health`, { signal: AbortSignal.timeout(5000) });
+    vpsUp = r.ok;
+  } catch {}
   if (!vpsUp) return;
 
   // Pull metrics from identity service

@@ -6,10 +6,16 @@ account_id         = "ee475864561b02d4588180b8b9acf694"
 [observability]
 enabled = true
 
-# ── Custom domain ──────────────────────────────────────────────────────────────
+# ── Custom domains ─────────────────────────────────────────────────────────
+# Primary route (grudge-studio.com is on Cloudflare)
 [[routes]]
-pattern   = "auth.grudgestudio.com/*"
-zone_name = "grudgestudio.com"
+pattern = "auth.grudge-studio.com/*"
+zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
+
+# Legacy route (enable after grudgestudio.com is added to Cloudflare)
+# [[routes]]
+# pattern   = "auth.grudgestudio.com/*"
+# zone_name = "grudgestudio.com"
 
 # ── KV (shared namespace — sessions, rate limiting, bans) ─────────────────────
 [[kv_namespaces]]

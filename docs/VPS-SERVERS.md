@@ -20,6 +20,15 @@
 - account-api (3005), launcher-api (3006), ws-service (3007), asset-service (3008)
 - MySQL 8, Redis 7, Uptime Kuma
 
+### Deployment Safety Rule (CRITICAL)
+- Only **one** active backend stack may be attached to Traefik routes at a time.
+- Do not run both legacy compose project `grudge-studio-backend` and Coolify project `l7kwyegn8qmocpfweql206ep` simultaneously with identical router names (`grudge-id`, `account-api`, `launcher-api`, etc.).
+- Parallel stacks with identical router labels cause random 200/502/503 flapping due load balancing across healthy + broken backends.
+- Before deploy:
+  1. Confirm single active project in Coolify.
+  2. Verify no duplicate containers per service (`docker ps | grep -E 'grudge-id|account-api|launcher-api|ws-service|asset-service'`).
+  3. Validate Redis/MySQL hostnames inside service env point to the same project network.
+
 ---
 
 ## Windows VPS

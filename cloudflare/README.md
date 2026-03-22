@@ -8,15 +8,15 @@
 | **R2 Bucket** | `grudge-assets` |
 | **Public R2 URL** | `https://pub-e7fcf1fd4c9946ecb84b3766bbc7b50d.r2.dev` |
 | **CDN Worker** | `https://grudge-r2-cdn.grudge.workers.dev` |
-| **Custom domain** | `https://assets.grudgestudio.com` (add CNAME below) |
+| **Custom domain** | `https://assets.grudge-studio.com` (add CNAME below) |
 | **KV Namespace** | `GRUDGE_RATE_LIMIT` — id: `35be1828b2124f82abdc770293177165` |
 
 ### One-time DNS setup — Cloudflare Dashboard
-In your `grudgestudio.com` zone, add:
+In your `grudge-studio.com` zone, add:
 ```
 assets   CNAME   grudge-r2-cdn.grudge.workers.dev   (Proxied ☁️)
 ```
-Then update `.env` on VPS: `OBJECT_STORAGE_PUBLIC_URL=https://assets.grudgestudio.com`
+Then update `.env` on VPS: `OBJECT_STORAGE_PUBLIC_URL=https://assets.grudge-studio.com`
 
 ---
 
@@ -41,7 +41,7 @@ All services below are **free tier** — no credit card required for basic usage
 
 ---
 
-## 1. R2 CDN Worker — `assets.grudgestudio.com`
+## 1. R2 CDN Worker — `assets.grudge-studio.com`
 
 Replaces the rate-limited `pub-*.r2.dev` URL with a production-grade CDN.
 
@@ -64,14 +64,14 @@ npx wrangler deploy
 
 # 4. Add custom domain
 #    Dashboard → Workers & Pages → grudge-r2-cdn → Settings → Domains & Routes
-#    Add: assets.grudgestudio.com
+#    Add: assets.grudge-studio.com
 #    OR in DNS: assets  CNAME  grudge-r2-cdn.grudge.workers.dev  (Proxied ☁️)
 
 # 5. Update backend .env
-#    OBJECT_STORAGE_PUBLIC_URL=https://assets.grudgestudio.com
+#    OBJECT_STORAGE_PUBLIC_URL=https://assets.grudge-studio.com
 
 # 6. Test
-curl https://assets.grudgestudio.com/avatars/<grudge_id>/<hash>.webp
+curl https://assets.grudge-studio.com/avatars/<grudge_id>/<hash>.webp
 ```
 
 ### What it does
@@ -86,10 +86,10 @@ curl https://assets.grudgestudio.com/avatars/<grudge_id>/<hash>.webp
 
 ### URL examples
 ```
-https://assets.grudgestudio.com/avatars/abc-123/a1b2c3d4.webp
-https://assets.grudgestudio.com/game-assets/ui/hotbar.png
-https://assets.grudgestudio.com/manifests/latest.json     ← 5 min cache
-https://assets.grudgestudio.com/versions/1.0.3.json       ← 5 min cache
+https://assets.grudge-studio.com/avatars/abc-123/a1b2c3d4.webp
+https://assets.grudge-studio.com/game-assets/ui/hotbar.png
+https://assets.grudge-studio.com/manifests/latest.json     ← 5 min cache
+https://assets.grudge-studio.com/versions/1.0.3.json       ← 5 min cache
 ```
 
 ### Image Transforms (5K free/month)
@@ -97,13 +97,13 @@ When grudgestudio.com DNS is proxied through Cloudflare (orange ☁️), you can
 Cloudflare's image optimization URL format for avatars without extra setup:
 
 ```
-https://assets.grudgestudio.com/cdn-cgi/image/format=auto,width=128,height=128,fit=cover/avatars/<grudge_id>/<hash>.png
+https://assets.grudge-studio.com/cdn-cgi/image/format=auto,width=128,height=128,fit=cover/avatars/<grudge_id>/<hash>.png
 ```
 
 Frontend helper:
 ```ts
 function avatarUrl(path: string, width = 128) {
-  return `https://assets.grudgestudio.com/cdn-cgi/image/format=auto,width=${width}/${path}`;
+  return `https://assets.grudge-studio.com/cdn-cgi/image/format=auto,width=${width}/${path}`;
 }
 ```
 
@@ -117,7 +117,7 @@ Free tier: **unlimited** challenges.
 ### Dashboard setup (one-time)
 1. https://dash.cloudflare.com → **Turnstile** → **Add Site**
 2. Name: `Grudge Studio Auth`
-3. Domains: `grudgestudio.com`, `grudgewarlords.com`
+3. Domains: `grudge-studio.com`, `grudgewarlords.com`
 4. Widget type: **Managed** (invisible — no user friction)
 5. Copy:
    - **Site Key** → `CF_TURNSTILE_SITE_KEY` in `.env` + frontend `VITE_CF_TURNSTILE_SITE_KEY`
@@ -136,7 +136,7 @@ Free tier: **unlimited** challenges.
 // On form submit — get the token and include in POST body
 const token = window.turnstile?.getResponse();
 
-await fetch('https://id.grudgestudio.com/auth/wallet', {
+await fetch('https://id.grudge-studio.com/auth/wallet', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -256,13 +256,19 @@ Ensure these domains are proxied through Cloudflare (orange cloud ☁️) in DNS
 
 | Domain | Type | Target |
 |---|---|---|
-| grudgestudio.com | A | VPS IP (74.208.155.229) |
+| grudge-studio.com | A | VPS IP (74.208.155.229) |
 | grudgewarlords.com | A | VPS IP |
-| id.grudgestudio.com | A | VPS IP |
-| api.grudgestudio.com | A | VPS IP |
-| account.grudgestudio.com | A | VPS IP |
-| launcher.grudgestudio.com | A | VPS IP |
-| assets.grudgestudio.com | CNAME | grudge-r2-cdn.grudge.workers.dev |
+| id.grudge-studio.com | A | VPS IP |
+| api.grudge-studio.com | A | VPS IP |
+| account.grudge-studio.com | A | VPS IP |
+| launcher.grudge-studio.com | A | VPS IP |
+| assets.grudge-studio.com | CNAME | grudge-r2-cdn.grudge.workers.dev |
+
+## Health Monitoring Ownership (IMPORTANT)
+- `grudge-health-ping` is the **only** worker allowed to write to D1 `health_pings`.
+- `grudge-dashboard` cron (`cronSync`) must only sync metrics/players/economy and **must not** write to `health_pings`.
+- `health_pings.source` is required and currently set to `health-ping` for all inserts.
+- If duplicate ping volume appears again, first verify no other worker/service writes to `health_pings`.
 
 When proxied (☁️):
 - Free DDoS protection (L3/L4/L7)

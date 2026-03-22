@@ -1,6 +1,6 @@
 # Grudge Studio Backend
 
-Full-stack microservices backend for **grudgewarlords.com** and **grudgestudio.com**.
+Full-stack microservices backend for **grudgewarlords.com** and **grudge-studio.com**.
 
 Built with Node.js · Docker · MySQL 8 · Redis 7 · nginx · Solana · Cloudflare · Puter
 
@@ -10,15 +10,15 @@ Built with Node.js · Docker · MySQL 8 · Redis 7 · nginx · Solana · Cloudfl
 
 | Service | Port | Domain | Description |
 |---|---|---|---|
-| **grudge-id** | 3001 | `id.grudgestudio.com` | Unified identity — Discord OAuth, Web3Auth, JWT, Puter bridge |
+| **grudge-id** | 3001 | `id.grudge-studio.com` | Unified identity — Discord OAuth, Web3Auth, JWT, Puter bridge |
 | **wallet-service** | 3002 | *(internal only)* | Server-side Solana HD wallets (BIP44) |
-| **game-api** | 3003 | `api.grudgestudio.com` | GAME_API_GRUDA — characters, missions, crews, inventory, professions, gouldstones |
-| **ai-agent** | 3004 | `api.grudgestudio.com/ai/*` | LLM-powered AI pipeline — code review, balance analysis, lore gen, art prompts, dynamic missions, companion dialogue (Anthropic → OpenAI → DeepSeek → template fallback) |
-| **account-api** | 3005 | `account.grudgestudio.com` | User profiles, social, achievements, R2 asset storage |
-| **launcher-api** | 3006 | `launcher.grudgestudio.com` | Version manifest (60s TTL cache), computer registration, launch tokens |
-| **asset-service** | 3008 | `assets-api.grudgestudio.com` | Asset upload, metadata, conversions, export bundles, ObjectStore sync |
-| **ws-service** | 3007 | `ws.grudgestudio.com` | Real-time WebSocket (Socket.IO) — island rooms, crew chat, PvP, global events |
-| **grudge-headless** | 7777 | `ws.grudgestudio.com:7777` | Unity game server (Mirror) |
+| **game-api** | 3003 | `api.grudge-studio.com` | GAME_API_GRUDA — characters, missions, crews, inventory, professions, gouldstones |
+| **ai-agent** | 3004 | `api.grudge-studio.com/ai/*` | LLM-powered AI pipeline — code review, balance analysis, lore gen, art prompts, dynamic missions, companion dialogue (Anthropic → OpenAI → DeepSeek → template fallback) |
+| **account-api** | 3005 | `account.grudge-studio.com` | User profiles, social, achievements, R2 asset storage |
+| **launcher-api** | 3006 | `launcher.grudge-studio.com` | Version manifest (60s TTL cache), computer registration, launch tokens |
+| **asset-service** | 3008 | `assets-api.grudge-studio.com` | Asset upload, metadata, conversions, export bundles, ObjectStore sync |
+| **ws-service** | 3007 | `ws.grudge-studio.com` | Real-time WebSocket (Socket.IO) — island rooms, crew chat, PvP, global events |
+| **grudge-headless** | 7777 | `ws.grudge-studio.com:7777` | Unity game server (Mirror) |
 | **AI Lab** | — | `lab.grudge-studio.com` | Browser-based dev tool — 8-panel AI workbench (Puter.js + Grudge backend) |
 
 ---
@@ -36,7 +36,7 @@ Built with Node.js · Docker · MySQL 8 · Redis 7 · nginx · Solana · Cloudfl
 ### Workers CDN
 - Source: `cloudflare/workers/r2-cdn/`
 - R2 native binding (zero egress cost), KV-backed rate limiting, 30-day edge cache
-- Custom domain: `assets.grudgestudio.com` → CNAME the Worker
+- Custom domain: `assets.grudge-studio.com` → CNAME the Worker
 - Deploy: `cd cloudflare/workers/r2-cdn && npx wrangler deploy`
 
 ### Turnstile
@@ -58,7 +58,7 @@ Called by `grudge-server-worker.js` at `POST /api/auth/grudge-bridge`, allowing 
 ```json
 {
   "auth": {
-    "authUrl": "https://id.grudgestudio.com",
+    "authUrl": "https://id.grudge-studio.com",
     "discordEndpoint": "/auth/discord",
     "logoutEndpoint": "/auth/logout",
     "verifyEndpoint": "/auth/verify",
@@ -210,12 +210,12 @@ Internet
   │
   ▼
 nginx (80/443) + Cloudflare WAF
-  ├── id.grudgestudio.com       → grudge-id:3001
-  ├── api.grudgestudio.com      → game-api:3003
-  ├── account.grudgestudio.com  → account-api:3005
-  ├── launcher.grudgestudio.com → launcher-api:3006
-  ├── ws.grudgestudio.com       → grudge-headless:7777
-  └── assets.grudgestudio.com   → Cloudflare Worker (R2 CDN)
+  ├── id.grudge-studio.com       → grudge-id:3001
+  ├── api.grudge-studio.com      → game-api:3003
+  ├── account.grudge-studio.com  → account-api:3005
+  ├── launcher.grudge-studio.com → launcher-api:3006
+  ├── ws.grudge-studio.com       → grudge-headless:7777
+  └── assets.grudge-studio.com   → Cloudflare Worker (R2 CDN)
 
 External integrations:
   app.puter.com / *.puter.site  → grudge-id:3001 (/auth/puter-bridge)

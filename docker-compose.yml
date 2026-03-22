@@ -11,6 +11,7 @@ volumes:
   redis-data:
   server-data:
   kuma-data:
+  portal-db-data:
 
 # ── Shared CORS origins (DRY) ──────────────────────────────────
 # All externally-exposed services share this default.
@@ -107,6 +108,62 @@ services:
     networks:
       - grudge-net
     # NOTE: wallet-service is NOT exposed externally - internal network only
+
+  # ─────────────────────────────────────────────────────
+  # PORTAL POSTGRES — PostgreSQL for rec0ded88 gaming portal
+  # ─────────────────────────────────────────────────────
+  portal-postgres:
+    image: postgres:16-alpine
+    container_name: portal-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rec0ded88
+      POSTGRES_USER: ${PORTAL_DB_USER:-rec0ded_user}
+      POSTGRES_PASSWORD: ${PORTAL_DB_PASSWORD}
+    volumes:
+      - portal-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PORTAL_DB_USER:-rec0ded_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - grudge-net
+
+  # ─────────────────────────────────────────────────────
+  # PORTAL API — rec0ded88 / grudge-studio.com game portal
+  # Image built from github.com/MolochDaGod/The-ENGINE
+  # ─────────────────────────────────────────────────────
+  portal-api:
+    image: ghcr.io/molochdagod/the-engine-backend:latest
+    container_name: portal-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DATABASE_URL: postgresql://${PORTAL_DB_USER:-rec0ded_user}:${PORTAL_DB_PASSWORD}@portal-postgres:5432/rec0ded88
+      ADMIN_PASSCODE: ${PORTAL_ADMIN_PASSCODE}
+      ADMIN_SESSION_SECRET: ${PORTAL_SESSION_SECRET}
+      CORS_ORIGINS: https://grudge-studio.com,http://localhost:5173
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5000/api/platforms').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      portal-postgres:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portal-api.rule=Host(`portal-api.grudge-studio.com`)"
+      - "traefik.http.routers.portal-api.entrypoints=https"
+      - "traefik.http.routers.portal-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.portal-api.loadbalancer.server.port=5000"
+      - "traefik.docker.network=coolify"
+    networks:
+      - grudge-net
+      - coolify
 
   # ─────────────────────────────────────────
   # GAME API — GAME_API_GRUDA
