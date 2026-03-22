@@ -1,0 +1,46 @@
+name               = "grudge-ai-hub"
+main               = "index.js"
+compatibility_date = "2025-03-01"
+account_id         = "ee475864561b02d4588180b8b9acf694"
+
+# ── Workers AI binding ────────────────────────────────────────────────────────
+[ai]
+binding = "AI"
+
+# ── D1 database for usage logs, agent config, API keys ────────────────────────
+# Create before first deploy:
+#   npx wrangler d1 create grudge-ai-hub
+# Copy the returned database_id below.
+[[d1_databases]]
+binding       = "DB"
+database_name = "grudge-ai-hub"
+database_id   = "REPLACE_WITH_D1_DATABASE_ID"
+
+# ── KV namespace for rate limiting and operational flags ──────────────────────
+# Create before first deploy:
+#   npx wrangler kv namespace create "AI_HUB_KV"
+# Copy the returned id below.
+[[kv_namespaces]]
+binding = "KV"
+id      = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# ── Environment variables ─────────────────────────────────────────────────────
+[vars]
+ENVIRONMENT              = "production"
+VPS_AI_AGENT_URL         = "https://api.grudge-studio.com"
+VPS_INTERNAL_KEY         = ""
+RATE_LIMIT_RPM           = "60"
+RATE_LIMIT_RPM_ADMIN     = "300"
+MAX_PAYLOAD_BYTES        = "65536"
+
+# ── Route: ai.grudge-studio.com ──────────────────────────────────────────────
+[[routes]]
+pattern = "ai.grudge-studio.com/*"
+zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
+
+# ── Staging ───────────────────────────────────────────────────────────────────
+[env.staging]
+name = "grudge-ai-hub-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
