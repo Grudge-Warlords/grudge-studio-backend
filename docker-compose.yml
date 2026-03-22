@@ -40,11 +40,28 @@ services:
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
       DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI}
+      # Google OAuth
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-https://id.grudge-studio.com/auth/google/callback}
+      # GitHub OAuth
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-https://id.grudge-studio.com/auth/github/callback}
+      # Twilio SMS / Phone Auth
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER}
+      TWILIO_VERIFY_SID: ${TWILIO_VERIFY_SID}
+      # Web3Auth + Wallet
       WEB3AUTH_CLIENT_ID: ${WEB3AUTH_CLIENT_ID}
       WALLET_SERVICE_URL: http://wallet-service:3002
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      # Turnstile bot protection
       CF_TURNSTILE_SECRET_KEY: ${CF_TURNSTILE_SECRET_KEY}
       CF_TURNSTILE_SITE_KEY: ${CF_TURNSTILE_SITE_KEY}
+      # Auth redirect
+      DEFAULT_AUTH_REDIRECT: ${DEFAULT_AUTH_REDIRECT:-https://grudgewarlords.com/auth}
       <<: *cors-origins
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
@@ -110,6 +127,13 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       AI_AGENT_URL: http://ai-agent:3004
+      # Discord webhooks for game events
+      DISCORD_GAME_EVENTS_WEBHOOK: ${DISCORD_GAME_EVENTS_WEBHOOK}
+      DISCORD_GBUX_WEBHOOK: ${DISCORD_GBUX_WEBHOOK}
+      DISCORD_NFT_WEBHOOK: ${DISCORD_NFT_WEBHOOK}
+      DISCORD_SYSTEM_WEBHOOK: ${DISCORD_SYSTEM_WEBHOOK}
+      # Colyseus
+      COLYSEUS_CLOUD_TOKEN: ${COLYSEUS_CLOUD_TOKEN}
       <<: *cors-origins
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3003/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
@@ -149,6 +173,9 @@ services:
       DB_USER: ${MYSQL_USER}
       DB_PASS: ${MYSQL_PASSWORD}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
     depends_on:
       mysql:
         condition: service_healthy
