@@ -1412,5 +1412,29 @@ function show(id) {
   event.currentTarget.classList.add('active');
 }
 </script>
+<!-- LIVE STATUS BAR -->
+<div id="grudge-live-status" style="position:fixed;bottom:0;left:0;right:0;z-index:9999;background:rgba(5,5,10,0.95);border-top:1px solid rgba(255,255,255,0.08);padding:8px 24px;display:flex;gap:16px;align-items:center;font-family:monospace;font-size:11px;color:#666;backdrop-filter:blur(8px)">
+  <span style="color:#888">GRUDGE SYSTEMS</span>
+  <span id="gs-id"></span><span id="gs-api"></span><span id="gs-ws"></span><span id="gs-launcher"></span><span id="gs-assets"></span>
+  <span style="margin-left:auto;color:#444" id="gs-time"></span>
+</div>
+<script>
+(async function loadGrudgeStatus(){
+  try {
+    const r = await fetch('https://grudge-studio.com/api/status');
+    const d = await r.json();
+    d.services.forEach(s => {
+      const el = document.getElementById('gs-'+s.key);
+      if(!el) return;
+      const c = s.status==='ok'?'#00ff88':s.status==='degraded'?'#ffaa00':'#ff3333';
+      el.innerHTML = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${c};margin-right:4px;box-shadow:0 0 4px ${c}"></span>${s.label} <span style="color:#555">${s.latency?s.latency+'ms':''}</span>&nbsp;&nbsp;`;
+    });
+    document.getElementById('gs-time').textContent = 'Last check: ' + new Date(d.lastChecked).toLocaleTimeString();
+  } catch(e) {
+    document.getElementById('grudge-live-status').innerHTML = '<span style="color:#ff3333">Status check failed</span>';
+  }
+})();
+setInterval(async()=>{try{const r=await fetch('https://grudge-studio.com/api/status');const d=await r.json();d.services.forEach(s=>{const el=document.getElementById('gs-'+s.key);if(!el)return;const c=s.status==='ok'?'#00ff88':s.status==='degraded'?'#ffaa00':'#ff3333';el.innerHTML=`<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${c};margin-right:4px;box-shadow:0 0 4px ${c}"></span>${s.label} <span style="color:#555">${s.latency?s.latency+'ms':''}</span>&nbsp;&nbsp;`});document.getElementById('gs-time').textContent='Last check: '+new Date(d.lastChecked).toLocaleTimeString()}catch(e){}},30000);
+</script>
 </body>
 </html>

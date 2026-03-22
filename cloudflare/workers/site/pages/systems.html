@@ -1463,5 +1463,70 @@ function go(id) {
   event.currentTarget.classList.add('on');
 }
 </script>
+<!-- LIVE OBJECTSTORE DATA -->
+<div style="padding:20px 64px 40px;max-width:1440px;margin:0 auto">
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:#fff;margin-bottom:8px"><span style="color:#00ffcc">LIVE</span> GAME DATA</div>
+  <p style="color:#7070a0;font-size:14px;margin-bottom:24px">Real data from <a href="https://molochdagod.github.io/ObjectStore" target="_blank" style="color:#00ffcc;text-decoration:none">ObjectStore API</a> — races, classes, factions used by all Grudge games.</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px" id="os-grid">
+    <div style="background:#12122a;border:1px solid #1e1e3a;border-radius:12px;padding:20px">
+      <div style="font-family:'Fira Code',monospace;font-size:10px;color:#ff3060;letter-spacing:2px;margin-bottom:12px">RACES</div>
+      <div id="os-races" style="font-size:13px;color:#7070a0">Loading...</div>
+    </div>
+    <div style="background:#12122a;border:1px solid #1e1e3a;border-radius:12px;padding:20px">
+      <div style="font-family:'Fira Code',monospace;font-size:10px;color:#00ffcc;letter-spacing:2px;margin-bottom:12px">CLASSES</div>
+      <div id="os-classes" style="font-size:13px;color:#7070a0">Loading...</div>
+    </div>
+    <div style="background:#12122a;border:1px solid #1e1e3a;border-radius:12px;padding:20px">
+      <div style="font-family:'Fira Code',monospace;font-size:10px;color:#ffe600;letter-spacing:2px;margin-bottom:12px">FACTIONS</div>
+      <div id="os-factions" style="font-size:13px;color:#7070a0">Loading...</div>
+    </div>
+  </div>
+</div>
+<script>
+const OS = 'https://molochdagod.github.io/ObjectStore/api/v1';
+async function loadObjectStore() {
+  try {
+    const [racesR, classesR, factionsR] = await Promise.all([
+      fetch(OS+'/races.json').then(r=>r.json()),
+      fetch(OS+'/classes.json').then(r=>r.json()),
+      fetch(OS+'/factions.json').then(r=>r.json())
+    ]);
+    document.getElementById('os-races').innerHTML = Object.values(racesR.races).map(r =>
+      `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${r.color}"></span><strong style="color:#e0e8ff">${r.name}</strong> <span style="color:#505080;font-size:11px">${r.trait} — ${r.faction}</span></div>`
+    ).join('');
+    document.getElementById('os-classes').innerHTML = Object.values(classesR.classes).map(c =>
+      `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c.color}"></span><strong style="color:#e0e8ff">${c.name}</strong> <span style="color:#505080;font-size:11px">${c.description?.slice(0,50)}...</span></div>`
+    ).join('');
+    document.getElementById('os-factions').innerHTML = Object.values(factionsR.factions).map(f =>
+      `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${f.color}"></span><strong style="color:#e0e8ff">${f.name}</strong> <span style="color:#505080;font-size:11px">Patron: ${f.patron} — ${f.races?.join(', ')}</span></div>`
+    ).join('');
+  } catch(e) { console.warn('ObjectStore load failed:', e); }
+}
+loadObjectStore();
+</script>
+<!-- LIVE STATUS BAR -->
+<div id="grudge-live-status" style="position:fixed;bottom:0;left:0;right:0;z-index:9999;background:rgba(5,5,10,0.95);border-top:1px solid rgba(255,255,255,0.08);padding:8px 24px;display:flex;gap:16px;align-items:center;font-family:monospace;font-size:11px;color:#666;backdrop-filter:blur(8px)">
+  <span style="color:#888">GRUDGE SYSTEMS</span>
+  <span id="gs-id"></span><span id="gs-api"></span><span id="gs-ws"></span><span id="gs-launcher"></span><span id="gs-assets"></span>
+  <span style="margin-left:auto;color:#444" id="gs-time"></span>
+</div>
+<script>
+(async function loadGrudgeStatus(){
+  try {
+    const r = await fetch('https://grudge-studio.com/api/status');
+    const d = await r.json();
+    d.services.forEach(s => {
+      const el = document.getElementById('gs-'+s.key);
+      if(!el) return;
+      const c = s.status==='ok'?'#00ff88':s.status==='degraded'?'#ffaa00':'#ff3333';
+      el.innerHTML = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${c};margin-right:4px;box-shadow:0 0 4px ${c}"></span>${s.label} <span style="color:#555">${s.latency?s.latency+'ms':''}</span>&nbsp;&nbsp;`;
+    });
+    document.getElementById('gs-time').textContent = 'Last check: ' + new Date(d.lastChecked).toLocaleTimeString();
+  } catch(e) {
+    document.getElementById('grudge-live-status').innerHTML = '<span style="color:#ff3333">Status check failed</span>';
+  }
+})();
+setInterval(async()=>{try{const r=await fetch('https://grudge-studio.com/api/status');const d=await r.json();d.services.forEach(s=>{const el=document.getElementById('gs-'+s.key);if(!el)return;const c=s.status==='ok'?'#00ff88':s.status==='degraded'?'#ffaa00':'#ff3333';el.innerHTML=`<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${c};margin-right:4px;box-shadow:0 0 4px ${c}"></span>${s.label} <span style="color:#555">${s.latency?s.latency+'ms':''}</span>&nbsp;&nbsp;`});document.getElementById('gs-time').textContent='Last check: '+new Date(d.lastChecked).toLocaleTimeString()}catch(e){}},30000);
+</script>
 </body>
 </html>

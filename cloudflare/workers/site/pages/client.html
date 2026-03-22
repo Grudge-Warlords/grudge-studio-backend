@@ -904,76 +904,76 @@ CREATE TABLE IF NOT EXISTS <span class="key">assets</span> (
 </div>
 
 <script>
-// ===== CONFIG =====
-const GEMINI_KEY = null; // Proxied through api.grudge-studio.com/ai/chat
-const SERVER_URL = 'https://api.grudge-studio.com'; // update after DNS propagates
+// ===== GRUDGE STUDIO CLIENT PORTAL — REAL BACKEND =====
+const ID_API = 'https://id.grudge-studio.com';
+const GAME_API = 'https://api.grudge-studio.com';
+const CLIENT_URL = location.origin;
 
-// ===== STATE =====
 let currentUser = null;
+let authToken = null;
 let activeTag = 'all';
 
 // ===== INIT =====
 document.getElementById('status-date').textContent = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
 
-// Check if already logged in via localStorage
-const savedUser = sessionStorage.getItem('grudge_session');
-if (savedUser) {
+// Check for OAuth callback token in URL
+const urlParams = new URLSearchParams(window.location.search);
+const callbackToken = urlParams.get('token') || urlParams.get('sso_token');
+if (callbackToken) {
+  authToken = callbackToken;
+  // Clean URL
+  window.history.replaceState({}, '', window.location.pathname);
+  initFromToken(authToken);
+} else {
+  // Check for saved token
+  const saved = sessionStorage.getItem('grudge_token');
+  if (saved) { authToken = saved; initFromToken(saved); }
+  else { tryPuterAutoLogin(); }
+}
+
+async function initFromToken(token) {
   try {
-    currentUser = JSON.parse(savedUser);
+    const res = await fetch(`${ID_API}/auth/user`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error('Token expired');
+    const data = await res.json();
+    currentUser = data;
+    authToken = token;
+    sessionStorage.setItem('grudge_token', token);
     showHub();
     updateUserUI();
-  } catch(e) { showAuthGate(); }
-} else {
-  // Try Puter auto-login
-  tryPuterAutoLogin();
+    showToast('\u2694 Welcome, ' + (currentUser.displayName || currentUser.username));
+  } catch(e) {
+    sessionStorage.removeItem('grudge_token');
+    authToken = null;
+    showAuthGate();
+  }
 }
 
 async function tryPuterAutoLogin() {
   try {
-    if (typeof puter !== 'undefined' && puter.auth) {
-      const user = await puter.auth.getUser();
-      if (user) {
-        currentUser = buildUser({ username: user.username || user.uuid, puter_id: user.uuid, method: 'puter' });
-        saveUser();
-        showHub();
-        updateUserUI();
-        return;
-      }
+    if (typeof puter !== 'undefined' && puter.auth && puter.auth.isSignedIn()) {
+      const pu = await puter.auth.getUser();
+      if (pu) { await authViaPuter(pu.uuid, pu.username); return; }
     }
   } catch(e) {}
   showAuthGate();
 }
 
-// ===== USER BUILDERS =====
-function buildUser(data) {
-  const id = data.grudge_id || generateGrudgeId(data.username);
-  return {
-    grudge_id: id,
-    puter_id: data.puter_id || ('puter_' + Math.random().toString(36).slice(2,10)),
-    username: data.username || 'Warlord',
-    display_name: data.display_name || data.username || 'Warlord',
-    email: data.email || null,
-    phone: data.phone || null,
-    avatar: data.username ? data.username[0].toUpperCase() : 'W',
-    method: data.method || 'email',
-    connectors: data.connectors || {},
-    solana_wallet: data.solana_wallet || null,
-    created_at: data.created_at || new Date().toISOString()
-  };
+// ===== API HELPER =====
+async function apiPost(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(authToken ? {'Authorization': `Bearer ${authToken}`} : {}) },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
 }
 
-function generateGrudgeId(username) {
-  const prefix = (username || 'GRD').substring(0,3).toUpperCase();
-  const rand = Math.random().toString(36).substring(2,8).toUpperCase();
-  const ts = Date.now().toString(36).toUpperCase().slice(-4);
-  return `${prefix}-${rand}-${ts}`;
-}
-
-function saveUser() {
-  sessionStorage.setItem('grudge_session', JSON.stringify(currentUser)) // Session only — real data from account.grudge-studio.com;
-}
-
-// ===== AUTH FLOWS =====
+// ===== AUTH FLOWS — ALL REAL =====
 function showAuthGate() { document.getElementById('auth-gate').classList.remove('hidden'); }
 function hideAuthGate() { document.getElementById('auth-gate').classList.add('hidden'); }
 function showHub() { hideAuthGate(); }
@@ -987,124 +987,119 @@ function switchAuthTab(tab, el) {
 
 function showAuthErr(msg) {
   const el = document.getElementById('auth-err');
-  el.textContent = '⚠ ' + msg;
+  el.textContent = '\u26a0 ' + msg;
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 5000);
 }
 
-async function loginEmail() {
-  const user = document.getElementById('login-user').value.trim();
-  const pass = document.getElementById('login-pass').value;
-  if (!user || !pass) return showAuthErr('Username and password required');
-  
-  // TODO: connect to api.grudge-studio.com/api/auth/login when live
-  // For now: local session
-  currentUser = buildUser({ username: user, method: 'email' });
-  saveUser();
+function handleAuthSuccess(data) {
+  authToken = data.token;
+  currentUser = data.user || data;
+  sessionStorage.setItem('grudge_token', data.token);
   showHub();
   updateUserUI();
-  showToast('⚔ Welcome back, ' + user);
 }
 
+// ===== LOGIN (email/username + password) =====
+async function loginEmail() {
+  const identifier = document.getElementById('login-user').value.trim();
+  const password = document.getElementById('login-pass').value;
+  if (!identifier || !password) return showAuthErr('Username and password required');
+  try {
+    const data = await apiPost(`${ID_API}/auth/login`, { identifier, password });
+    handleAuthSuccess(data);
+    showToast('\u2694 Welcome back, ' + (data.username || identifier));
+  } catch(e) { showAuthErr(e.message); }
+}
+
+// ===== REGISTER =====
 async function registerEmail() {
   const username = document.getElementById('reg-user').value.trim();
   const display = document.getElementById('reg-display').value.trim();
   const email = document.getElementById('reg-email').value.trim();
-  const phone = document.getElementById('reg-phone').value.trim();
-  const pass = document.getElementById('reg-pass').value;
+  const password = document.getElementById('reg-pass').value;
   const pass2 = document.getElementById('reg-pass2').value;
-
   if (!username) return showAuthErr('Username is required');
-  if (pass !== pass2) return showAuthErr('Passwords do not match');
-  if (pass.length < 8) return showAuthErr('Password must be 8+ characters');
-
-  // Auto-create Puter ID + Grudge ID
-  const grudgeId = generateGrudgeId(username);
-  const puterId = 'puter_' + Math.random().toString(36).slice(2,12);
-
-  currentUser = buildUser({ username, display_name: display || username, email, phone, grudge_id: grudgeId, puter_id: puterId, method: 'register' });
-  saveUser();
-  showHub();
-  updateUserUI();
-  showToast('⚔ GRUDGE ID forged: ' + grudgeId);
+  if (password !== pass2) return showAuthErr('Passwords do not match');
+  if (password.length < 4) return showAuthErr('Password must be 4+ characters');
+  try {
+    const data = await apiPost(`${ID_API}/auth/register`, { username, email: email || undefined, password });
+    handleAuthSuccess(data);
+    showToast('\u2694 GRUDGE ID forged: ' + (data.grudgeId || data.grudge_id));
+  } catch(e) { showAuthErr(e.message); }
 }
 
+// ===== DISCORD OAuth =====
+function loginDiscord() {
+  window.location.href = `${ID_API}/auth/discord?redirect_uri=${encodeURIComponent(CLIENT_URL)}`;
+}
+
+// ===== GOOGLE OAuth =====
+function loginGoogle() {
+  window.location.href = `${ID_API}/auth/google?redirect_uri=${encodeURIComponent(CLIENT_URL)}`;
+}
+
+// ===== GITHUB OAuth =====
+function loginGithub() {
+  window.location.href = `${ID_API}/auth/github?redirect_uri=${encodeURIComponent(CLIENT_URL)}`;
+}
+
+// ===== PUTER AUTH =====
 async function loginPuter() {
   try {
     if (typeof puter !== 'undefined' && puter.auth) {
       await puter.auth.signIn();
-      const user = await puter.auth.getUser();
-      currentUser = buildUser({ username: user.username || user.uuid, puter_id: user.uuid, method: 'puter' });
-      saveUser(); showHub(); updateUserUI();
-      showToast('☁ Signed in via Puter');
-    } else {
-      showAuthErr('Puter SDK not loaded. Try refreshing.');
-    }
+      const pu = await puter.auth.getUser();
+      await authViaPuter(pu.uuid, pu.username);
+    } else { showAuthErr('Puter SDK not loaded. Try refreshing.'); }
   } catch(e) { showAuthErr('Puter sign-in failed: ' + e.message); }
 }
 
-function loginDiscord() {
-  // OAuth2 redirect — needs api.grudge-studio.com/auth/discord
-  const clientId = 'CONFIGURED_VIA_BACKEND'; // replace in server config
-  const redirect = encodeURIComponent('https://id.grudge-studio.com/auth/discord/callback');
-  const url = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirect}&response_type=code&scope=identify%20guilds`;
-  showToast('🎮 Discord auth needs api.grudge-studio.com live first');
-  // window.location.href = url; // uncomment when server is live
-  loginGuest('discord_pending');
+async function authViaPuter(puterUuid, puterUsername) {
+  try {
+    const data = await apiPost(`${ID_API}/auth/puter`, { puterUuid, puterUsername });
+    handleAuthSuccess(data);
+    showToast('\u2601 Signed in via Puter');
+  } catch(e) { showAuthErr(e.message); showAuthGate(); }
 }
 
-function loginGoogle() {
-  showToast('🔴 Google auth — needs api.grudge-studio.com/auth/google live');
-  // Implement via googleapis OAuth2 on your backend
-  loginGuest('google_pending');
-}
-
-function loginGithub() {
-  showToast('🐙 GitHub auth — needs api.grudge-studio.com/auth/github live');
-  loginGuest('github_pending');
-}
-
+// ===== PHANTOM WALLET =====
 async function loginPhantom() {
   try {
     const phantom = window.solana || window.phantom?.solana;
     if (!phantom || !phantom.isPhantom) {
-      showToast('⚠ Phantom wallet not found. Install from phantom.app', true);
+      showToast('\u26a0 Phantom wallet not found. Install from phantom.app', true);
       return;
     }
     const resp = await phantom.connect();
-    const pubkey = resp.publicKey.toString();
-    if (currentUser) {
-      currentUser.solana_wallet = pubkey;
-      currentUser.connectors.solana = { connected: true, address: pubkey };
-      saveUser();
-      updateWalletUI(pubkey);
-      updateConnectors();
-      showToast('◎ Phantom wallet connected: ' + pubkey.slice(0,8) + '...');
-    } else {
-      currentUser = buildUser({ username: 'Warlord_' + pubkey.slice(0,6), solana_wallet: pubkey, method: 'phantom' });
-      saveUser(); showHub(); updateUserUI();
-      showToast('◎ Signed in with Phantom: ' + pubkey.slice(0,8) + '...');
-    }
-  } catch(e) { showAuthErr('Phantom connect failed: ' + e.message); }
+    const wallet_address = resp.publicKey.toString();
+    const data = await apiPost(`${ID_API}/auth/wallet`, { wallet_address });
+    handleAuthSuccess(data);
+    showToast('\u25ce Signed in with wallet: ' + wallet_address.slice(0,8) + '...');
+  } catch(e) { showAuthErr('Wallet auth failed: ' + e.message); }
 }
 
+// ===== CROSSMINT (server-side wallet — shown in account panel) =====
 function loginCrossmint() {
-  // Crossmint embedded wallet — server-side creation
-  // Docs: docs.crossmint.com
-  showToast('💳 Crossmint wallet creation — connect to api.grudge-studio.com/api/wallet/create');
-  // This creates a server-side custodial wallet via Crossmint API
-  // POST /api/wallet/create { userId, chain: "solana" }
+  showToast('\ud83d\udcb3 Your server-side wallet is created automatically on signup');
 }
 
-function loginGuest(method) {
-  currentUser = buildUser({ username: 'Guest_' + Math.random().toString(36).slice(2,7).toUpperCase(), method: method || 'guest' });
-  saveUser(); showHub(); updateUserUI();
-  showToast('▷ Playing as guest — no data saved to cloud');
+// ===== GUEST =====
+async function loginGuest() {
+  try {
+    const deviceId = 'web_' + (crypto.randomUUID ? crypto.randomUUID().slice(0,12) : Math.random().toString(36).slice(2,14));
+    const data = await apiPost(`${ID_API}/auth/guest`, { deviceId });
+    handleAuthSuccess(data);
+    showToast('\u25b7 Playing as guest \u2014 create an account to save progress');
+  } catch(e) { showAuthErr(e.message); }
 }
 
-function logout() {
+// ===== LOGOUT =====
+async function logout() {
+  try { await fetch(`${ID_API}/auth/logout`, { method: 'POST', credentials: 'include' }); } catch(e) {}
   currentUser = null;
-  sessionStorage.removeItem('grudge_session');
+  authToken = null;
+  sessionStorage.removeItem('grudge_token');
   showAuthGate();
   showToast('Logged out');
 }
@@ -1112,20 +1107,25 @@ function logout() {
 // ===== UI UPDATES =====
 function updateUserUI() {
   if (!currentUser) return;
-  document.getElementById('user-avatar').textContent = currentUser.avatar || '?';
-  document.getElementById('user-name').textContent = currentUser.username;
-  // Account panel
-  document.getElementById('acct-avatar-big').textContent = currentUser.avatar || '?';
-  document.getElementById('acct-username').textContent = currentUser.username;
-  document.getElementById('acct-display').textContent = currentUser.display_name || '';
-  document.getElementById('acct-grudge-id').textContent = currentUser.grudge_id || '—';
-  document.getElementById('acct-puter-id').textContent = currentUser.puter_id || '—';
-  if (currentUser.solana_wallet) updateWalletUI(currentUser.solana_wallet);
+  const avatar = (currentUser.displayName || currentUser.username || '?')[0].toUpperCase();
+  document.getElementById('user-avatar').textContent = avatar;
+  document.getElementById('user-name').textContent = currentUser.displayName || currentUser.username;
+  document.getElementById('acct-avatar-big').textContent = avatar;
+  document.getElementById('acct-username').textContent = currentUser.username || '\u2014';
+  document.getElementById('acct-display').textContent = currentUser.displayName || '';
+  document.getElementById('acct-grudge-id').textContent = currentUser.grudgeId || currentUser.grudge_id || '\u2014';
+  document.getElementById('acct-puter-id').textContent = currentUser.puter_id || '\u2014';
+  // Wallet
+  const walletAddr = currentUser.serverWalletAddress || currentUser.walletAddress;
+  if (walletAddr) updateWalletUI(walletAddr);
   updateConnectors();
-  // Pre-fill settings
-  document.getElementById('settings-display').value = currentUser.display_name || '';
+  // Settings
+  document.getElementById('settings-display').value = currentUser.displayName || '';
   document.getElementById('settings-email').value = currentUser.email || '';
   document.getElementById('settings-phone').value = currentUser.phone || '';
+  // Stats
+  const statUsers = document.getElementById('stat-users');
+  if (statUsers) statUsers.textContent = currentUser.gold || '\u2014';
 }
 
 function updateWalletUI(addr) {
@@ -1135,48 +1135,52 @@ function updateWalletUI(addr) {
 }
 
 function copyWallet() {
-  const addr = currentUser?.solana_wallet;
-  if (addr) { navigator.clipboard.writeText(addr); showToast('📋 Wallet address copied'); }
+  const addr = currentUser?.serverWalletAddress || currentUser?.walletAddress;
+  if (addr) { navigator.clipboard.writeText(addr); showToast('\ud83d\udccb Wallet address copied'); }
 }
 
 const CONNECTORS = [
-  { key: 'puter', icon: '☁️', name: 'Puter ID', oauth: loginPuter },
-  { key: 'discord', icon: '🎮', name: 'Discord', oauth: loginDiscord },
-  { key: 'google', icon: '🔴', name: 'Google', oauth: loginGoogle },
-  { key: 'github', icon: '🐙', name: 'GitHub', oauth: loginGithub },
-  { key: 'solana', icon: '◎', name: 'Phantom Wallet', oauth: loginPhantom },
-  { key: 'crossmint', icon: '💳', name: 'Crossmint Wallet', oauth: loginCrossmint },
-  { key: 'email', icon: '📧', name: 'Email / Password', oauth: null },
-  { key: 'phone', icon: '📱', name: 'Phone Number', oauth: null },
+  { key: 'discord', icon: '\ud83c\udfae', name: 'Discord', oauth: loginDiscord, field: 'discord_id' },
+  { key: 'google', icon: '\ud83d\udd34', name: 'Google', oauth: loginGoogle, field: 'google_id' },
+  { key: 'github', icon: '\ud83d\udc19', name: 'GitHub', oauth: loginGithub, field: 'github_id' },
+  { key: 'solana', icon: '\u25ce', name: 'Phantom Wallet', oauth: loginPhantom, field: 'walletAddress' },
+  { key: 'server_wallet', icon: '\ud83d\udcb3', name: 'Server Wallet', oauth: null, field: 'serverWalletAddress' },
+  { key: 'email', icon: '\ud83d\udce7', name: 'Email', oauth: null, field: 'email' },
 ];
 
 function updateConnectors() {
   const list = document.getElementById('connector-list');
-  const connectors = currentUser?.connectors || {};
+  if (!list || !currentUser) return;
   list.innerHTML = CONNECTORS.map(c => {
-    const connected = connectors[c.key]?.connected || (c.key === 'email' && currentUser?.method === 'email') || (c.key === 'puter' && currentUser?.puter_id);
+    const val = currentUser[c.field];
+    const connected = !!val;
     return `
     <div class="connector-item">
       <div class="connector-info">
         <span class="connector-icon">${c.icon}</span>
         <div>
           <div class="connector-name">${c.name}</div>
-          <div class="connector-status ${connected ? 'status-connected' : 'status-disconnected'}">${connected ? '✓ CONNECTED' : '○ NOT CONNECTED'}</div>
+          <div class="connector-status ${connected ? 'status-connected' : 'status-disconnected'}">${connected ? '\u2713 ' + (typeof val === 'string' && val.length > 16 ? val.slice(0,8)+'...' : val || 'CONNECTED') : '\u25cb NOT CONNECTED'}</div>
         </div>
       </div>
-      ${c.oauth ? `<button class="connector-action ${connected ? 'btn-disconnect' : 'btn-connect'}" onclick="${c.oauth.name}()">${connected ? 'UNLINK' : 'CONNECT'}</button>` : `<button class="connector-action btn-connect" onclick="showToast('Set up via Account Settings')">SETUP</button>`}
+      ${c.oauth && !connected ? `<button class="connector-action btn-connect" onclick="${c.oauth.name}()">CONNECT</button>` : ''}
     </div>`;
   }).join('');
 }
 
-function saveSettings() {
-  if (!currentUser) return;
-  currentUser.display_name = document.getElementById('settings-display').value;
-  currentUser.email = document.getElementById('settings-email').value;
-  currentUser.phone = document.getElementById('settings-phone').value;
-  saveUser();
-  updateUserUI();
-  showToast('✓ Settings saved');
+async function saveSettings() {
+  if (!currentUser || !authToken) return;
+  const username = document.getElementById('settings-display').value;
+  try {
+    await fetch(`${ID_API}/identity/me`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+      body: JSON.stringify({ username: username || undefined })
+    });
+    currentUser.displayName = username;
+    updateUserUI();
+    showToast('\u2713 Settings saved to server');
+  } catch(e) { showToast('Failed to save: ' + e.message, true); }
 }
 
 // ===== PANEL SWITCHING =====
