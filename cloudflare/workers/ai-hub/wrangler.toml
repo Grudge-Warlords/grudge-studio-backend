@@ -2,6 +2,7 @@ name               = "grudge-ai-hub"
 main               = "index.js"
 compatibility_date = "2025-03-01"
 account_id         = "ee475864561b02d4588180b8b9acf694"
+workers_dev        = true
 
 # ── Workers AI binding ────────────────────────────────────────────────────────
 [ai]
@@ -14,7 +15,7 @@ binding = "AI"
 [[d1_databases]]
 binding       = "DB"
 database_name = "grudge-ai-hub"
-database_id   = "REPLACE_WITH_D1_DATABASE_ID"
+database_id   = "42ada55e-2095-46da-840b-6bb301a57253"
 
 # ── KV namespace for rate limiting and operational flags ──────────────────────
 # Create before first deploy:
@@ -22,7 +23,7 @@ database_id   = "REPLACE_WITH_D1_DATABASE_ID"
 # Copy the returned id below.
 [[kv_namespaces]]
 binding = "KV"
-id      = "REPLACE_WITH_KV_NAMESPACE_ID"
+id      = "486553dfacdc40b394e630b1cdfa97d6"
 
 # ── Environment variables ─────────────────────────────────────────────────────
 [vars]

@@ -177,3 +177,38 @@ app.use('/ai/my-role', myRoutes);
 | `ANTHROPIC_API_KEY` | No | — | Claude API key |
 | `OPENAI_API_KEY` | No | — | GPT-4o API key |
 | `DEEPSEEK_API_KEY` | No | — | DeepSeek API key |
+
+---
+
+## GRUDA Legion AI Hub (Edge Gateway)
+
+The VPS ai-agent is now fronted by a Cloudflare Worker at `ai.grudge-studio.com` that provides:
+- **Workers AI** (Llama 3.1, SDXL, BGE embeddings) as the primary inference layer
+- **Automatic escalation** to the VPS ai-agent for roles that need heavier models (dev, balance, art, faction)
+- **D1 usage logging**, **KV rate limiting**, and **admin APIs**
+- **API key auth** (SHA-256 hashed keys stored in D1)
+
+Clients should use the **GRUDA Legion SDK** instead of calling the VPS directly:
+- **Hub repo**: https://github.com/MolochDaGod/grudge-ai-hub
+- **SDK repo**: https://github.com/MolochDaGod/gruda-legion-sdk
+- **Worker config**: `cloudflare/workers/ai-hub/`
+
+### SDK Usage (Browser + Puter.js)
+
+```html
+<script src="https://js.puter.com/v2/"></script>
+<script src="https://cdn.jsdelivr.net/gh/MolochDaGod/gruda-legion-sdk@main/src/legion.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/MolochDaGod/gruda-legion-sdk@main/src/puter-legion.js"></script>
+<script>
+  const ai = new PuterLegion({ apiKey: 'YOUR_KEY', puterFallback: true });
+  ai.lore('Write a quest about a cursed island').then(r => console.log(r.response));
+</script>
+```
+
+### SDK Usage (Node.js / GDevelop Assistant)
+
+```js
+const { GrudaLegionNode } = require('gruda-legion-sdk');
+const legion = new GrudaLegionNode({ apiKey: process.env.LEGION_HUB_API_KEY });
+const reply = await legion.dev('Review this combat formula for bugs');
+```
