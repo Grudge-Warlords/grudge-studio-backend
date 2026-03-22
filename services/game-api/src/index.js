@@ -3,6 +3,7 @@ const path       = require('path');
 const express    = require('express');
 const helmet     = require('helmet');
 const jwt        = require('jsonwebtoken');
+const crypto     = require('crypto');
 const rateLimit  = require('express-rate-limit');
 const { initDB } = require('./db');
 const { initRedis } = require('./redis');
@@ -26,6 +27,45 @@ const aiProxyRoutes    = require('./routes/ai-proxy');
 const app = express();
 const PORT = process.env.PORT || 3003;
 app.set('trust proxy', 1); // Trust one proxy hop (Traefik/Coolify) — required by express-rate-limit v7
+const ADMIN_COOKIE_NAME = 'gs_admin_session';
+const ADMIN_SESSION_TTL_MS = 1000 * 60 * 60 * 12; // 12h
+
+function parseCookies(cookieHeader) {
+  if (!cookieHeader) return {};
+  return cookieHeader.split(';').reduce((acc, segment) => {
+    const [rawKey, ...rest] = segment.trim().split('=');
+    if (!rawKey || rest.length === 0) return acc;
+    acc[rawKey] = decodeURIComponent(rest.join('='));
+    return acc;
+  }, {});
+}
+
+function safeCompare(a, b) {
+  const aBuf = Buffer.from(String(a || ''), 'utf8');
+  const bBuf = Buffer.from(String(b || ''), 'utf8');
+  if (aBuf.length !== bBuf.length) return false;
+  return crypto.timingSafeEqual(aBuf, bBuf);
+}
+
+function createAdminSessionToken(secret) {
+  const expiresAt = Date.now() + ADMIN_SESSION_TTL_MS;
+  const payload = `${expiresAt}.${crypto.randomBytes(8).toString('hex')}`;
+  const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+  return `${payload}.${signature}`;
+}
+
+function verifyAdminSessionToken(token, secret) {
+  const parts = String(token || '').split('.');
+  if (parts.length < 3) return false;
+
+  const expiresAt = Number(parts[0]);
+  if (!Number.isFinite(expiresAt) || expiresAt < Date.now()) return false;
+
+  const signature = parts[parts.length - 1];
+  const payload = parts.slice(0, -1).join('.');
+  const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+  return safeCompare(signature, expected);
+}
 
 const { grudgeCors } = require('../../shared/cors');
 
@@ -146,6 +186,61 @@ app.get('/', (req, res) => {
 });
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'game-api', version: '2.0.0' }));
 app.get('/favicon.ico', (req, res) => res.status(204).end());
+app.post('/api/admin/login', (req, res) => {
+  const submittedPasscode = String(req.body?.passcode || '');
+  const expectedPasscode = process.env.ADMIN_PASSCODE;
+  const sessionSecret = process.env.ADMIN_SESSION_SECRET || process.env.SESSION_SECRET || process.env.JWT_SECRET;
+
+  if (!expectedPasscode || !sessionSecret) {
+    return res.status(500).json({ authenticated: false, error: 'Admin auth not configured' });
+  }
+
+  if (!safeCompare(submittedPasscode, expectedPasscode)) {
+    return res.status(401).json({ authenticated: false, error: 'Invalid credentials' });
+  }
+
+  const token = createAdminSessionToken(sessionSecret);
+  const isProd = process.env.NODE_ENV === 'production';
+  const cookieParts = [
+    `${ADMIN_COOKIE_NAME}=${encodeURIComponent(token)}`,
+    'HttpOnly',
+    'Path=/',
+    'SameSite=Lax',
+    `Max-Age=${Math.floor(ADMIN_SESSION_TTL_MS / 1000)}`,
+  ];
+  if (isProd) cookieParts.push('Secure');
+
+  res.setHeader('Set-Cookie', cookieParts.join('; '));
+  return res.json({ authenticated: true });
+});
+app.get('/api/admin/session', (req, res) => {
+  const sessionSecret = process.env.ADMIN_SESSION_SECRET || process.env.SESSION_SECRET || process.env.JWT_SECRET;
+  if (!sessionSecret) {
+    return res.status(500).json({ authenticated: false, error: 'Admin auth not configured' });
+  }
+
+  const cookies = parseCookies(req.headers.cookie);
+  const token = cookies[ADMIN_COOKIE_NAME];
+  if (!token || !verifyAdminSessionToken(token, sessionSecret)) {
+    return res.status(401).json({ authenticated: false });
+  }
+
+  return res.json({ authenticated: true });
+});
+app.post('/api/admin/logout', (_req, res) => {
+  const isProd = process.env.NODE_ENV === 'production';
+  const cookieParts = [
+    `${ADMIN_COOKIE_NAME}=`,
+    'HttpOnly',
+    'Path=/',
+    'SameSite=Lax',
+    'Max-Age=0',
+  ];
+  if (isProd) cookieParts.push('Secure');
+
+  res.setHeader('Set-Cookie', cookieParts.join('; '));
+  return res.json({ success: true });
+});
 app.use('/characters',  requireAuth, characterRoutes);
 app.use('/factions',    requireAuth, factionRoutes);
 app.use('/missions',    requireAuth, missionRoutes);
