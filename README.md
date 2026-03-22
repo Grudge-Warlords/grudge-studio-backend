@@ -138,7 +138,7 @@ npm run docker:dev
 | Doc | Description |
 |---|---|
 | [docs/SETUP.md](docs/SETUP.md) | Complete local + first-time setup walkthrough |
-| [docs/VPS.md](docs/VPS.md) | VPS deployment guide (Ubuntu, Docker, SSL, DNS) |
+| [docs/VPS.md](docs/VPS.md) | VPS deployment guide (Ubuntu, Docker, SSL, DNS, rollback) |
 | [docs/API.md](docs/API.md) | Full API reference for all services |
 | [docs/LAUNCHER.md](docs/LAUNCHER.md) | Game launcher integration guide |
 | [docs/PUTER.md](docs/PUTER.md) | Puter cloud integration guide |
@@ -238,9 +238,53 @@ Data:
 
 ## Deployment
 
-Pushes to `main` automatically deploy via GitHub Actions (`.github/workflows/deploy.yml`).
+Manual dispatch via GitHub Actions (`.github/workflows/deploy.yml`).
 
-Required GitHub Secrets:
+### Safety features
+
+All deploy paths (CI, `coolify/deploy.sh`, `deploy-migrate.sh`) include:
+
+- **Orphan stack detection** — scans for duplicate compose projects and removes them before deploying to prevent Traefik routing collisions
+- **Pinned project name** — all compose commands use `-p grudge-studio-backend` so only one stack is ever active
+- **`:previous` image tagging** — before rebuilding each service, the running image is tagged as `:previous`
+- **Per-service health gate** — after restarting each service, polls `/health` (6 retries × 5s = 30s max)
+- **Auto-rollback** — if a service fails its health check, it is automatically reverted to the `:previous` image
+- **Rolling deploy** — services are deployed one at a time so the rest stay up during updates
+
+### Deploy commands
+
+```bash
+# On VPS — standard safe deploy
+bash /opt/grudge-studio-backend/coolify/deploy.sh
+
+# On VPS — deploy + run SQL migrations
+bash /opt/grudge-studio-backend/deploy-migrate.sh
+
+# On VPS — force rebuild all images
+bash /opt/grudge-studio-backend/coolify/deploy.sh --rebuild
+
+# On VPS — deploy a single service
+bash /opt/grudge-studio-backend/coolify/deploy.sh --service grudge-id
+```
+
+### Rollback
+
+```bash
+# Rollback one service to its previous image
+bash scripts/rollback.sh grudge-id
+
+# Rollback multiple services
+bash scripts/rollback.sh grudge-id game-api account-api
+
+# Rollback ALL services
+bash scripts/rollback.sh --all
+
+# List available :previous images
+bash scripts/rollback.sh --list
+```
+
+### Required GitHub Secrets
+
 - `DEPLOY_SSH_KEY` — private key for VPS SSH
 - `VPS_HOST` — `74.208.155.229`
 - `VPS_USER` — your VPS user (e.g. `root`)

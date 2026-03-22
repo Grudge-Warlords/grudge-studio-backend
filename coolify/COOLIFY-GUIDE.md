@@ -112,6 +112,16 @@ Accessible at `status.grudge-studio.com` — add monitors for:
 - MySQL (TCP 3306)
 - Redis (TCP 6379)
 
+## Deploy Safety
+
+All deploy paths include built-in safety:
+
+- **Orphan stack detection** — kills duplicate compose projects before deploying
+- **`:previous` image tagging** — tags the running image before rebuild so you can roll back
+- **Per-service health gate** — polls `/health` after each service restart (30s timeout)
+- **Auto-rollback** — reverts to `:previous` if health check fails; continues deploying remaining services
+- **Pinned project name** — `docker compose -p grudge-studio-backend` prevents accidental duplicates
+
 ## Daily Maintenance
 
 ```bash
@@ -121,11 +131,23 @@ docker compose logs -f --tail=50 game-api
 # Restart a single service
 docker compose restart grudge-id
 
-# Full redeploy
+# Full safe deploy (health gate + auto-rollback)
 ./coolify/deploy.sh
+
+# Deploy a single service only
+./coolify/deploy.sh --service grudge-id
 
 # Force rebuild (after Dockerfile changes)
 ./coolify/deploy.sh --rebuild
+
+# Rollback one service to its previous image
+bash scripts/rollback.sh grudge-id
+
+# Rollback ALL services
+bash scripts/rollback.sh --all
+
+# List available :previous images
+bash scripts/rollback.sh --list
 
 # Emergency recovery
 sudo bash coolify/recover-vps.sh
