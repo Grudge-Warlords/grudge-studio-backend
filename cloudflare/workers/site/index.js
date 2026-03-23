@@ -56,6 +56,27 @@ export default {
     // CORS preflight
     if (request.method === 'OPTIONS') return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type,Authorization' } });
 
+    // ── SSO-based root redirect ─────────────────────────────────────
+    // grudge-studio.com/ → logged in → The Engine, not logged in → client portal
+    if (path === '/' && host === 'grudge-studio.com') {
+      const ssoToken = url.searchParams.get('sso_token');
+      const ssoRequired = url.searchParams.get('sso_required');
+
+      if (ssoToken) {
+        // User has a valid session → send to The Engine
+        return Response.redirect('https://the-engine-grudgenexus.vercel.app', 302);
+      }
+      if (ssoRequired) {
+        // No session → send to client portal for login
+        return Response.redirect('https://client.grudge-studio.com', 302);
+      }
+      // First visit — ask grudge-id to check the SSO cookie and redirect back
+      return Response.redirect(
+        `https://id.grudge-studio.com/auth/sso-check?return=${encodeURIComponent('https://grudge-studio.com/')}`,
+        302
+      );
+    }
+
     // API routes
     if (path === '/api/status') return handleStatus(env, ctx);
     if (path === '/api/docs.json') return handleDocsJson();
@@ -71,6 +92,7 @@ export default {
     if (path === '/client') return serveHTML(clientPage);
     if (path === '/infra') return serveHTML(infraPage);
     if (path === '/systems') return serveHTML(systemsPage);
+    if (path === '/landing') return handlePage(env);  // old landing still accessible
     return handlePage(env);
   },
 

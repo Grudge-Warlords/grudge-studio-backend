@@ -1252,7 +1252,7 @@ router.post('/phone-verify', async (req, res, next) => {
 // Cross-app SSO: reads grudge_sso cookie, redirects with token if valid
 router.get('/sso-check', (req, res) => {
   const returnUrl = req.query.return;
-  if (!returnUrl || !isAllowedOrigin(returnUrl)) {
+  if (!returnUrl || !isAllowedRedirect(returnUrl)) {
     return res.status(400).json({ error: 'Invalid or missing return URL' });
   }
 

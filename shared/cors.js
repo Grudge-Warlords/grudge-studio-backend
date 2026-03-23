@@ -59,4 +59,39 @@ function grudgeCorsConfig() {
   };
 }
 
-module.exports = { grudgeCors, grudgeCorsConfig };
+/**
+ * Default redirect URL after OAuth login (used by grudge-id auth routes).
+ */
+const DEFAULT_AUTH_REDIRECT = process.env.DEFAULT_AUTH_REDIRECT || 'https://grudgewarlords.com/auth';
+
+/**
+ * Validate that a redirect_uri is one of our trusted destinations.
+ * Accepts any subdomain of grudge-studio.com, grudgewarlords.com,
+ * *.vercel.app (GrudgeNexus org), puter.com/puter.site, and GitHub Pages.
+ */
+function isAllowedRedirect(uri) {
+  if (!uri) return false;
+  try {
+    const u = new URL(uri);
+    const host = u.hostname;
+    return (
+      host === 'grudgewarlords.com' ||
+      host === 'www.grudgewarlords.com' ||
+      host.endsWith('.grudge-studio.com') ||
+      host === 'grudge-studio.com' ||
+      host === 'grudgestudio.com' ||
+      host.endsWith('.grudgestudio.com') ||
+      host === 'grudgeplatform.com' ||
+      host === 'www.grudgeplatform.com' ||
+      host.endsWith('.vercel.app') ||
+      host.endsWith('.puter.site') ||
+      host === 'app.puter.com' ||
+      host === 'molochdagod.github.io' ||
+      host === 'localhost'
+    );
+  } catch {
+    return false;
+  }
+}
+
+module.exports = { grudgeCors, grudgeCorsConfig, isAllowedRedirect, DEFAULT_AUTH_REDIRECT };

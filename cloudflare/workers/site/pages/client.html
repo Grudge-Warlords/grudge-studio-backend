@@ -1465,7 +1465,7 @@ async function sendAI() {
   const loadEl = addLine('t-info', '<span class="spinner"></span>thinking...');
 
   try {
-    const res = await fetch(`${SERVER_URL}/ai/chat`, {
+    const res = await fetch(`${GAME_API}/ai/chat`, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ contents: [{ parts: [{ text: AI_CONTEXT + '\n\nUser: ' + text }] }] })
