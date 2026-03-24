@@ -12,6 +12,7 @@ const devRoutes       = require('./routes/dev');
 const balanceRoutes   = require('./routes/balance');
 const loreRoutes      = require('./routes/lore');
 const artRoutes       = require('./routes/art');
+const chatRoutes      = require('./routes/chat');
 const { getProviderStatus } = require('./llm/provider');
 
 const app  = express();
@@ -45,6 +46,7 @@ app.use('/ai/dev',       devRoutes);
 app.use('/ai/balance',   balanceRoutes);
 app.use('/ai/lore',      loreRoutes);
 app.use('/ai/art',       artRoutes);
+app.use('/ai/chat',      chatRoutes);
 
 // ── LLM diagnostic endpoint ───────────────────────────────────
 app.get('/ai/llm/status', async (req, res) => {
