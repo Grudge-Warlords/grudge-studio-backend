@@ -13,7 +13,13 @@
 const { Router } = require('express');
 const router = Router();
 
-// ── POST /campaign/save ──────────────────────────────────────────
+// ── Input limits ─────────────────────────────────────────
+const MAX_LOG_ENTRIES_PER_SAVE = 200;
+const MAX_LOG_BATCH_CHUNK = 50; // insert in chunks to avoid MySQL packet limits
+const MAX_STRING_LEN = 1024;    // max length for title/body fields
+function clamp(s, max = MAX_STRING_LEN) { return typeof s === 'string' ? s.slice(0, max) : ''; }
+
+// ── POST /campaign/save ──────────────────────────────────
 router.post('/save', async (req, res, next) => {
   try {
     const grudgeId = req.user?.grudge_id || req.user?.grudgeId;
@@ -28,66 +34,77 @@ router.post('/save', async (req, res, next) => {
     if (!progress) return res.status(400).json({ error: 'progress required' });
 
     const db = require('../db').getDB();
+    const conn = await db.getConnection();
 
-    // Upsert campaign_saves
-    await db.query(
-      `INSERT INTO campaign_saves
-         (grudge_id, sector_seed, commander_name, commander_portrait, commander_spec,
-          game_time_elapsed, progress_json, resources_json, upgrades_json,
-          tech_json, active_events_json, completed_event_ids_json)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE
-         sector_seed = VALUES(sector_seed),
-         commander_name = VALUES(commander_name),
-         commander_portrait = VALUES(commander_portrait),
-         commander_spec = VALUES(commander_spec),
-         game_time_elapsed = VALUES(game_time_elapsed),
-         progress_json = VALUES(progress_json),
-         resources_json = VALUES(resources_json),
-         upgrades_json = VALUES(upgrades_json),
-         tech_json = VALUES(tech_json),
-         active_events_json = VALUES(active_events_json),
-         completed_event_ids_json = VALUES(completed_event_ids_json),
-         updated_at = NOW()`,
-      [
-        grudgeId,
-        progress.sectorSeed || '',
-        commanderName || 'Commander',
-        commanderPortrait || '',
-        commanderSpec || 'forge',
-        progress.elapsedGameTime || 0,
-        JSON.stringify(progress),
-        JSON.stringify(resources || {}),
-        JSON.stringify(upgrades || {}),
-        JSON.stringify(techResearched || {}),
-        JSON.stringify(activeEvents || []),
-        JSON.stringify(completedEventIds || []),
-      ]
-    );
+    try {
+      await conn.beginTransaction();
 
-    // Batch upsert log entries (last 500)
-    if (logEntries?.length) {
-      const entries = logEntries.slice(-500);
-      const values = entries.map(e => [
-        e.uuid, grudgeId, e.category, e.title,
-        e.body, JSON.stringify(e.metadata || null),
-        e.planetUuid || null, e.shipUuid || null,
-        new Date(e.realTimestamp),
-      ]);
-      // Use INSERT IGNORE to avoid dupes on re-save
-      const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
-      const flat = values.flat();
-      if (flat.length) {
-        await db.query(
-          `INSERT IGNORE INTO campaign_log
-             (uuid, campaign_grudge_id, category, title, body, metadata, planet_uuid, ship_uuid, created_at)
-           VALUES ${placeholders}`,
-          flat
-        );
+      // Upsert campaign_saves
+      await conn.query(
+        `INSERT INTO campaign_saves
+           (grudge_id, sector_seed, commander_name, commander_portrait, commander_spec,
+            game_time_elapsed, progress_json, resources_json, upgrades_json,
+            tech_json, active_events_json, completed_event_ids_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           sector_seed = VALUES(sector_seed),
+           commander_name = VALUES(commander_name),
+           commander_portrait = VALUES(commander_portrait),
+           commander_spec = VALUES(commander_spec),
+           game_time_elapsed = VALUES(game_time_elapsed),
+           progress_json = VALUES(progress_json),
+           resources_json = VALUES(resources_json),
+           upgrades_json = VALUES(upgrades_json),
+           tech_json = VALUES(tech_json),
+           active_events_json = VALUES(active_events_json),
+           completed_event_ids_json = VALUES(completed_event_ids_json),
+           updated_at = NOW()`,
+        [
+          grudgeId,
+          clamp(progress.sectorSeed || '', 128),
+          clamp(commanderName || 'Commander', 128),
+          clamp(commanderPortrait || '', 512),
+          clamp(commanderSpec || 'forge', 32),
+          progress.elapsedGameTime || 0,
+          JSON.stringify(progress),
+          JSON.stringify(resources || {}),
+          JSON.stringify(upgrades || {}),
+          JSON.stringify(techResearched || {}),
+          JSON.stringify(activeEvents || []),
+          JSON.stringify(completedEventIds || []),
+        ]
+      );
+
+      // Batch insert log entries in chunks to respect MySQL packet limits
+      if (logEntries?.length) {
+        const entries = logEntries.slice(-MAX_LOG_ENTRIES_PER_SAVE);
+        for (let i = 0; i < entries.length; i += MAX_LOG_BATCH_CHUNK) {
+          const chunk = entries.slice(i, i + MAX_LOG_BATCH_CHUNK);
+          const values = chunk.map(e => [
+            clamp(e.uuid, 36), grudgeId, clamp(e.category, 32), clamp(e.title, 256),
+            clamp(e.body, 4096), JSON.stringify(e.metadata || null),
+            e.planetUuid ? clamp(e.planetUuid, 36) : null,
+            e.shipUuid ? clamp(e.shipUuid, 36) : null,
+            new Date(e.realTimestamp || Date.now()),
+          ]);
+          const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
+          await conn.query(
+            `INSERT IGNORE INTO campaign_log
+               (uuid, campaign_grudge_id, category, title, body, metadata, planet_uuid, ship_uuid, created_at)
+             VALUES ${placeholders}`,
+            values.flat()
+          );
+        }
       }
-    }
 
-    res.json({ ok: true });
+      await conn.commit();
+      res.json({ ok: true });
+    } catch (txErr) {
+      await conn.rollback();
+      throw txErr;
+    } finally {
+      conn.release();
+    }
   } catch (err) { next(err); }
 });
 
