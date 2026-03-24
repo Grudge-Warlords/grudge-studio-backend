@@ -26,6 +26,7 @@ const aiProxyRoutes    = require('./routes/ai-proxy');
 const heroShipRoutes   = require('./routes/hero-ships');
 const rtsConfigRoutes  = require('./routes/rts-config');
 const rtsMatchRoutes   = require('./routes/rts-matches');
+const campaignRoutes   = require('./routes/campaign');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -262,6 +263,7 @@ app.use('/ai',          requireAuth, aiProxyRoutes);
 app.use('/hero-ship',   requireAuth, heroShipRoutes);
 app.use('/rts-config',  rtsConfigRoutes);  // Read is public, write requires admin
 app.use('/rts-matches', requireAuth, rtsMatchRoutes);
+app.use('/campaign',    requireAuth, campaignRoutes);
 
 app.use((err, req, res, next) => {
   console.error('[game-api]', err.message);
