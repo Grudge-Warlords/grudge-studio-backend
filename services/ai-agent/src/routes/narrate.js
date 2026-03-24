@@ -120,4 +120,62 @@ function getFallback(eventType, planetName) {
   return { title: fb.title, narrative: fb.narrative.replace('{planet}', planetName || 'the void') };
 }
 
+// ── POST /ai/narrate/portrait ── Generate commander portrait prompt + image ──
+router.post('/portrait', async (req, res, next) => {
+  try {
+    const { name, origin, personality, motivation, faction } = req.body;
+    if (!name || !origin || !faction) {
+      return res.status(400).json({ error: 'name, origin, and faction required' });
+    }
+
+    // Build a detailed txt2img prompt from the commander build answers
+    const originDesc = {
+      scientist: 'a brilliant scientist with analytical eyes and lab-worn features',
+      engineer: 'a weathered engineer with calloused hands and goggles on forehead',
+      soldier: 'a battle-scarred veteran with a commanding presence and military bearing',
+      outcast: 'a mysterious exile with hood-shadowed features and piercing gaze',
+    };
+    const personalityDesc = {
+      strategic: 'calm calculating expression, sharp focused eyes',
+      aggressive: 'fierce determined expression, battle-ready intensity',
+      diplomatic: 'warm confident smile, trustworthy charismatic presence',
+      mysterious: 'enigmatic half-smile, shadows across face, unknowable depths',
+    };
+    const factionStyle = {
+      wisdom: 'glowing blue circuitry patterns, holographic data streams, crystalline technology',
+      construct: 'amber industrial plating, mechanical augmentations, forge-glow backdrop',
+      void: 'purple dark energy wisps, shadowy aura, void-touched eyes',
+      legion: 'red military insignia, battle armor, war banners behind',
+    };
+
+    const prompt = [
+      `Portrait of ${name},`,
+      originDesc[origin] || originDesc.soldier,
+      personalityDesc[personality] || personalityDesc.strategic,
+      factionStyle[faction] || factionStyle.legion,
+      'space commander portrait, cinematic lighting, sci-fi digital art, detailed face,',
+      'dark space background with stars, high quality, artstation style',
+    ].join(', ');
+
+    // Try to generate via LLM image generation (provider handles routing)
+    let imageUrl = null;
+    try {
+      // Call image generation if available (OpenAI DALL-E, Stability, etc.)
+      const { generateImage } = require('../llm/provider');
+      if (typeof generateImage === 'function') {
+        imageUrl = await generateImage(prompt, { width: 512, height: 512 });
+      }
+    } catch (imgErr) {
+      console.warn('[narrate] Image generation unavailable:', imgErr.message);
+    }
+
+    res.json({
+      prompt,
+      imageUrl, // null if generation unavailable — client falls back to default portraits
+      name,
+      faction,
+    });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;
