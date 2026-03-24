@@ -7,6 +7,11 @@ on:
         description: "Comma-separated services to rebuild (or 'all')"
         default: "all"
         required: false
+      deploy_headless:
+        description: "Also deploy the Unity headless game server"
+        type: boolean
+        default: false
+        required: false
 
 concurrency:
   group: deploy-main
@@ -241,6 +246,25 @@ jobs:
           else
             echo "health_ok=true" >> $GITHUB_OUTPUT
             echo "All services deployed and healthy!"
+          fi
+
+      # ── 6b. Deploy headless game server (optional) ──
+      - name: Deploy headless game server
+        if: github.event.inputs.deploy_headless == 'true'
+        run: |
+          if [ "${{ steps.setup_ssh.outputs.auth_mode }}" = "password" ]; then
+            export SSHPASS="${{ secrets.VPS_PASSWORD }}"
+            SSH="sshpass -e ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          else
+            SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          fi
+          echo "▶ Deploying grudge-headless (Unity game server)"
+          # Check if binary exists on VPS
+          if $SSH "test -f /opt/grudge-studio-backend/services/grudge-headless/bin/GrudgeLinuxServer.x86_64"; then
+            $SSH "bash /opt/grudge-studio-backend/scripts/deploy-headless.sh"
+          else
+            echo "⚠ Skipping headless deploy — binary not uploaded to VPS"
+            echo "  Upload first: bash scripts/upload-headless-binary.sh /path/to/build --deploy"
           fi
 
       # ── 7. Prune and remove orphans ─────────────

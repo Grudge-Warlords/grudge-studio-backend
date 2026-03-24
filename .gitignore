@@ -25,7 +25,8 @@ dist/
 
 # ─── SERVER BINARIES ─────────────────────────────────────
 # Never commit the Linux server binary - deploy separately
-services/grudge-headless/bin/
+services/grudge-headless/bin/*
+!services/grudge-headless/bin/.gitkeep
 
 # ─── HEALTH REPORTS ──────────────────────────────────────
 scripts/health-report.json
