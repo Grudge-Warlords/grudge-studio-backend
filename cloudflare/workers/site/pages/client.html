@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;600;700&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-<!-- Puter SDK -->
+<!-- Puter SDK — Free AI, Cloud Storage, KV, Auth (User Pays Model = $0 cost) -->
 <script src="https://js.puter.com/v2/"></script>
 
 <style>
@@ -1435,18 +1435,18 @@ document.getElementById('deploy-grid').innerHTML = DEPLOYS.map(d => `
     <div class="deploy-name">${d}</div>
   </a>`).join('');
 
-// ===== AI CONSOLE =====
-const AI_CONTEXT = `You are the backend AI for Grudge Studio owned by Racalvin The Pirate King (jb).
+// ===== AI CONSOLE — Powered by Puter.js (FREE, user-pays model) =====
+const AI_CONTEXT = `You are the Grudge Studio AI assistant for Grudge Warlords, owned by Racalvin The Pirate King.
 Key facts:
-- Stack: Node.js/TypeScript, React/Next.js, Solana/SPL, Ethereum/Solidity, MySQL 8 (PostgreSQL)
-- Deployments: Puter.com cloud, Vercel (grudgenexus org), grudgewarlords.com, grudachain.grudgestudio.com
-- Server target: api.grudge-studio.com (Node/Express on Radmin VPN 74.208.155.229 OR Vercel)
-- Hub deployment: gruda.grudgewarlords.com (Puter site CNAME)
-- Auth: Puter SDK, Discord OAuth2, Google OAuth2, GitHub OAuth2, Phantom wallet, Crossmint server-side wallets
-- DB schema: users (grudge_id, puter_id, username, solana_wallet, discord_id, google_id, github_id), characters, game_sessions, assets
-- Games: Grudge Warlords MMO (souls-like Minecraft), GrudgeRPG, Grudge Angler, BetaGameGruda, Nexus Nemesis, Warlords, DappNFT
-- Gemini API key available, Claude API available
-Be concise, technical, production-ready. Use code blocks. Pirate tone is welcome.`;
+- Stack: Node.js 20, Express, MySQL 8, Redis 7, Docker, Coolify, Traefik on VPS 74.208.155.229
+- Auth: Web3Auth, Discord, Google, GitHub, Puter, Phone SMS, Guest — all via id.grudge-studio.com
+- Services: id (3001), wallet (3002), game-api (3003), ai-agent (3004), account (3005), launcher (3006), ws (3007)
+- DB: 36 tables — users, characters, crews, combat_log, inventory, crafting_recipes, islands, pvp, missions, etc.
+- Classes: Warrior, Mage, Ranger, Worge | Factions: Crusade, Undead, Fabled
+- Web3: Solana, Crossmint server-side wallets, cNFT minting
+- Frontends: Vercel (grudgewarlords.com, warlord-crafting-suite, grudge-engine-web, etc.)
+- AI: Anthropic Claude, Gemini (free), Ollama llama3.2 (free, self-hosted), Puter AI (free, client-side)
+Be concise, technical, and production-ready. Use code blocks when appropriate.`;
 
 function aiPrompt(text) {
   document.getElementById('ai-input').value = text;
@@ -1456,32 +1456,58 @@ function aiPrompt(text) {
 
 async function sendAI() {
   const input = document.getElementById('ai-input');
-  const body = document.getElementById('terminal-body');
   const text = input.value.trim();
   if (!text) return;
   input.value = '';
 
-  addLine('t-cmd', '❯ ' + text);
-  const loadEl = addLine('t-info', '<span class="spinner"></span>thinking...');
+  addLine('t-cmd', '\u276f ' + text);
+  const loadEl = addLine('t-info', '<span class="spinner"></span>thinking via Puter AI (free)...');
 
   try {
-    const res = await fetch(`${GAME_API}/ai/chat`, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ contents: [{ parts: [{ text: AI_CONTEXT + '\n\nUser: ' + text }] }] })
-    });
-    const data = await res.json();
-    const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'No response from Gemini.';
-    loadEl.remove();
-    // Format the reply
-    reply.split('\n').forEach(line => {
-      const cls = line.startsWith('```') ? 't-cmd' : line.startsWith('#') ? 't-cmd' : 't-ai';
-      addLine(cls, line || '&nbsp;');
-    });
-    addLine('t-ok', '── done ──');
+    // Use Puter.js client-side AI — FREE (user-pays model, $0 cost to developer)
+    if (typeof puter !== 'undefined' && puter.ai) {
+      const resp = await puter.ai.chat([
+        { role: 'system', content: AI_CONTEXT },
+        { role: 'user', content: text }
+      ], { model: 'claude-sonnet-4-20250514', stream: true });
+      loadEl.remove();
+      let fullText = '';
+      for await (const part of resp) {
+        if (part?.text) {
+          fullText += part.text;
+          // Update the last line or add new ones
+          const lines = fullText.split('\n');
+          const container = document.getElementById('terminal-body');
+          // Clear previous AI output
+          container.querySelectorAll('.ai-stream').forEach(el => el.remove());
+          lines.forEach(line => {
+            const div = document.createElement('div');
+            div.className = 'terminal-line t-ai ai-stream';
+            div.textContent = line || ' ';
+            container.appendChild(div);
+          });
+          container.scrollTop = container.scrollHeight;
+        }
+      }
+      addLine('t-ok', '\u2500\u2500 done (via Puter AI \u2014 free) \u2500\u2500');
+    } else {
+      // Fallback: try backend AI proxy
+      loadEl.textContent = 'Puter SDK not loaded \u2014 trying backend...';
+      const res = await fetch(`${GAME_API}/ai/chat`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json', ...(authToken?{'Authorization':'Bearer '+authToken}:{})},
+        body: JSON.stringify({ message: text })
+      });
+      const data = await res.json();
+      loadEl.remove();
+      (data.content || data.error || 'No response').split('\n').forEach(line => {
+        addLine(line.startsWith('```') ? 't-cmd' : 't-ai', line || '\u00a0');
+      });
+      addLine('t-ok', `\u2500\u2500 done (via ${data.provider || 'backend'}) \u2500\u2500`);
+    }
   } catch(e) {
     loadEl.remove();
-    addLine('t-cmd', '✗ Error: ' + e.message);
+    addLine('t-cmd', '\u2717 Error: ' + e.message);
   }
 }
 

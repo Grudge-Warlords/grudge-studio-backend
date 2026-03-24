@@ -28,7 +28,7 @@ id      = "4831aa73571e4078a648e109bcaaf440"
 
 # ── Cron trigger — refresh health checks every minute ──────────────────────────
 [triggers]
-crons = ["* * * * *"]
+crons = ["*/5 * * * *"]
 
 # ── Environment variables ──────────────────────────────────────────────────────
 # ── Text module imports for page HTML files ─────────────────────────────────
