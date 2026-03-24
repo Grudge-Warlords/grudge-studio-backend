@@ -95,7 +95,9 @@ nav { display: flex; gap: 4px; flex-wrap: wrap; }
   cursor: pointer; transition: all 0.2s;
 }
 #user-pill:hover { border-color: var(--gold); }
-#user-avatar { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--gold); background: var(--blood); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; }
+#user-avatar { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--gold); background: var(--blood); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; overflow:hidden; }
+#user-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
+.account-avatar-big:hover .avatar-edit-hint { opacity:1 !important; }
 #user-name { font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 1px; }
 #logout-btn { font-size: 10px; color: rgba(201,168,76,0.4); cursor: pointer; padding: 4px 8px; border: 1px solid transparent; transition: all 0.2s; }
 #logout-btn:hover { color: var(--ember); border-color: rgba(255,69,0,0.3); }
@@ -682,7 +684,12 @@ main { flex: 1; max-width: 1400px; margin: 0 auto; width: 100%; padding: 28px 24
         <div>
           <!-- Identity card -->
           <div class="account-card" style="margin-bottom:14px">
-            <div class="account-avatar-big" id="acct-avatar-big">?</div>
+            <div id="acct-avatar-big" class="account-avatar-big" onclick="changeAvatar()" title="Click to change avatar" style="cursor:pointer;position:relative;overflow:hidden">
+              <img id="acct-avatar-img" src="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:none">
+              <span id="acct-avatar-letter">?</span>
+              <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);font-size:8px;text-align:center;padding:2px 0;color:var(--gold);letter-spacing:1px;opacity:0;transition:opacity .2s" class="avatar-edit-hint">CHANGE</div>
+            </div>
+            <input type="file" id="avatar-upload" accept="image/*" style="display:none" onchange="uploadAvatar(this)">
             <div class="account-username" id="acct-username">—</div>
             <div class="account-id" id="acct-display">—</div>
 
@@ -1088,6 +1095,7 @@ async function initFromToken(token) {
     sessionStorage.setItem('grudge_token', token);
     showHub();
     updateUserUI();
+    loadSavedAvatar();
     showToast('\u2694 Welcome, ' + (currentUser.displayName || currentUser.username));
   } catch(e) {
     sessionStorage.removeItem('grudge_token');
@@ -1252,10 +1260,31 @@ async function logout() {
 // ===== UI UPDATES =====
 function updateUserUI() {
   if (!currentUser) return;
-  const avatar = (currentUser.displayName || currentUser.username || '?')[0].toUpperCase();
-  document.getElementById('user-avatar').textContent = avatar;
+  const initial = (currentUser.displayName || currentUser.username || '?')[0].toUpperCase();
+  const avatarUrl = currentUser.avatarUrl || currentUser.avatar_url;
+
+  // Header avatar (small)
+  const headerAvatar = document.getElementById('user-avatar');
+  if (avatarUrl) {
+    headerAvatar.innerHTML = '<img src="' + avatarUrl + '" alt="">';
+  } else {
+    headerAvatar.textContent = initial;
+  }
   document.getElementById('user-name').textContent = currentUser.displayName || currentUser.username;
-  document.getElementById('acct-avatar-big').textContent = avatar;
+
+  // Account page avatar (big)
+  const bigImg = document.getElementById('acct-avatar-img');
+  const bigLetter = document.getElementById('acct-avatar-letter');
+  if (avatarUrl) {
+    bigImg.src = avatarUrl;
+    bigImg.style.display = 'block';
+    bigLetter.style.display = 'none';
+  } else {
+    bigImg.style.display = 'none';
+    bigLetter.style.display = 'block';
+    bigLetter.textContent = initial;
+  }
+
   document.getElementById('acct-username').textContent = currentUser.username || '\u2014';
   document.getElementById('acct-display').textContent = currentUser.displayName || '';
   document.getElementById('acct-grudge-id').textContent = currentUser.grudgeId || currentUser.grudge_id || '\u2014';
@@ -1271,6 +1300,60 @@ function updateUserUI() {
   // Stats
   const statUsers = document.getElementById('stat-users');
   if (statUsers) statUsers.textContent = currentUser.gold || '\u2014';
+}
+
+// ===== AVATAR UPLOAD =====
+function changeAvatar() {
+  document.getElementById('avatar-upload').click();
+}
+
+async function uploadAvatar(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) return showToast('Please select an image file', true);
+  if (file.size > 2 * 1024 * 1024) return showToast('Image must be under 2MB', true);
+
+  // Preview immediately
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const url = e.target.result;
+    document.getElementById('acct-avatar-img').src = url;
+    document.getElementById('acct-avatar-img').style.display = 'block';
+    document.getElementById('acct-avatar-letter').style.display = 'none';
+    document.getElementById('user-avatar').innerHTML = '<img src="' + url + '" alt="">';
+  };
+  reader.readAsDataURL(file);
+
+  // Upload to Puter cloud (free) and save URL
+  try {
+    if (typeof puter !== 'undefined' && puter.fs) {
+      const uploaded = await puter.fs.write('grudge-studio/avatar.png', file, { overwrite: true, createMissingParents: true });
+      const publicUrl = await puter.fs.getReadURL('grudge-studio/avatar.png');
+      // Save avatar URL to Puter KV
+      if (puter.kv) await puter.kv.set('grudge_avatar', publicUrl);
+      currentUser.avatarUrl = publicUrl;
+      showToast('\u2713 Avatar updated');
+    } else {
+      // Fallback: convert to data URL and store in session
+      showToast('\u2713 Avatar updated (session only \u2014 sign in with Puter to save permanently)');
+    }
+  } catch(e) {
+    showToast('Avatar saved locally \u2014 ' + e.message);
+  }
+  input.value = '';
+}
+
+// Load avatar from Puter KV on init
+async function loadSavedAvatar() {
+  try {
+    if (typeof puter !== 'undefined' && puter.kv) {
+      const url = await puter.kv.get('grudge_avatar');
+      if (url && currentUser) {
+        currentUser.avatarUrl = url;
+        updateUserUI();
+      }
+    }
+  } catch {}
 }
 
 function updateWalletUI(addr) {
