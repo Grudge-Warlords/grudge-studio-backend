@@ -23,6 +23,9 @@ const pvpRoutes        = require('./routes/pvp');
 const gameDataRoutes   = require('./routes/game-data');
 const dungeonRoutes    = require('./routes/dungeon');
 const aiProxyRoutes    = require('./routes/ai-proxy');
+const heroShipRoutes   = require('./routes/hero-ships');
+const rtsConfigRoutes  = require('./routes/rts-config');
+const rtsMatchRoutes   = require('./routes/rts-matches');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -256,6 +259,9 @@ app.use('/pvp',         requireAuth, pvpLimiter, pvpRoutes);
 app.use('/game-data',   gameDataRoutes);  // Public — no auth required (read-only game definitions)
 app.use('/dungeon',     requireAuth, dungeonRoutes);
 app.use('/ai',          requireAuth, aiProxyRoutes);
+app.use('/hero-ship',   requireAuth, heroShipRoutes);
+app.use('/rts-config',  rtsConfigRoutes);  // Read is public, write requires admin
+app.use('/rts-matches', requireAuth, rtsMatchRoutes);
 
 app.use((err, req, res, next) => {
   console.error('[game-api]', err.message);

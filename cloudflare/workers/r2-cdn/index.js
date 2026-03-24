@@ -52,6 +52,9 @@ const ALLOWED_ORIGINS = new Set([
   'https://gruda-wars.vercel.app',
   'https://grudge-engine-web.vercel.app',
   'https://starwaygruda-webclient-as2n.vercel.app',
+  'https://grudge-space-rts.vercel.app',
+  // ── Grudge Studio subdomains ──
+  'https://grudge-rts.grudge-studio.com',
   // ── Third-party hosting ──
   'https://app.puter.com',
   'https://molochdagod.github.io',
