@@ -28,11 +28,14 @@ $BASE     = "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records"
 # proxied = false → DNS only (bypass Cloudflare)
 $records = @(
   # VPS backend services — all proxied through Cloudflare
-  @{ type="A"; name="id";       content=$VPS_IP; proxied=$true;  comment="Grudge Identity API" },
-  @{ type="A"; name="api";      content=$VPS_IP; proxied=$true;  comment="Grudge Game API" },
-  @{ type="A"; name="account";  content=$VPS_IP; proxied=$true;  comment="Grudge Account API" },
-  @{ type="A"; name="launcher"; content=$VPS_IP; proxied=$true;  comment="Grudge Launcher API" },
-  @{ type="A"; name="ws";       content=$VPS_IP; proxied=$true;  comment="Grudge WebSocket (game server)" },
+  @{ type="A"; name="id";         content=$VPS_IP; proxied=$true;  comment="Grudge Identity API" },
+  @{ type="A"; name="api";        content=$VPS_IP; proxied=$true;  comment="Grudge Game API" },
+  @{ type="A"; name="account";    content=$VPS_IP; proxied=$true;  comment="Grudge Account API" },
+  @{ type="A"; name="launcher";   content=$VPS_IP; proxied=$true;  comment="Grudge Launcher API" },
+  @{ type="A"; name="ws";         content=$VPS_IP; proxied=$true;  comment="Grudge WebSocket (game server)" },
+  @{ type="A"; name="assets-api"; content=$VPS_IP; proxied=$true;  comment="Grudge Asset Service" },
+  @{ type="A"; name="bridge";     content=$VPS_IP; proxied=$true;  comment="Grudge Bridge (backup/deploy/mesh)" },
+  @{ type="A"; name="status";     content=$VPS_IP; proxied=$true;  comment="Uptime Kuma status dashboard" },
 
   # Cloudflare Workers — CNAME to workers.dev (proxied so route triggers)
   @{ type="CNAME"; name="dash";   content="grudge-dashboard.grudge.workers.dev"; proxied=$true;  comment="Backend dashboard Worker" },
