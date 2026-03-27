@@ -23,6 +23,7 @@ const express = require('express');
 const router  = express.Router();
 const { getDB }    = require('../db');
 const { getRedis } = require('../redis');
+const serverManager = require('../pvp-server-manager');
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -77,11 +78,13 @@ async function resolveChar(db, char_id, grudge_id) {
 }
 
 // ── POST /pvp/lobby ──────────────────────────────────────────
-// Create a new lobby. Body: { mode, island?, max_players?, settings?, char_id }
+// Create a new lobby. Body: { mode, island?, max_players?, settings?, char_id, grudge_id? (internal only) }
 router.post('/lobby', async (req, res, next) => {
   try {
     const { mode = 'duel', island = 'spawn', char_id, settings = {} } = req.body;
-    const grudge_id = req.user.grudge_id;
+    // Internal matchmaking calls pass grudge_id in body
+    const grudge_id = req.isInternal ? (req.body.grudge_id || req.user?.grudge_id) : req.user.grudge_id;
+    if (!grudge_id) return res.status(400).json({ error: 'grudge_id required' });
 
     if (!VALID_MODES.includes(mode))
       return res.status(400).json({ error: `mode must be: ${VALID_MODES.join(', ')}` });
@@ -138,12 +141,14 @@ router.post('/lobby', async (req, res, next) => {
 });
 
 // ── POST /pvp/lobby/:code/join ───────────────────────────────
-// Join an open lobby. Body: { char_id, team? }
+// Join an open lobby. Body: { char_id, team?, grudge_id? (internal only) }
 router.post('/lobby/:code/join', async (req, res, next) => {
   try {
     const { code }       = req.params;
     const { char_id, team = 0 } = req.body;
-    const grudge_id      = req.user.grudge_id;
+    // Internal matchmaking calls pass grudge_id in body
+    const grudge_id = req.isInternal ? (req.body.grudge_id || req.user?.grudge_id) : req.user.grudge_id;
+    if (!grudge_id) return res.status(400).json({ error: 'grudge_id required' });
 
     if (!char_id) return res.status(400).json({ error: 'char_id required' });
 
@@ -279,6 +284,20 @@ router.post('/lobby/:code/start', async (req, res, next) => {
     if (unready.length > 0)
       return res.status(409).json({ error: `${unready.length} player(s) not ready` });
 
+    // Attempt to allocate a dedicated game server for this match
+    let server = null;
+    try {
+      server = await serverManager.allocateServer(code, players.length);
+      if (server) {
+        await serverManager.markInMatch(server.server_id, players.length);
+        console.log(`[pvp] Allocated server ${server.server_id} (${server.host}:${server.port}) for ${code}`);
+      } else {
+        console.log(`[pvp] No dedicated server available for ${code} — using relay mode`);
+      }
+    } catch (e) {
+      console.warn('[pvp] Server allocation error:', e.message);
+    }
+
     await db.query(
       `UPDATE pvp_lobbies SET status = 'in_progress', started_at = NOW() WHERE id = ?`,
       [lobby.id]
@@ -292,6 +311,8 @@ router.post('/lobby/:code/start', async (req, res, next) => {
         lobby_id:   lobby.id,
         mode:       lobby.mode,
         island:     lobby.island,
+        // Include server connection info so clients can connect directly
+        server:     server ? { host: server.host, port: server.port, server_id: server.server_id } : null,
         players:    players.map(p => ({
           grudge_id: p.grudge_id,
           char_id:   p.char_id,
@@ -305,7 +326,11 @@ router.post('/lobby/:code/start', async (req, res, next) => {
       }));
     } catch {}
 
-    res.json({ ok: true, lobby_code: code, mode: lobby.mode, island: lobby.island, player_count: players.length });
+    res.json({
+      ok: true, lobby_code: code, mode: lobby.mode, island: lobby.island,
+      player_count: players.length,
+      server: server ? { host: server.host, port: server.port } : null,
+    });
   } catch (err) { next(err); }
 });
 
@@ -546,43 +571,78 @@ router.post('/match/result', async (req, res, next) => {
       [lobby.id]
     );
 
-    // ── Update ELO ratings for duel mode (1v1) ───────────────
-    if (lobby.mode === 'duel' && winner_grudge_id) {
-      const [players] = await db.query(
-        `SELECT grudge_id FROM pvp_lobby_players WHERE lobby_id = ?`, [lobby.id]
+    // ── Update ELO ratings ──────────────────────────────────────
+    const [allPlayers] = await db.query(
+      `SELECT grudge_id, team FROM pvp_lobby_players WHERE lobby_id = ?`, [lobby.id]
+    );
+
+    /** Helper: update a single player's rating row */
+    async function applyEloUpdate(gid, newRating, result) {
+      const win  = result === 1;
+      const loss = result === 0;
+      const draw = result === 0.5;
+      await db.query(
+        `UPDATE pvp_ratings SET
+           rating      = ?,
+           peak_rating = GREATEST(peak_rating, ?),
+           wins        = wins   + ?,
+           losses      = losses + ?,
+           draws       = draws  + ?,
+           streak      = IF(? = 1, GREATEST(streak + 1, 1),
+                          IF(? = 0, LEAST(streak - 1, -1), 0))
+         WHERE grudge_id = ? AND mode = ?`,
+        [newRating, newRating,
+         win ? 1 : 0, loss ? 1 : 0, draw ? 1 : 0,
+         result, result,
+         gid, lobby.mode]
       );
-      if (players.length === 2) {
-        const [pA, pB] = players;
-        const ratingA = await ensureRating(db, pA.grudge_id, lobby.mode);
-        const ratingB = await ensureRating(db, pB.grudge_id, lobby.mode);
+    }
 
-        const resultA = pA.grudge_id === winner_grudge_id ? 1 :
-                        pB.grudge_id === winner_grudge_id ? 0 : 0.5;
-        const { newA, newB } = calcElo(ratingA, ratingB, resultA);
+    if (lobby.mode === 'duel' && winner_grudge_id && allPlayers.length === 2) {
+      // ── Duel: standard 1v1 ELO ──────────────────────────────
+      const [pA, pB] = allPlayers;
+      const ratingA = await ensureRating(db, pA.grudge_id, lobby.mode);
+      const ratingB = await ensureRating(db, pB.grudge_id, lobby.mode);
+      const resultA = pA.grudge_id === winner_grudge_id ? 1 :
+                      pB.grudge_id === winner_grudge_id ? 0 : 0.5;
+      const { newA, newB } = calcElo(ratingA, ratingB, resultA);
+      await applyEloUpdate(pA.grudge_id, newA, resultA);
+      await applyEloUpdate(pB.grudge_id, newB, 1 - resultA);
 
-        for (const [gid, newRating, result] of [
-          [pA.grudge_id, newA, resultA],
-          [pB.grudge_id, newB, 1 - resultA],
-        ]) {
-          const win    = result === 1;
-          const loss   = result === 0;
-          const draw   = result === 0.5;
-          await db.query(
-            `UPDATE pvp_ratings SET
-               rating      = ?,
-               peak_rating = GREATEST(peak_rating, ?),
-               wins        = wins   + ?,
-               losses      = losses + ?,
-               draws       = draws  + ?,
-               streak      = IF(? = 1, GREATEST(streak + 1, 1),
-                              IF(? = 0, LEAST(streak - 1, -1), 0))
-             WHERE grudge_id = ? AND mode = ?`,
-            [newRating, newRating,
-             win ? 1 : 0, loss ? 1 : 0, draw ? 1 : 0,
-             result, result,
-             gid, lobby.mode]
-          );
+    } else if (lobby.mode === 'crew_battle' && winner_team != null && allPlayers.length >= 2) {
+      // ── Crew Battle: team-averaged ELO ──────────────────────
+      const winners = allPlayers.filter(p => p.team === winner_team);
+      const losers  = allPlayers.filter(p => p.team !== winner_team && p.team !== 0);
+      if (winners.length && losers.length) {
+        // Get average ratings per team
+        const wRatings = await Promise.all(winners.map(p => ensureRating(db, p.grudge_id, lobby.mode)));
+        const lRatings = await Promise.all(losers.map(p => ensureRating(db, p.grudge_id, lobby.mode)));
+        const avgW = Math.round(wRatings.reduce((a, b) => a + b, 0) / wRatings.length);
+        const avgL = Math.round(lRatings.reduce((a, b) => a + b, 0) / lRatings.length);
+        const { newA: teamWNew, newB: teamLNew } = calcElo(avgW, avgL, 1);
+        const wDelta = teamWNew - avgW;
+        const lDelta = teamLNew - avgL;
+        for (let i = 0; i < winners.length; i++) {
+          const nr = Math.max(100, wRatings[i] + wDelta);
+          await applyEloUpdate(winners[i].grudge_id, nr, 1);
         }
+        for (let i = 0; i < losers.length; i++) {
+          const nr = Math.max(100, lRatings[i] + lDelta);
+          await applyEloUpdate(losers[i].grudge_id, nr, 0);
+        }
+      }
+
+    } else if (lobby.mode === 'arena_ffa' && winner_grudge_id && allPlayers.length >= 2) {
+      // ── Arena FFA: winner gains vs average of losers, losers lose vs winner ──
+      const losers = allPlayers.filter(p => p.grudge_id !== winner_grudge_id);
+      const winnerRating = await ensureRating(db, winner_grudge_id, lobby.mode);
+      const loserRatings = await Promise.all(losers.map(p => ensureRating(db, p.grudge_id, lobby.mode)));
+      const avgLoser = Math.round(loserRatings.reduce((a, b) => a + b, 0) / loserRatings.length);
+      const { newA: winnerNew } = calcElo(winnerRating, avgLoser, 1);
+      await applyEloUpdate(winner_grudge_id, winnerNew, 1);
+      for (let i = 0; i < losers.length; i++) {
+        const { newB: loserNew } = calcElo(winnerRating, loserRatings[i], 1);
+        await applyEloUpdate(losers[i].grudge_id, loserNew, 0);
       }
     }
 
@@ -601,6 +661,53 @@ router.post('/match/result', async (req, res, next) => {
     } catch {}
 
     res.status(201).json({ match_id: matchResult.insertId, ok: true });
+  } catch (err) { next(err); }
+});
+
+// ── POST /pvp/server/register [INTERNAL] ─────────────────────
+// Headless game server registers/heartbeats itself.
+// Body: { server_id, host, port, capacity?, current_players? }
+router.post('/server/register', async (req, res, next) => {
+  try {
+    if (!req.isInternal) return res.status(403).json({ error: 'Internal only' });
+    const { server_id, host, port, capacity, current_players } = req.body;
+    if (!server_id || !host || !port)
+      return res.status(400).json({ error: 'server_id, host, port required' });
+    await serverManager.registerServer(server_id, { host, port, capacity, current_players });
+    res.json({ ok: true, server_id });
+  } catch (err) { next(err); }
+});
+
+// ── POST /pvp/server/release [INTERNAL] ──────────────────────
+// Release a server back to idle after match ends.
+// Body: { server_id }
+router.post('/server/release', async (req, res, next) => {
+  try {
+    if (!req.isInternal) return res.status(403).json({ error: 'Internal only' });
+    const { server_id } = req.body;
+    if (!server_id) return res.status(400).json({ error: 'server_id required' });
+    await serverManager.releaseServer(server_id);
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+// ── DELETE /pvp/server/:id [INTERNAL] ────────────────────────
+// Remove a server from the pool.
+router.delete('/server/:id', async (req, res, next) => {
+  try {
+    if (!req.isInternal) return res.status(403).json({ error: 'Internal only' });
+    await serverManager.deregisterServer(req.params.id);
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+// ── GET /pvp/servers [INTERNAL] ──────────────────────────────
+// List all registered game servers and their status.
+router.get('/servers', async (req, res, next) => {
+  try {
+    if (!req.isInternal) return res.status(403).json({ error: 'Internal only' });
+    const servers = await serverManager.listServers();
+    res.json({ servers });
   } catch (err) { next(err); }
 });
 

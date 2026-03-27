@@ -45,8 +45,11 @@ app.get('/', (req, res) => res.json({
       verify: 'POST /auth/verify',
     },
     identity: {
-      me: 'GET /identity/me (Bearer JWT)',
-      update: 'PATCH /identity/me (Bearer JWT)',
+      me:           'GET /identity/me (Bearer JWT)',
+      update:       'PATCH /identity/me (Bearer JWT)',
+      linkPuter:    'POST /identity/link-puter — create/link Grudge ID from Puter UUID (PIP onboarding)',
+      linkAuth:     'POST /identity/link-auth  — attach Discord/wallet/web3auth to Grudge ID',
+      claimAccount: 'POST /identity/claim-account — upgrade temp Puter account to permanent',
     },
   },
   docs: 'https://github.com/MolochDaGod/grudge-studio-backend/blob/main/docs/API.md',

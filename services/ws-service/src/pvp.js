@@ -79,12 +79,12 @@ function setupPvP(io, redisSub, redisPub, authMiddleware) {
       });
     });
 
-    // ── In-match action relay ───────────────────────────────
-    // Types: 'attack', 'parry', 'dodge', 'z_key', 'ability', 'worge_form', 'hit'
+    // ── In-match action relay ─────────────────────────────
+    // Types: 'attack', 'parry', 'dodge', 'z_key', 'ability', 'worge_form', 'hit', 'death', 'position'
     socket.on('pvp:action', ({ lobby_code, type, data } = {}) => {
       if (!lobby_code || !type) return;
       if (!socket.rooms.has(`pvp:lobby:${lobby_code}`)) return; // must be in lobby
-      const VALID_ACTIONS = ['attack', 'parry', 'dodge', 'z_key', 'ability', 'worge_form', 'hit', 'death'];
+      const VALID_ACTIONS = ['attack', 'parry', 'dodge', 'z_key', 'ability', 'worge_form', 'hit', 'death', 'position'];
       if (!VALID_ACTIONS.includes(type)) return;
 
       // Relay to everyone else in the lobby room
@@ -100,6 +100,61 @@ function setupPvP(io, redisSub, redisPub, authMiddleware) {
         try {
           redisPub.publish('grudge:event:z-cry', JSON.stringify({ grudge_id, lobby_code, ts: Date.now() }));
         } catch {}
+      }
+    });
+
+    // ── Game state push from headless server (internal only) ────
+    // The headless server pushes authoritative game state updates
+    socket.on('pvp:game_state', ({ lobby_code, state } = {}) => {
+      if (!socket.isInternal) return; // only headless server can push state
+      if (!lobby_code || !state) return;
+      pvpNS.to(`pvp:lobby:${lobby_code}`).emit('pvp:game_state', {
+        lobby_code,
+        state,
+        ts: Date.now(),
+      });
+    });
+
+    // ── Match result from headless server (internal only) ──────
+    // Headless server submits final match result directly via WebSocket
+    socket.on('pvp:server_match_end', async ({ lobby_code, winner_grudge_id, winner_team, duration_ms, match_data, server_id } = {}) => {
+      if (!socket.isInternal) return;
+      if (!lobby_code) return;
+      // Forward to game-api via internal HTTP to record result + update ELO
+      try {
+        const http = require('http');
+        const [apiHost, apiPortStr] = (GAME_API_URL.replace('http://', '')).split(':');
+        const apiPort = Number(apiPortStr) || 3003;
+        const payload = JSON.stringify({ lobby_code, winner_grudge_id, winner_team, duration_ms, match_data });
+        const req = http.request({
+          hostname: apiHost, port: apiPort, path: '/pvp/match/result', method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(payload),
+            'x-internal-key': INTERNAL_KEY,
+          },
+        }, () => {});
+        req.on('error', (e) => console.warn('[ws/pvp] server_match_end relay error:', e.message));
+        req.write(payload);
+        req.end();
+
+        // Release the server back to idle
+        if (server_id) {
+          const releasePayload = JSON.stringify({ server_id });
+          const relReq = http.request({
+            hostname: apiHost, port: apiPort, path: '/pvp/server/release', method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(releasePayload),
+              'x-internal-key': INTERNAL_KEY,
+            },
+          }, () => {});
+          relReq.on('error', () => {});
+          relReq.write(releasePayload);
+          relReq.end();
+        }
+      } catch (e) {
+        console.error('[ws/pvp] server_match_end error:', e.message);
       }
     });
 
@@ -212,23 +267,73 @@ function setupPvP(io, redisSub, redisPub, authMiddleware) {
     }
   }
 
+  /**
+   * Creates a real lobby in game-api via internal HTTP call,
+   * then auto-joins the second player.
+   * Returns the lobby_code or null on failure.
+   */
   async function createMatchmakingLobby(mode, pA, pB) {
-    // Use node http to call game-api internally with x-internal-key
-    return new Promise((resolve) => {
-      try {
-        const http = require('http');
-        const [host, portStr] = (GAME_API_URL.replace('http://', '')).split(':');
-        const port = Number(portStr) || 3003;
-        const code = `MM-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    const http = require('http');
+    const [host, portStr] = (GAME_API_URL.replace('http://', '')).split(':');
+    const port = Number(portStr) || 3003;
 
-        // We publish to Redis with a pre-generated code and let game-api validate later
-        // For now, generate lobby_code here and emit to clients
-        // Full implementation would POST to /pvp/lobby [internal] with both players
-        resolve(code);
-      } catch {
-        resolve(null);
+    // Helper: make an internal POST to game-api
+    function internalPost(path, body) {
+      return new Promise((resolve, reject) => {
+        const payload = JSON.stringify(body);
+        const req = http.request({
+          hostname: host, port, path, method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(payload),
+            'x-internal-key': INTERNAL_KEY,
+          },
+        }, (res) => {
+          let data = '';
+          res.on('data', (chunk) => data += chunk);
+          res.on('end', () => {
+            try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
+            catch { resolve({ status: res.statusCode, body: data }); }
+          });
+        });
+        req.on('error', reject);
+        req.setTimeout(5000, () => { req.destroy(); reject(new Error('timeout')); });
+        req.write(payload);
+        req.end();
+      });
+    }
+
+    try {
+      // 1. Create lobby as player A (host)
+      const createRes = await internalPost('/pvp/lobby', {
+        mode,
+        island: 'spawn',
+        char_id: pA.char_id,
+        grudge_id: pA.grudge_id,
+        settings: { wager_gold: 0, time_limit_s: 300, source: 'matchmaking' },
+      });
+      if (createRes.status !== 201 || !createRes.body?.lobby_code) {
+        console.warn('[ws/pvp] matchmaking lobby create failed:', createRes.body);
+        return null;
       }
-    });
+
+      const lobby_code = createRes.body.lobby_code;
+
+      // 2. Join player B into the lobby
+      const joinRes = await internalPost(`/pvp/lobby/${lobby_code}/join`, {
+        char_id: pB.char_id,
+        grudge_id: pB.grudge_id,
+      });
+      if (joinRes.status !== 200) {
+        console.warn('[ws/pvp] matchmaking join failed for pB:', joinRes.body);
+        // Lobby exists but only host is in — still return code so host isn't stuck
+      }
+
+      return lobby_code;
+    } catch (err) {
+      console.error('[ws/pvp] createMatchmakingLobby error:', err.message);
+      return null;
+    }
   }
 
   // ── Handle Redis messages for PvP ────────────────────────────
@@ -255,6 +360,7 @@ function setupPvP(io, redisSub, redisPub, authMiddleware) {
               lobby_code: data.lobby_code,
               mode:       data.mode,
               island:     data.island,
+              server:     data.server || null,  // { host, port } if dedicated server allocated
               players:    data.players,
               ts:         Date.now(),
             });

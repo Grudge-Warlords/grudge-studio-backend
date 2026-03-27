@@ -155,22 +155,28 @@ GET  /combat/leaderboard             — Top 25 by kills
 ### PvP (v2)
 ```
 GET  /pvp/lobbies                    — Open lobbies (?mode=duel|crew_battle|arena_ffa&limit=N)
-POST /pvp/lobbies                    — Create lobby { mode, island, is_private }
-GET  /pvp/lobbies/:code              — Lobby detail
-POST /pvp/lobbies/:code/join         — Join lobby
-POST /pvp/lobbies/:code/ready        — Toggle ready
-POST /pvp/lobbies/:code/leave        — Leave lobby
-POST /pvp/lobbies/:code/start [INT]  — Force-start lobby (internal)
-GET  /pvp/queue                      — Player's current queue status
-POST /pvp/queue                      — Join matchmaking queue { mode }
+POST /pvp/lobby                      — Create lobby { mode, island, char_id, settings }
+GET  /pvp/lobby/:code                — Lobby detail
+POST /pvp/lobby/:code/join           — Join lobby { char_id }
+POST /pvp/lobby/:code/ready          — Toggle ready
+POST /pvp/lobby/:code/start          — Host starts match (all must be ready)
+DELETE /pvp/lobby/:code/leave        — Leave lobby
+POST /pvp/queue                      — Join matchmaking queue { mode, char_id }
 DELETE /pvp/queue                    — Leave matchmaking queue
-GET  /pvp/leaderboard                — ELO rankings (?mode=duel&limit=10)
-GET  /pvp/match/:id                  — Match detail
-POST /pvp/match/:id/result [INT]     — Submit match result + ELO update
+GET  /pvp/ratings                    — Player ELO ratings
+GET  /pvp/leaderboard                — ELO rankings (?mode=duel&limit=50)
+POST /pvp/match/result [INT]         — Submit match result + ELO update (all modes)
+
+Server Management (INTERNAL):
+POST   /pvp/server/register [INT]    — Headless server registers/heartbeats { server_id, host, port, capacity }
+POST   /pvp/server/release  [INT]    — Release server back to idle { server_id }
+DELETE /pvp/server/:id      [INT]    — Remove server from pool
+GET    /pvp/servers          [INT]    — List all registered game servers + status
 
 Modes: duel (2p) · crew_battle (up to 10) · arena_ffa (up to 16)
 ELO:   K=32, default 1200, floor 100, queue range ±150, TTL 300s
 Codes: GRD-XXXX format
+Server allocation: auto-assigns idle headless server on match start; falls back to relay mode
 ```
 
 ### Islands (10 islands: island_1 through island_10)
@@ -253,14 +259,19 @@ pvp.emit('leave_lobby', { lobby_code });
 pvp.emit('ready',       { lobby_code });
 
 // Match events (server → client)
-pvp.on('lobby_update',   (data) => { /* player list, ready status */ });
-pvp.on('countdown',      ({ seconds }) => { /* 3-2-1 */ });
-pvp.on('match_start',    ({ match_id, players }) => { /* match begins */ });
-pvp.on('match_end',      ({ winner_id, elo_changes }) => { /* result */ });
+pvp.on('pvp:player_joined', (data) => { /* player joined lobby */ });
+pvp.on('pvp:player_left',   (data) => { /* player left lobby */ });
+pvp.on('pvp:ready_update',  (data) => { /* { grudge_id, is_ready, all_ready } */ });
+pvp.on('pvp:countdown',     ({ seconds }) => { /* 5-4-3-2-1 */ });
+pvp.on('pvp:match_start',   ({ lobby_code, mode, island, server, players }) => {
+  // server: { host, port } if dedicated server allocated, null = relay mode
+});
+pvp.on('pvp:match_end',     ({ winner_grudge_id, winner_team, match_id }) => { /* result */ });
+pvp.on('pvp:game_state',    ({ state }) => { /* authoritative state from headless server */ });
 
 // Matchmaking queue
-pvp.emit('join_queue',  { mode: 'duel' });
-pvp.on('queue_matched', ({ lobby_code }) => { /* auto-join lobby code */ });
+pvp.emit('pvp:queue_join',  { mode: 'duel' });
+pvp.on('pvp:queue_matched', ({ lobby_code, mode }) => { /* auto-join lobby code */ });
 
 // In-match action relay
 pvp.emit('action', { match_id, type, payload });
@@ -660,7 +671,7 @@ services:
 All frontends authenticate via `id.grudge-studio.com` and call `api.grudge-studio.com` for game data.
 
 **Vercel Frontends (all ✅ connected to VPS):**
-- `grudge-platform.vercel.app` — Proxies auth to `id.grudge-studio.com`, game data to `api.grudge-studio.com` (PR #57, March 2026)
+- `grudge-platform.vercel.app` / `grudgeplatform.io` — Proxies auth to `id.grudge-studio.com`, game data to `api.grudge-studio.com` (PR #57, March 2026)
 - `grudgewarlords.com` (= `warlord-crafting-suite.vercel.app`) — Direct VPS calls
 - `warlord-crafting-suite.vercel.app` — Direct VPS calls
 - `gdevelop-assistant.vercel.app` — Direct VPS calls
@@ -699,7 +710,7 @@ These old URLs have been **completely removed** from every repo's source code:
 
 ### CORS_ORIGINS (current — docker-compose.yml)
 ```
-https://grudgewarlords.com,https://www.grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudgeplatform.com,https://www.grudgeplatform.com,https://grudachain.grudgestudio.com,https://grudachain-rho.vercel.app,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://gruda-wars.vercel.app,https://grudge-engine-web.vercel.app,https://starwaygruda-webclient-as2n.vercel.app,https://grim-armada-web.vercel.app,https://grudge-angeler.vercel.app,https://grudge-rts.vercel.app,https://grudge-studio-dash.vercel.app,https://nexus-nemesis-game.vercel.app,https://grudge-pvp-server.vercel.app,https://grudge-origins.vercel.app,https://app.puter.com,https://molochdagod.github.io
+https://grudgewarlords.com,https://www.grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudgeplatform.com,https://www.grudgeplatform.com,https://grudgeplatform.io,https://www.grudgeplatform.io,https://play.grudgeplatform.io,https://grudachain.grudgestudio.com,https://grudachain-rho.vercel.app,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://gruda-wars.vercel.app,https://grudge-engine-web.vercel.app,https://starwaygruda-webclient-as2n.vercel.app,https://grim-armada-web.vercel.app,https://grudge-angeler.vercel.app,https://grudge-rts.vercel.app,https://grudge-studio-dash.vercel.app,https://nexus-nemesis-game.vercel.app,https://grudge-pvp-server.vercel.app,https://grudge-origins.vercel.app,https://app.puter.com,https://molochdagod.github.io
 ```
 
 ---
@@ -710,7 +721,7 @@ https://grudgewarlords.com,https://www.grudgewarlords.com,https://grudge-studio.
 |----------|-----|
 | GitHub Repo | https://github.com/MolochDaGod/grudge-studio-backend |
 | Live Site | https://grudge-studio.com |
-| Platform Hub | https://grudge-platform.vercel.app |
+| Platform Hub | https://grudgeplatform.io |
 | Dashboard | https://dash.grudge-studio.com |
 | API Health | https://api.grudge-studio.com/health |
 | WS Health | https://ws.grudge-studio.com/health |

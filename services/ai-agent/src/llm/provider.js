@@ -254,3 +254,4 @@ Hotbar: ${s.mechanics.hotbar}`;
 }
 
 module.exports = { chat, chatJSON, getProviderStatus, getGameContext, PROVIDERS };
+

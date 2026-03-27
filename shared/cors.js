@@ -83,6 +83,9 @@ function isAllowedRedirect(uri) {
       host.endsWith('.grudgestudio.com') ||
       host === 'grudgeplatform.com' ||
       host === 'www.grudgeplatform.com' ||
+      host === 'grudgeplatform.io' ||
+      host === 'www.grudgeplatform.io' ||
+      host.endsWith('.grudgeplatform.io') ||
       host.endsWith('.vercel.app') ||
       host.endsWith('.puter.site') ||
       host === 'app.puter.com' ||
