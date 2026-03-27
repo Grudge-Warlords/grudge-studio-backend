@@ -81,17 +81,17 @@ router.post('/link-puter', async (req, res, next) => {
     // 1. Does this Puter UUID already exist?
     const [existing] = await db.query(
       `SELECT grudge_id, username, puter_id, discord_id, discord_tag,
-              wallet_address, web3auth_id, is_temp, is_active, created_at, last_login
+              wallet_address, web3auth_id, is_guest, is_active, created_at, last_login
        FROM users WHERE puter_id = ? LIMIT 1`,
       [puterUuid]
     );
 
     if (existing.length) {
       const u = existing[0];
-      // Update is_temp status if they've claimed their account
-      if (u.is_temp && !isTemp) {
+      // Update is_guest status if they've claimed their account
+      if (u.is_guest && !isTemp) {
         await db.query(
-          'UPDATE users SET is_temp = 0, last_login = ? WHERE puter_id = ?',
+          'UPDATE users SET is_guest = 0, last_login = ? WHERE puter_id = ?',
           [now, puterUuid]
         );
       } else {
@@ -102,7 +102,7 @@ router.post('/link-puter', async (req, res, next) => {
         grudgeId:    u.grudge_id,
         puterUuid,
         username:    u.username,
-        isTemp:      isTemp ? (u.is_temp === 1) : false,
+        isTemp:      isTemp ? (u.is_guest === 1) : false,
         isNew:       false,
         linkedAuth: {
           discord:       u.discord_id   || undefined,
@@ -121,7 +121,7 @@ router.post('/link-puter', async (req, res, next) => {
 
     await db.query(
       `INSERT INTO users
-         (grudge_id, username, puter_id, is_temp, is_active, created_at, last_login)
+         (grudge_id, username, puter_id, is_guest, is_active, created_at, last_login)
        VALUES (?, ?, ?, ?, 1, ?, ?)`,
       [grudgeId, safeUsername, puterUuid, isTemp ? 1 : 0, now, now]
     );
@@ -212,7 +212,7 @@ router.post('/link-auth', async (req, res, next) => {
 
 // ── POST /identity/claim-account ──────────────────────────────────────────────
 // Called when a temp Puter user upgrades to a permanent account.
-// Updates is_temp flag in our DB.
+// Updates is_guest flag in our DB.
 // Body: { puterUuid }
 router.post('/claim-account', async (req, res, next) => {
   try {
@@ -221,7 +221,7 @@ router.post('/claim-account', async (req, res, next) => {
 
     const db = getDB();
     const [result] = await db.query(
-      'UPDATE users SET is_temp = 0, last_login = NOW() WHERE puter_id = ?',
+      'UPDATE users SET is_guest = 0, last_login = NOW() WHERE puter_id = ?',
       [puterUuid]
     );
 
@@ -259,3 +259,4 @@ router.get('/:grudge_id', async (req, res, next) => {
 });
 
 module.exports = router;
+
