@@ -716,4 +716,57 @@ Then run: `node scripts/setup-cloudflare-access.js` with a Zero Trust token.
 
 ---
 
+## 12. Cloudflare Zero Trust — The Login Page <a name="zero-trust"></a>
+
+**Team domain:** `grudgestudio.cloudflareaccess.com`
+**Login page:** `https://grudgestudio.cloudflareaccess.com` (free, branded, hosted by Cloudflare)
+
+This is the correct entry point for any Grudge web app that needs auth. Cloudflare handles
+Discord/Google/GitHub OAuth — no custom OAuth code needed in your app.
+
+### Identity Providers configured
+| Provider | ID | Type |
+|---|---|---|
+| Google | `b00a86c9-b668-483a-8ef7-5926e6ff20a2` | google |
+| GitHub | `7674fcea-eb22-4c98-a4fb-cb22347ddfdb` | github |
+| One-Time PIN | (existing) | onetimepin |
+
+**Discord OAuth** — add `https://grudgestudio.cloudflareaccess.com/cdn-cgi/access/callback`
+as a redirect URI in your Discord developer app to enable Discord through CF Access.
+
+### Access Applications
+| App | Domain | AUD Tag |
+|---|---|---|
+| Grudge Studio Dashboard | `dash.grudge-studio.com` | `cdd3ad7ba2cf2ff3b1d9adfd2760ba0ca5caebbee80885a5359fb5a879572a22` |
+| Grudge AI Hub | `ai.grudge-studio.com` | `3328a5aa868f61973b8f74890e984f2ab2f209bb15118ee99da6b61cba306038` |
+
+### JWT Validation (in Workers / VPS routes)
+When CF Access protects a route, every request includes `Cf-Access-Jwt-Assertion` header.
+```javascript
+// Workers (already wired in cfAccess.js)
+const JWKS = createRemoteJWKSet(
+  new URL('https://grudgestudio.cloudflareaccess.com/cdn-cgi/access/certs')
+);
+const { payload } = await jwtVerify(token, JWKS, {
+  issuer: 'https://grudgestudio.cloudflareaccess.com',
+  audience: POLICY_AUD, // the app's AUD tag above
+});
+// payload.email = user's verified email
+```
+
+### Service Token (Vercel → VPS M2M)
+```
+CF-Access-Client-Id: bd7fefdfafce2e7eef33d66b1e56b7c0.access
+CF-Access-Client-Secret: c96c4c9806bcdc2ec7908f62170777b5ec6c9e7d1b7cbb8b0bf10c7e4a83faf8
+```
+Add these headers on any service-to-service call instead of `x-internal-key`.
+
+### What CF Access does NOT replace
+- `id.grudge-studio.com` — still needed for player Grudge JWT issuance (API tokens)
+- `grudge_auth_token` — still the player session token for game API calls
+- CF Access is the **front door** for web browsers; your backend API still issues
+  Grudge JWTs for in-game/mobile use
+
+---
+
 *Last updated: 2026-03-27 | Grudge Studio by Racalvin The Pirate King*
