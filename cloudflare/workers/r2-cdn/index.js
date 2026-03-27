@@ -41,12 +41,19 @@ const ALLOWED_ORIGINS = new Set([
   'https://grudgeplatform.io',
   'https://www.grudgeplatform.io',
   'https://play.grudgeplatform.io',
-  // ── Cloudflare Pages / subdomains ──
+  // ── Grudge Studio subdomains ──
   'https://grudachain.grudgestudio.com',
   'https://dash.grudge-studio.com',
   'https://assets.grudge-studio.com',
+  'https://objectstore.grudge-studio.com',
   'https://launcher.grudge-studio.com',
-  'https://app.grudge-studio.com',
+  'https://game.grudge-studio.com',
+  'https://nexus.grudge-studio.com',
+  'https://play.grudge-studio.com',
+  'https://client.grudge-studio.com',
+  'https://auth.grudge-studio.com',
+  'https://ai.grudge-studio.com',
+  'https://grudge-rts.grudge-studio.com',
   // ── Vercel frontends ──
   'https://grudge-platform.vercel.app',
   'https://grudachain-rho.vercel.app',
@@ -56,9 +63,13 @@ const ALLOWED_ORIGINS = new Set([
   'https://grudge-engine-web.vercel.app',
   'https://starwaygruda-webclient-as2n.vercel.app',
   'https://grudge-space-rts.vercel.app',
-  // ── Grudge Studio subdomains ──
-  'https://grudge-rts.grudge-studio.com',
-  // ── Third-party hosting ──
+  'https://grudge-warlords-game.vercel.app',
+  'https://nexus-nemesis-game.vercel.app',
+  'https://grim-armada-web.vercel.app',
+  'https://grudge-rts.vercel.app',
+  'https://star-way-gruda-web-client.vercel.app',
+  'https://grudge-warlords-3d.vercel.app',
+  // ── Third-party ──
   'https://app.puter.com',
   'https://molochdagod.github.io',
 ]);

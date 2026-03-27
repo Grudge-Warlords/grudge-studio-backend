@@ -26,11 +26,8 @@ ENVIRONMENT = "production"
 pattern = "assets.grudge-studio.com/*"
 zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
 
-# ObjectStore API: objectstore.grudge-studio.com
-# DNS: objectstore  AAAA  100::  (Proxied)
-[[routes]]
-pattern = "objectstore.grudge-studio.com/*"
-zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
+# objectstore.grudge-studio.com is handled by the dedicated objectstore-api worker
+# See cloudflare/workers/objectstore-api/wrangler.toml
 
 # Legacy grudgestudio.com (keep until fully migrated)
 # [[routes]]
