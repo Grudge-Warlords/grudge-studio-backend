@@ -38,6 +38,9 @@ const ALLOWED_ORIGINS = new Set([
   'https://grudgestudio.com',
   'https://grudgeplatform.com',
   'https://www.grudgeplatform.com',
+  'https://grudgeplatform.io',
+  'https://www.grudgeplatform.io',
+  'https://play.grudgeplatform.io',
   // ── Cloudflare Pages / subdomains ──
   'https://grudachain.grudgestudio.com',
   'https://dash.grudge-studio.com',
