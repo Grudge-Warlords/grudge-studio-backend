@@ -50,7 +50,7 @@ export default {
     const path = url.pathname;
 
     // Subdomain routing
-    if (host === 'client.grudge-studio.com') return serveHTML(clientPage);
+    if (host === 'client.grudge-studio.com') return Response.redirect('https://id.grudge-studio.com/device', 301);
     if (host === 'wallet.grudge-studio.com') return handleWalletPage(env);
 
     // CORS preflight
@@ -67,8 +67,8 @@ export default {
         return Response.redirect('https://the-engine-grudgenexus.vercel.app', 302);
       }
       if (ssoRequired) {
-        // No session → send to client portal for login
-        return Response.redirect('https://client.grudge-studio.com', 302);
+      // No session → send to device/auth portal for login
+        return Response.redirect('https://id.grudge-studio.com/device', 302);
       }
       // First visit — ask grudge-id to check the SSO cookie and redirect back
       return Response.redirect(
@@ -417,7 +417,7 @@ function adminDashboardPage(user) {
     <a href="/infra">Infrastructure</a>
     <a href="/systems">Systems</a>
     <a href="/client">Client Portal</a>
-    <a href="https://client.grudge-studio.com" target="_blank">client.grudge-studio.com</a>
+    <a href="https://id.grudge-studio.com/device" target="_blank">id.grudge-studio.com/device</a>
     <a href="https://wallet.grudge-studio.com" target="_blank">wallet.grudge-studio.com</a>
     <a href="https://dash.grudge-studio.com" target="_blank">dash.grudge-studio.com</a>
     <a href="/api/status">API Status (JSON)</a>
@@ -751,7 +751,7 @@ function handlePage(env) {
     <a href="/systems">Systems</a>
     <a href="/client">Client</a>
   </div>
-    <a class="nav-cta" href="https://client.grudge-studio.com" target="_blank">Client Portal</a>
+    <a class="nav-cta" href="https://id.grudge-studio.com/device" target="_blank">Auth Portal</a>
 </nav>
 
 <!-- HERO -->
@@ -978,7 +978,7 @@ function handlePage(env) {
   <div class="f-logo">GRUDGE STUDIO</div>
   <p>Grudge Warlords game backend infrastructure — built for scale, built for battle.</p>
   <div class="f-links">
-    <a href="https://client.grudge-studio.com" target="_blank">Client Portal</a>
+    <a href="https://id.grudge-studio.com/device" target="_blank">Auth Portal</a>
     <div class="f-divider"></div>
     <a href="https://wallet.grudge-studio.com" target="_blank">Wallet</a>
     <div class="f-divider"></div>

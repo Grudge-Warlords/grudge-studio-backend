@@ -94,6 +94,22 @@
   .divider { display:flex; align-items:center; gap:12px; margin:16px 0; }
   .divider::before, .divider::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.08); }
   .divider span { font-size:.65rem; color:rgba(255,255,255,.2); letter-spacing:1px; text-transform:uppercase; }
+
+  /* Form inputs */
+  .form-group { margin-bottom:10px; }
+  .form-group label { display:block; font-size:.68rem; letter-spacing:1px; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:4px; }
+  .form-group input { width:100%; padding:10px 12px; font-size:.85rem; background:rgba(0,0,0,.4); border:1px solid rgba(255,255,255,.12); border-radius:6px; color:#e8dcc8; outline:none; font-family:'Jost',sans-serif; }
+  .form-group input:focus { border-color:rgba(250,172,71,.5); }
+  .form-group input::placeholder { color:rgba(255,255,255,.2); }
+  .login-tabs { display:flex; gap:0; margin-bottom:14px; }
+  .login-tab { flex:1; padding:8px; text-align:center; font-size:.7rem; letter-spacing:1px; text-transform:uppercase; color:rgba(255,255,255,.3); background:rgba(0,0,0,.2); border:1px solid rgba(255,255,255,.06); cursor:pointer; transition:.2s; font-family:'Cinzel',serif; }
+  .login-tab:first-child { border-radius:6px 0 0 6px; }
+  .login-tab:last-child { border-radius:0 6px 6px 0; }
+  .login-tab.active { color:#FAAC47; border-color:rgba(250,172,71,.3); background:rgba(250,172,71,.08); }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+  .inline-row { display:flex; gap:8px; }
+  .inline-row > * { flex:1; }
 </style>
 </head>
 <body>
@@ -136,10 +152,56 @@
     <!-- NOT logged in: show login options -->
     <div id="login-panel">
       <p>Sign in to link this device to your Grudge account</p>
-      <div class="login-options">
-        <button class="primary" onclick="loginWith('discord')">🎮 Continue with Discord</button>
-        <button class="secondary" onclick="loginWith('google')">G&nbsp;&nbsp;Continue with Google</button>
-        <button class="secondary" onclick="loginWith('github')">⬡&nbsp;&nbsp;Continue with GitHub</button>
+
+      <!-- Tabs: OAuth / Credentials / Guest -->
+      <div class="login-tabs">
+        <div class="login-tab active" onclick="showTab('oauth')">OAuth</div>
+        <div class="login-tab" onclick="showTab('creds')">Login</div>
+        <div class="login-tab" onclick="showTab('guest')">Guest</div>
+      </div>
+
+      <!-- OAuth tab -->
+      <div class="tab-panel active" id="tab-oauth">
+        <div class="login-options">
+          <button class="primary" onclick="loginWith('discord')">🎮 Continue with Discord</button>
+          <button class="secondary" onclick="loginWith('google')">G&nbsp;&nbsp;Continue with Google</button>
+          <button class="secondary" onclick="loginWith('github')">⬡&nbsp;&nbsp;Continue with GitHub</button>
+        </div>
+      </div>
+
+      <!-- Credentials tab -->
+      <div class="tab-panel" id="tab-creds">
+        <div class="form-group">
+          <label for="login-id">Username / Email / Grudge ID</label>
+          <input type="text" id="login-id" placeholder="warlord123" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="login-pw">Password</label>
+          <input type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button class="primary" onclick="loginWithCreds()" id="creds-btn">🛡️ SIGN IN</button>
+        <div class="divider"><span>or register</span></div>
+        <div class="form-group">
+          <label for="reg-user">New Username</label>
+          <input type="text" id="reg-user" placeholder="WarriorKing" autocomplete="off">
+        </div>
+        <div class="inline-row">
+          <div class="form-group">
+            <label for="reg-email">Email (optional)</label>
+            <input type="email" id="reg-email" placeholder="you@mail.com" autocomplete="email">
+          </div>
+          <div class="form-group">
+            <label for="reg-pw">Password</label>
+            <input type="password" id="reg-pw" placeholder="••••••" autocomplete="new-password">
+          </div>
+        </div>
+        <button class="secondary" onclick="registerAccount()" id="reg-btn">CREATE ACCOUNT</button>
+      </div>
+
+      <!-- Guest tab -->
+      <div class="tab-panel" id="tab-guest">
+        <p style="font-size:.78rem;color:rgba(255,255,255,.4);margin-bottom:12px;text-align:center">Play instantly — your progress is saved. Claim your account later.</p>
+        <button class="primary" onclick="loginAsGuest()">⚔️ PLAY AS GUEST</button>
       </div>
     </div>
     <!-- Logged in: show user info -->
@@ -185,20 +247,97 @@ function getUser()  {
 }
 
 function logout() {
+  fetch(`${ID}/auth/logout`, { method:'POST', headers:{ Authorization:`Bearer ${getToken()}` } }).catch(()=>{});
   ['grudge_auth_token','grudge_user','grudge_id','grudge_username','grudge_session_token','grudge-session']
     .forEach(k => localStorage.removeItem(k));
   location.reload();
 }
 
+// ── OAuth login — uses 302 redirect routes (NOT /start JSON routes) ──────────
 function loginWith(provider) {
-  const returnUrl = encodeURIComponent(location.href);
-  if (provider === 'discord') {
-    location.href = `${ID}/auth/discord/start?return=${returnUrl}`;
-  } else if (provider === 'google') {
-    location.href = `${ID}/auth/google/start?return=${returnUrl}`;
-  } else if (provider === 'github') {
-    location.href = `${ID}/auth/github/start?return=${returnUrl}`;
-  }
+  const redirect = encodeURIComponent(location.href);
+  // These routes do a proper 302 → provider → callback → redirect back with ?token=
+  location.href = `${ID}/auth/${provider}?redirect_uri=${redirect}`;
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ── Username/password login ──────────────────────────────────────────────────
+async function loginWithCreds() {
+  const identifier = document.getElementById('login-id').value.trim();
+  const password   = document.getElementById('login-pw').value;
+  if (!identifier || !password) { showMsg('Enter username and password.', false); return; }
+  const btn = document.getElementById('creds-btn');
+  btn.disabled = true; btn.textContent = 'SIGNING IN...';
+  try {
+    const r = await fetch(`${ID}/auth/login`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ identifier, password }),
+    });
+    const d = await r.json();
+    if (r.ok && d.token) {
+      handleAuthSuccess(d);
+    } else {
+      showMsg(d.error || 'Login failed', false);
+    }
+  } catch { showMsg('Connection error', false); }
+  btn.disabled = false; btn.textContent = '🛡️ SIGN IN';
+}
+
+// ── Register ─────────────────────────────────────────────────────────────────
+async function registerAccount() {
+  const username = document.getElementById('reg-user').value.trim();
+  const email    = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-pw').value;
+  if (!username || !password) { showMsg('Username and password required.', false); return; }
+  const btn = document.getElementById('reg-btn');
+  btn.disabled = true; btn.textContent = 'CREATING...';
+  try {
+    const r = await fetch(`${ID}/auth/register`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username, email: email || undefined, password }),
+    });
+    const d = await r.json();
+    if (r.ok && d.token) {
+      handleAuthSuccess(d);
+    } else {
+      showMsg(d.error || 'Registration failed', false);
+    }
+  } catch { showMsg('Connection error', false); }
+  btn.disabled = false; btn.textContent = 'CREATE ACCOUNT';
+}
+
+// ── Guest login ──────────────────────────────────────────────────────────────
+async function loginAsGuest() {
+  const deviceId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
+  try {
+    const r = await fetch(`${ID}/auth/guest`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ deviceId }),
+    });
+    const d = await r.json();
+    if (r.ok && d.token) {
+      handleAuthSuccess(d);
+    } else {
+      showMsg(d.error || 'Guest login failed', false);
+    }
+  } catch { showMsg('Connection error', false); }
+}
+
+// ── Common auth success handler ──────────────────────────────────────────────
+function handleAuthSuccess(data) {
+  localStorage.setItem('grudge_auth_token', data.token);
+  if (data.user) localStorage.setItem('grudge_user', JSON.stringify(data.user));
+  if (data.grudgeId || data.grudge_id) localStorage.setItem('grudge_id', data.grudgeId || data.grudge_id);
+  if (data.username) localStorage.setItem('grudge_username', data.username);
+  renderState();
+  showMsg('Signed in! Enter your device code below.', true);
 }
 
 // ── Token ingestion from URL ──────────────────────────────────────────────────
