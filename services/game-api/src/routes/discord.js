@@ -22,7 +22,8 @@ const express = require('express');
 const crypto  = require('crypto');
 const router  = express.Router();
 
-const DISCORD_PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY || '';
+// Grudge Studio app public key (from Discord Developer Portal -> General Information)
+const DISCORD_PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY || '0143abd7607575e363bf3e526fe6cabdd4fba152640d9efad3425699910ee96b';
 const DISCORD_BOT_TOKEN  = process.env.DISCORD_BOT_TOKEN  || '';
 const GAME_API_URL       = process.env.GAME_API_URL       || 'http://localhost:3003';
 
