@@ -352,6 +352,15 @@ router.get('/user', async (req, res, next) => {
       faction: user.faction || null,
       race: user.race || null,
       class: user.class || null,
+      // Connected auth providers
+      discordId:       user.discord_id      || null,
+      discordTag:      user.discord_tag     || null,
+      googleId:        user.google_id       || null,
+      githubId:        user.github_id       || null,
+      githubUsername:  user.github_username || null,
+      puterUuid:       user.puter_uuid      || null,
+      hasPassword:     !!(user.password_hash && user.password_hash !== 'guest'),
+      hasPhone:        !!user.phone,
     });
   } catch (err) { next(err); }
 });

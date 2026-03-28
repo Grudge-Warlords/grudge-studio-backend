@@ -95,6 +95,22 @@
   }
   .btn-primary:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(250,172,71,.3); }
 
+  /* Connected accounts */
+  .conn-list { display:flex; flex-direction:column; gap:8px; }
+  .conn-row {
+    display:flex; align-items:center; gap:12px;
+    background:rgba(0,0,0,.2); border:1px solid rgba(255,255,255,.07);
+    border-radius:9px; padding:10px 14px;
+  }
+  .conn-icon { font-size:1.2rem; width:28px; text-align:center; flex-shrink:0; }
+  .conn-info { flex:1; }
+  .conn-name { font-size:.82rem; font-family:'Cinzel',serif; color:#e8dcc8; }
+  .conn-detail { font-size:.65rem; color:rgba(255,255,255,.3); margin-top:2px; }
+  .conn-linked { font-size:.65rem; padding:2px 8px; border-radius:20px; background:rgba(34,197,94,.1); border:1px solid rgba(34,197,94,.3); color:#4ade80; }
+  .conn-unlinked { font-size:.65rem; padding:2px 8px; border-radius:20px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); color:rgba(255,255,255,.3); }
+  .btn-link { padding:5px 14px; border-radius:6px; font-size:.65rem; letter-spacing:1px; font-family:'Cinzel',serif; cursor:pointer; background:rgba(250,172,71,.08); border:1px solid rgba(250,172,71,.25); color:rgba(250,172,71,.8); transition:.2s; }
+  .btn-link:hover { background:rgba(250,172,71,.15); color:#FAAC47; }
+
   /* Loading */
   .loading { text-align:center; padding:40px; color:rgba(255,255,255,.3); }
   .spinner { display:inline-block; width:24px; height:24px; border:2px solid rgba(250,172,71,.2); border-top-color:#FAAC47; border-radius:50%; animation:spin .7s linear infinite; margin-bottom:8px; }
@@ -255,7 +271,40 @@ async function loadPage() {
       }
       <button class="btn-primary" onclick="location.href='/device'">+ Pair New Device</button>
     </div>
+
+    <!-- Connected Accounts card -->
+    <div class="card">
+      <div class="gold-bar"></div>
+      <div class="card-title">Connected Accounts</div>
+      <div class="conn-list">
+        ${connRow('⚔️', 'Grudge ID', grudgeId ? grudgeId.slice(0,12)+'…' : '—', true, null, 'Always connected — this is your primary identity')}
+        ${connRow('🎮', 'Discord', user.discordTag || null, !!user.discordTag, `${ID}/auth/discord?redirect_uri=${encodeURIComponent(location.href)}`)}
+        ${connRow('G', 'Google', user.email && user.googleId ? user.email : null, !!user.googleId, `${ID}/auth/google?redirect_uri=${encodeURIComponent(location.href)}`)}
+        ${connRow('⬡', 'GitHub', user.githubUsername || null, !!user.githubId, `${ID}/auth/github?redirect_uri=${encodeURIComponent(location.href)}`)}
+        ${connRow('◎', 'Solana Wallet', user.walletAddress ? user.walletAddress.slice(0,12)+'…' : null, !!user.walletAddress, null, user.walletAddress ? 'Connected via Web3Auth' : 'Connect via grudgewarlords.com')}
+        ${connRow('🔑', 'Password', user.hasPassword ? '••••••••' : null, !!user.hasPassword, null, user.hasPassword ? 'Set — use Login tab on /device' : 'Set via Login tab on /device page')}
+      </div>
+    </div>
   `;
+}
+
+function connRow(icon, name, detail, linked, linkUrl, note) {
+  const badge = linked
+    ? `<span class="conn-linked">✓ Connected</span>`
+    : `<span class="conn-unlinked">○ Not linked</span>`;
+  const action = (!linked && linkUrl)
+    ? `<button class="btn-link" onclick="location.href='${escHtml(linkUrl)}'">+ Connect</button>`
+    : '';
+  return `
+    <div class="conn-row">
+      <div class="conn-icon">${icon}</div>
+      <div class="conn-info">
+        <div class="conn-name">${name}</div>
+        ${detail || note ? `<div class="conn-detail">${escHtml(detail || note || '')}</div>` : ''}
+      </div>
+      ${badge}
+      ${action}
+    </div>`;
 }
 
 function escHtml(s) {
