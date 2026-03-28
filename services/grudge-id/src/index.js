@@ -63,11 +63,11 @@ app.get('/device', (req, res) => { sendHtmlPage(res, path.join(__dirname, '..', 
 // ?? HTML page CSP (allows inline scripts + Google Fonts) ?????????????????????
 const HTML_CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
+  "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://js.puter.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: https:",
-  "connect-src 'self' https://api.grudge-studio.com https://id.grudge-studio.com",
+  "connect-src 'self' https://api.grudge-studio.com https://id.grudge-studio.com https://api.puter.com https://*.puter.com wss://*.puter.com",
   "frame-ancestors 'none'",
 ].join('; ');
 

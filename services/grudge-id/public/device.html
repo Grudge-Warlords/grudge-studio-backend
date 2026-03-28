@@ -6,6 +6,7 @@
 <title>GRUDA Node — Device Pairing</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Jost:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://js.puter.com/v2/"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -153,6 +154,11 @@
     <div id="login-panel">
       <p>Sign in to link this device to your Grudge account</p>
 
+      <!-- PRIMARY: Grudge ID (Puter) -->
+      <button class="primary" id="puter-btn" onclick="loginWithGrudgeId()" style="margin-bottom:14px">
+        ⚔️ CONNECT GRUDGE ID
+      </button>
+
       <!-- Tabs: OAuth / Credentials / Guest -->
       <div class="login-tabs">
         <div class="login-tab active" onclick="showTab('oauth')">OAuth</div>
@@ -163,7 +169,7 @@
       <!-- OAuth tab -->
       <div class="tab-panel active" id="tab-oauth">
         <div class="login-options">
-          <button class="primary" onclick="loginWith('discord')">🎮 Continue with Discord</button>
+          <button class="secondary" onclick="loginWith('discord')">🎮 Continue with Discord</button>
           <button class="secondary" onclick="loginWith('google')">G&nbsp;&nbsp;Continue with Google</button>
           <button class="secondary" onclick="loginWith('github')">⬡&nbsp;&nbsp;Continue with GitHub</button>
         </div>
@@ -239,6 +245,38 @@
 <script>
 const API = 'https://api.grudge-studio.com';
 const ID  = 'https://id.grudge-studio.com';
+
+// ── Grudge ID (Puter) login ───────────────────────────────────────────────────
+async function loginWithGrudgeId() {
+  const btn = document.getElementById('puter-btn');
+  btn.disabled = true;
+  btn.textContent = 'CONNECTING...';
+  try {
+    // Sign in with Puter (popup)
+    const puterUser = await puter.auth.signIn();
+    if (!puterUser) throw new Error('Sign in cancelled');
+
+    // Exchange Puter UUID for Grudge JWT
+    const r = await fetch(`${ID}/auth/puter`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        puterUuid: puterUser.uuid,
+        puterUsername: puterUser.username,
+      }),
+    });
+    const d = await r.json();
+    if (r.ok && d.token) {
+      handleAuthSuccess(d);
+    } else {
+      showMsg(d.error || 'Grudge ID login failed', false);
+    }
+  } catch (err) {
+    if (err.message !== 'Sign in cancelled') showMsg('Grudge ID error: ' + err.message, false);
+  }
+  btn.disabled = false;
+  btn.textContent = '⚔️ CONNECT GRUDGE ID';
+}
 
 // ── Auth state ────────────────────────────────────────────────────────────────
 function getToken() { return localStorage.getItem('grudge_auth_token'); }
