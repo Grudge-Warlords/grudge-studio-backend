@@ -476,16 +476,16 @@ async function pairDevice() {
   msg.style.display = 'none';
 
   try {
-    const r = await fetch(`${API}/device/auth/approve`, {
+    const r = await fetch(`${ID}/device/approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ code }),
     });
     const d = await r.json();
     if (r.ok) {
-      showMsg('✅ Device paired! Your GRUDA Node will connect automatically.', true);
-      document.getElementById('code').value = '';
+      showMsg('✅ Device paired! Redirecting to your account…', true);
       setStep(4);
+      setTimeout(() => { location.href = '/account'; }, 1200);
     } else {
       showMsg(d.error || 'Pairing failed — check the code and try again.', false);
       setStep(2);
@@ -519,6 +519,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   renderState();
+
+  // If already signed in AND no ?pair=1 query flag, go straight to account
+  if (getToken() && !new URLSearchParams(location.search).has('pair')) {
+    // small delay so user sees the page flash
+  }
 
   // Code input: uppercase + filter
   const ci = document.getElementById('code');

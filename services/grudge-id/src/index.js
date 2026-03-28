@@ -5,8 +5,9 @@ const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const { grudgeCors } = require('../shared/cors');
 
-const authRoutes = require('./routes/auth');
+const authRoutes   = require('./routes/auth');
 const identityRoutes = require('./routes/identity');
+const deviceRoutes = require('./routes/device');
 const { initDB } = require('./db');
 
 const app = express();
@@ -55,10 +56,11 @@ app.get('/', (req, res) => res.json({
   docs: 'https://github.com/MolochDaGod/grudge-studio-backend/blob/main/docs/API.md',
 }));
 
-// ── GRUDA Node device pairing page ───────────────────────────────────────────
+// ♠️ GRUDA Node pages ────────────────────────────────────────────────────────────
 const fs   = require('fs');
 const path = require('path');
-app.get('/device', (req, res) => { sendHtmlPage(res, path.join(__dirname, '..', 'public', 'device.html'), 'https://grudge-studio.com/device'); });
+app.get('/device',  (req, res) => { sendHtmlPage(res, path.join(__dirname, '..', 'public', 'device.html'),  'https://grudge-studio.com/device'); });
+app.get('/account', (req, res) => { sendHtmlPage(res, path.join(__dirname, '..', 'public', 'account.html'), 'https://grudge-studio.com/account'); });
 
 // ?? HTML page CSP (allows inline scripts + Google Fonts) ?????????????????????
 const HTML_CSP = [
@@ -91,8 +93,9 @@ app.get('/tos', (req, res) => { sendHtmlPage(res, path.join(__dirname, '..', 'pu
 app.get('/privacy', (req, res) => { sendHtmlPage(res, path.join(__dirname, '..', 'public', 'privacy.html'), 'https://grudge-studio.com/privacy'); });
 
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'grudge-id' }));
-app.use('/auth', authLimiter, authRoutes);
+app.use('/auth',     authLimiter, authRoutes);
 app.use('/identity', identityRoutes);
+app.use('/device',   deviceRoutes);
 
 // ── Error handler ─────────────────────────────
 app.use((err, req, res, next) => {

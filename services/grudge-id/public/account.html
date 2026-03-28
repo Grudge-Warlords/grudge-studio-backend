@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grudge Account</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Jost:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 50% 0%, rgba(219,99,49,.15) 0%, #060810 60%);
+    font-family: 'Jost', sans-serif; color: #e8dcc8; padding: 20px;
+  }
+  .wrap { max-width: 680px; margin: 0 auto; }
+
+  /* Header bar */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 0; margin-bottom: 24px;
+    border-bottom: 1px solid rgba(250,172,71,.15);
+  }
+  .topbar h1 { font-family:'Cinzel',serif; font-size:1.1rem; color:#FAAC47; letter-spacing:3px; }
+  .btn-sm {
+    padding: 7px 16px; border-radius:6px; font-size:.72rem; letter-spacing:1px;
+    font-family:'Cinzel',serif; cursor:pointer; transition:.2s;
+  }
+  .btn-outline {
+    background:none; border:1px solid rgba(250,172,71,.3); color:rgba(250,172,71,.7);
+  }
+  .btn-outline:hover { border-color:#FAAC47; color:#FAAC47; }
+  .btn-danger {
+    background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3); color:#f87171;
+  }
+  .btn-danger:hover { background:rgba(239,68,68,.2); }
+
+  /* Cards */
+  .card {
+    background: linear-gradient(160deg,#0d0f1c,#120d1e);
+    border: 1px solid rgba(212,169,106,.2); border-radius: 14px;
+    padding: 24px; margin-bottom: 16px; position: relative; overflow: hidden;
+  }
+  .gold-bar { position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#DB6331,#FAAC47,#DB6331); }
+  .card-title {
+    font-family:'Cinzel',serif; font-size:.75rem; letter-spacing:2px; text-transform:uppercase;
+    color:rgba(250,172,71,.6); margin-bottom:16px;
+  }
+
+  /* Identity block */
+  .identity-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media(max-width:480px) { .identity-grid { grid-template-columns:1fr; } }
+  .id-field label { font-size:.62rem; letter-spacing:1.5px; text-transform:uppercase; color:rgba(255,255,255,.35); margin-bottom:4px; display:block; }
+  .id-field .val {
+    font-family: monospace; font-size:.82rem; color:#e8dcc8;
+    background:rgba(0,0,0,.3); border:1px solid rgba(255,255,255,.08);
+    border-radius:6px; padding:8px 10px; word-break:break-all;
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .copy-btn { background:none; border:none; color:rgba(250,172,71,.5); cursor:pointer; font-size:.8rem; flex-shrink:0; }
+  .copy-btn:hover { color:#FAAC47; }
+
+  /* Stats row */
+  .stats-row { display:flex; gap:12px; margin-top:12px; }
+  .stat { flex:1; background:rgba(0,0,0,.25); border-radius:8px; padding:12px; text-align:center; }
+  .stat-val { font-family:'Cinzel',serif; font-size:1.1rem; color:#FAAC47; }
+  .stat-label { font-size:.62rem; color:rgba(255,255,255,.3); margin-top:2px; text-transform:uppercase; letter-spacing:1px; }
+
+  /* Device list */
+  .device-list { display:flex; flex-direction:column; gap:10px; }
+  .device-row {
+    display:flex; align-items:center; gap:12px;
+    background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.07);
+    border-radius:10px; padding:12px 14px;
+  }
+  .device-icon { font-size:1.4rem; flex-shrink:0; }
+  .device-info { flex:1; }
+  .device-name { font-family:'Cinzel',serif; font-size:.85rem; color:#e8dcc8; }
+  .device-meta { font-size:.66rem; color:rgba(255,255,255,.3); margin-top:2px; }
+  .device-badge {
+    font-size:.62rem; padding:2px 8px; border-radius:20px;
+    background:rgba(34,197,94,.1); border:1px solid rgba(34,197,94,.3); color:#4ade80;
+  }
+  .empty-state { text-align:center; padding:24px; color:rgba(255,255,255,.25); font-size:.82rem; }
+  .empty-state a { color:rgba(250,172,71,.6); text-decoration:none; }
+  .empty-state a:hover { color:#FAAC47; }
+
+  /* Add device button */
+  .btn-primary {
+    width:100%; padding:12px; margin-top:12px;
+    background:linear-gradient(135deg,#DB6331,#FAAC47);
+    border:none; border-radius:8px; color:#0a0a12;
+    font-family:'Cinzel',serif; font-size:.85rem; font-weight:900; letter-spacing:2px;
+    cursor:pointer; transition:.2s;
+  }
+  .btn-primary:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(250,172,71,.3); }
+
+  /* Loading */
+  .loading { text-align:center; padding:40px; color:rgba(255,255,255,.3); }
+  .spinner { display:inline-block; width:24px; height:24px; border:2px solid rgba(250,172,71,.2); border-top-color:#FAAC47; border-radius:50%; animation:spin .7s linear infinite; margin-bottom:8px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* Toast */
+  .toast {
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.4); color:#4ade80;
+    padding:10px 20px; border-radius:8px; font-size:.8rem; pointer-events:none;
+    opacity:0; transition:opacity .3s;
+  }
+  .toast.show { opacity:1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <h1>⚔ GRUDGE ACCOUNT</h1>
+    <div style="display:flex;gap:8px">
+      <button class="btn-sm btn-outline" onclick="location.href='/device'">+ Pair Device</button>
+      <button class="btn-sm btn-danger" onclick="logout()">Sign Out</button>
+    </div>
+  </div>
+
+  <div id="main">
+    <div class="loading">
+      <div class="spinner"></div><br>Loading account…
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const ID  = 'https://id.grudge-studio.com';
+
+function getToken() { return localStorage.getItem('grudge_auth_token'); }
+function getUser()  {
+  try { return JSON.parse(localStorage.getItem('grudge_user') || 'null'); } catch { return null; }
+}
+
+function logout() {
+  fetch(`${ID}/auth/logout`, { method:'POST', headers:{ Authorization:`Bearer ${getToken()}` } }).catch(()=>{});
+  ['grudge_auth_token','grudge_user','grudge_id','grudge_username','grudge_session_token','grudge-session']
+    .forEach(k => localStorage.removeItem(k));
+  location.href = '/device';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function copyText(text) {
+  navigator.clipboard?.writeText(text).then(() => showToast('Copied!')).catch(() => {});
+}
+
+function deviceIcon(type) {
+  return { node:'🖥️', mobile:'📱', desktop:'💻', web:'🌐' }[type] || '📡';
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+}
+
+async function unpairDevice(deviceId, name) {
+  if (!confirm(`Unpair "${name}"?`)) return;
+  const r = await fetch(`${ID}/device/${deviceId}`, {
+    method:'DELETE', headers:{ Authorization:`Bearer ${getToken()}` },
+  });
+  if (r.ok) { showToast('Device unpaired'); loadPage(); }
+  else showToast('Error unpairing device');
+}
+
+async function loadPage() {
+  const token = getToken();
+  if (!token) { location.href = '/device'; return; }
+
+  // Fetch user profile + devices in parallel
+  const [userRes, devRes] = await Promise.all([
+    fetch(`${ID}/auth/user`, { headers:{ Authorization:`Bearer ${token}` } }),
+    fetch(`${ID}/device/list`, { headers:{ Authorization:`Bearer ${token}` } }),
+  ]);
+
+  if (userRes.status === 401) { location.href = '/device'; return; }
+
+  const user    = await userRes.json();
+  const devData = devRes.ok ? await devRes.json() : { devices: [] };
+  const devices = devData.devices || [];
+
+  const grudgeId = user.grudgeId || localStorage.getItem('grudge_id') || '—';
+  const wallet   = user.serverWalletAddress || '—';
+  const username = user.username || user.displayName || grudgeId.slice(0,8);
+
+  document.getElementById('main').innerHTML = `
+    <!-- Identity card -->
+    <div class="card">
+      <div class="gold-bar"></div>
+      <div class="card-title">Grudge Identity</div>
+      <div class="identity-grid">
+        <div class="id-field">
+          <label>Display Name</label>
+          <div class="val">${escHtml(username)}</div>
+        </div>
+        <div class="id-field">
+          <label>Grudge ID</label>
+          <div class="val">
+            <span>${grudgeId.slice(0,18)}…</span>
+            <button class="copy-btn" onclick="copyText('${escHtml(grudgeId)}')" title="Copy">⧉</button>
+          </div>
+        </div>
+        <div class="id-field" style="grid-column:1/-1">
+          <label>Server Wallet</label>
+          <div class="val">
+            <span>${wallet === '—' ? '—' : wallet.slice(0,20) + '…'}</span>
+            ${wallet !== '—' ? `<button class="copy-btn" onclick="copyText('${escHtml(wallet)}')" title="Copy">⧉</button>` : ''}
+          </div>
+        </div>
+      </div>
+      <div class="stats-row">
+        <div class="stat">
+          <div class="stat-val">${(user.gold ?? 0).toLocaleString()}</div>
+          <div class="stat-label">Gold</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val">${(user.gbuxBalance ?? 0).toFixed(2)}</div>
+          <div class="stat-label">GBUX</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val">${devices.length}</div>
+          <div class="stat-label">Devices</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Devices card -->
+    <div class="card">
+      <div class="gold-bar"></div>
+      <div class="card-title">Paired Devices</div>
+      ${devices.length === 0
+        ? `<div class="empty-state">No devices paired yet.<br><br><a href="/device">+ Pair a GRUDA Node</a></div>`
+        : `<div class="device-list">${devices.map(d => `
+            <div class="device-row">
+              <div class="device-icon">${deviceIcon(d.device_type)}</div>
+              <div class="device-info">
+                <div class="device-name">${escHtml(d.device_name || 'GRUDA Node')}</div>
+                <div class="device-meta">Paired ${fmtDate(d.paired_at)} · Last seen ${fmtDate(d.last_seen)}</div>
+              </div>
+              <span class="device-badge">Online</span>
+              <button class="btn-sm btn-danger" onclick="unpairDevice('${d.id}','${escHtml(d.device_name || 'GRUDA Node')}')" style="margin-left:8px">Unpair</button>
+            </div>`).join('')}
+          </div>`
+      }
+      <button class="btn-primary" onclick="location.href='/device'">+ Pair New Device</button>
+    </div>
+  `;
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Ingest token from URL (OAuth redirect)
+const params = new URLSearchParams(location.search);
+const urlToken = params.get('token') || params.get('sso_token');
+if (urlToken) {
+  localStorage.setItem('grudge_auth_token', urlToken);
+  history.replaceState({}, '', location.pathname);
+}
+
+loadPage();
+</script>
+</body>
+</html>

@@ -129,12 +129,17 @@ export default {
       return proxyAndCache(request, env, ctx, path, origin);
     }
 
-    // ── Pass-through routes (discord redirect, puter-link, etc.) ──────────
+    // ── Pass-through routes (discord redirect, puter-link, etc.) ────────────
     if (path.startsWith('/auth/')) {
       return proxyPassthrough(request, env, path, origin);
     }
 
-    // ── 404 ────────────────────────────────────────────────────────────────
+    // ── Device pairing API + HTML pages ───────────────────────────────
+    if (path.startsWith('/device') || path === '/account') {
+      return proxyPassthrough(request, env, path, origin);
+    }
+
+    // ── 404 ───────────────────────────────────────────────────────
     return json({ error: 'Not Found' }, 404, origin);
   },
 };
