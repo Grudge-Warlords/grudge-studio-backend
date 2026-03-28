@@ -12,10 +12,32 @@ const PORT   = process.env.PORT || 3007;
 
 const JWT_SECRET      = process.env.JWT_SECRET;
 const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY;
-const REDIS_URL       = process.env.REDIS_URL || 'redis://:@grudge-redis:6379';
+// Redis ? direct IPv4 connection (avoids Docker IPv6 WRONGPASS)
+const REDIS_OPTS = { host: '10.0.3.3', port: 6379, password: process.env.REDIS_URL && process.env.REDIS_URL.match(/:([^:@]+)@/) ? process.env.REDIS_URL.match(/:([^:@]+)@/)[1] : '', retryStrategy: (t) => Math.min(t*500,5000) };
 
 // ── CORS — shared module ──────────────────────
-const { grudgeCorsConfig } = require('../../shared/cors');
+// Inline CORS config (shared/cors not available in container image)
+const CORS_ORIGINS_LIST = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+const GRUDGE_PATTERNS = [
+  /^https?:\/\/([a-z0-9-]+\.)?grudge-studio\.com$/,
+  /^https?:\/\/([a-z0-9-]+\.)?grudgestudio\.com$/,
+  /^https?:\/\/([a-z0-9-]+\.)?grudgewarlords\.com$/,
+  /^https?:\/\/([a-z0-9-]+\.)?grudgeplatform\.io$/,
+];
+const GRUDGE_VERCEL_PREFIXES = ['grudge-','warlord-','dungeon-crawler','gdevelop-','grudachain','gruda-'];
+function isAllowedOrigin(o) {
+  if (!o) return true;
+  if (GRUDGE_PATTERNS.some(p => p.test(o))) return true;
+  if (/^https:\/\/[a-z0-9-]+\.puter\.site$/.test(o)) return true;
+  if (/^https:\/\/[a-z0-9-]+\.grudge\.workers\.dev$/.test(o)) return true;
+  const vm = o.match(/^https:\/\/([a-z0-9-]+)\.vercel\.app$/);
+  if (vm && GRUDGE_VERCEL_PREFIXES.some(p => vm[1].startsWith(p))) return true;
+  if (CORS_ORIGINS_LIST.includes(o)) return true;
+  return false;
+}
+function grudgeCorsConfig() {
+  return { origin: (o, cb) => isAllowedOrigin(o) ? cb(null, true) : cb(null, false), methods: ['GET','POST'], credentials: true };
+}
 
 // ── Socket.IO ─────────────────────────────────
 const io = new Server(server, {
@@ -26,8 +48,8 @@ const io = new Server(server, {
 
 // ── Redis pub/sub ─────────────────────────────
 // Separate connections: one for pub (game-api publishes), one for sub (we listen)
-const redisSub = new Redis(REDIS_URL);
-const redisPub = new Redis(REDIS_URL);
+const redisSub = new Redis(REDIS_OPTS);
+const redisPub = new Redis(REDIS_OPTS);
 
 redisSub.on('error', err => console.error('[ws] Redis sub error:', err.message));
 redisPub.on('error', err => console.error('[ws] Redis pub error:', err.message));
