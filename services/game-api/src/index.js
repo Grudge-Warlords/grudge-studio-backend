@@ -3,6 +3,7 @@ const express    = require('express');
 const helmet     = require('helmet');
 const cors       = require('cors');
 const { grudgeCors } = require('../shared/cors');
+const discordRoutes  = require('./routes/discord');
 const jwt        = require('jsonwebtoken');
 const rateLimit  = require('express-rate-limit');
 const { initDB } = require('./db');
@@ -27,6 +28,11 @@ app.set('trust proxy', 1); // Trust one proxy hop (Traefik/Coolify) — required
 
 app.use(helmet({ hsts: { maxAge: 31536000, includeSubDomains: true, preload: true } }));
 app.use(grudgeCors());
+
+// Discord interactions MUST use raw body for signature verification
+// Register BEFORE express.json() so the raw body is accessible
+app.use('/api/discord', discordRoutes);
+
 app.use(express.json({ limit: '2mb' }));
 
 // ── Rate limiting ──────────────────────────────────────────────

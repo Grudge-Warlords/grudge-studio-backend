@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GRUDA Node — Device Pairing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Jost:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 50% 0%, rgba(219,99,49,.15) 0%, #060810 60%);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Jost', sans-serif; color: #e8dcc8; padding: 20px;
+  }
+  .card {
+    background: linear-gradient(160deg,#0d0f1c,#120d1e);
+    border: 1px solid rgba(212,169,106,.25);
+    border-radius: 16px;
+    padding: 36px 32px 30px;
+    width: 100%; max-width: 440px;
+    position: relative; overflow: hidden;
+  }
+  .gold-bar { position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#DB6331,#FAAC47,#DB6331); }
+
+  /* Header */
+  .logo-wrap { text-align:center; margin-bottom:8px; }
+  .logo-wrap svg { width:48px; height:48px; }
+  h1 { font-family:'Cinzel',serif; font-size:1.5rem; color:#FAAC47; text-align:center; letter-spacing:3px; }
+  .sub { font-size:.7rem; color:rgba(255,255,255,.3); text-align:center; letter-spacing:2px; text-transform:uppercase; margin-top:4px; margin-bottom:24px; }
+
+  /* Step indicators */
+  .steps { display:flex; gap:0; margin-bottom:24px; }
+  .step-item { flex:1; text-align:center; position:relative; }
+  .step-item:not(:last-child)::after { content:''; position:absolute; top:14px; left:60%; width:80%; height:1px; background:rgba(255,255,255,.1); }
+  .step-num { width:28px; height:28px; border-radius:50%; border:1px solid rgba(250,172,71,.3); color:rgba(255,255,255,.3); font-family:'Cinzel',serif; font-size:.65rem; display:flex; align-items:center; justify-content:center; margin:0 auto 4px; background:rgba(0,0,0,.3); transition:.2s; }
+  .step-label { font-size:.6rem; color:rgba(255,255,255,.25); letter-spacing:.5px; text-transform:uppercase; }
+  .step-item.active .step-num { border-color:#FAAC47; color:#FAAC47; background:rgba(250,172,71,.1); }
+  .step-item.active .step-label { color:rgba(250,172,71,.7); }
+  .step-item.done .step-num { border-color:rgba(34,197,94,.5); color:#4ade80; background:rgba(34,197,94,.08); }
+  .step-item.done .step-label { color:rgba(34,197,94,.6); }
+
+  /* Auth section */
+  .auth-box { background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.07); border-radius:10px; padding:16px; margin-bottom:20px; }
+  .auth-box p { font-size:.8rem; color:rgba(255,255,255,.45); text-align:center; margin-bottom:12px; }
+  .user-row { display:flex; align-items:center; gap:10px; }
+  .user-avatar { width:36px; height:36px; border-radius:50%; background:rgba(250,172,71,.12); border:1px solid rgba(250,172,71,.3); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+  .user-name { font-family:'Cinzel',serif; color:#FAAC47; font-size:.9rem; }
+  .user-id { font-size:.7rem; font-family:monospace; color:rgba(255,255,255,.3); margin-top:2px; }
+  .btn-logout { margin-left:auto; font-size:.65rem; color:rgba(255,255,255,.25); background:none; border:none; cursor:pointer; text-decoration:underline; }
+
+  /* Login buttons */
+  .login-options { display:flex; flex-direction:column; gap:8px; }
+  button.primary {
+    width:100%; padding:13px;
+    background:linear-gradient(135deg,#DB6331,#FAAC47);
+    border:none; border-radius:8px; color:#0a0a12;
+    font-family:'Cinzel',serif; font-size:.88rem; font-weight:900; letter-spacing:2px;
+    cursor:pointer; transition:all .2s;
+  }
+  button.primary:disabled { opacity:.35; cursor:default; }
+  button.primary:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 6px 20px rgba(250,172,71,.3); }
+  button.secondary {
+    width:100%; padding:11px;
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+    border-radius:8px; color:#e8dcc8;
+    font-family:'Jost',sans-serif; font-size:.82rem; letter-spacing:1px;
+    cursor:pointer; transition:all .2s;
+  }
+  button.secondary:hover { background:rgba(255,255,255,.1); }
+
+  /* Code entry */
+  .code-section { margin-bottom:4px; }
+  label.field-label { display:block; font-size:.68rem; letter-spacing:1.5px; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:8px; }
+  input[type=text] {
+    width:100%; padding:16px; font-size:2rem; font-family:'Cinzel',serif;
+    letter-spacing:12px; text-align:center; text-transform:uppercase;
+    background:rgba(0,0,0,.4); border:1px solid rgba(255,255,255,.12);
+    border-radius:8px; color:#FAAC47; outline:none;
+    transition:border-color .2s, opacity .2s;
+  }
+  input[type=text]:focus { border-color:rgba(250,172,71,.5); }
+  input[type=text]:disabled { opacity:.3; cursor:not-allowed; }
+  .hint { font-size:.68rem; color:rgba(255,255,255,.2); text-align:center; margin-top:6px; }
+  .login-hint { font-size:.72rem; color:rgba(250,172,71,.6); text-align:center; margin-top:6px; }
+
+  /* Message */
+  .msg { display:none; margin-top:12px; padding:10px 14px; border-radius:8px; font-size:.82rem; text-align:center; }
+  .msg.ok  { background:rgba(34,197,94,.1); border:1px solid rgba(34,197,94,.3); color:#4ade80; display:block; }
+  .msg.err { background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.25); color:#f87171; display:block; }
+
+  /* Divider */
+  .divider { display:flex; align-items:center; gap:12px; margin:16px 0; }
+  .divider::before, .divider::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.08); }
+  .divider span { font-size:.65rem; color:rgba(255,255,255,.2); letter-spacing:1px; text-transform:uppercase; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="gold-bar"></div>
+
+  <!-- Header -->
+  <div class="logo-wrap">
+    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="4" width="40" height="40" rx="8" fill="rgba(219,99,49,.15)" stroke="rgba(250,172,71,.4)" stroke-width="1.5"/>
+      <path d="M16 20L24 14L32 20V34H28V26H20V34H16V20Z" fill="#FAAC47"/>
+      <circle cx="24" cy="24" r="3" fill="#DB6331"/>
+    </svg>
+  </div>
+  <h1>GRUDA NODE</h1>
+  <div class="sub">Device Pairing</div>
+
+  <!-- Steps -->
+  <div class="steps">
+    <div class="step-item active" id="step1">
+      <div class="step-num">1</div>
+      <div class="step-label">Power On</div>
+    </div>
+    <div class="step-item" id="step2">
+      <div class="step-num">2</div>
+      <div class="step-label">Sign In</div>
+    </div>
+    <div class="step-item" id="step3">
+      <div class="step-num">3</div>
+      <div class="step-label">Enter Code</div>
+    </div>
+    <div class="step-item" id="step4">
+      <div class="step-num">4</div>
+      <div class="step-label">Connected</div>
+    </div>
+  </div>
+
+  <!-- Auth box: changes based on login state -->
+  <div class="auth-box" id="auth-box">
+    <!-- NOT logged in: show login options -->
+    <div id="login-panel">
+      <p>Sign in to link this device to your Grudge account</p>
+      <div class="login-options">
+        <button class="primary" onclick="loginWith('discord')">🎮 Continue with Discord</button>
+        <button class="secondary" onclick="loginWith('google')">G&nbsp;&nbsp;Continue with Google</button>
+        <button class="secondary" onclick="loginWith('github')">⬡&nbsp;&nbsp;Continue with GitHub</button>
+      </div>
+    </div>
+    <!-- Logged in: show user info -->
+    <div id="user-panel" style="display:none">
+      <div class="user-row">
+        <div class="user-avatar">🛡️</div>
+        <div>
+          <div class="user-name" id="user-name-el">Warlord</div>
+          <div class="user-id" id="user-id-el"></div>
+        </div>
+        <button class="btn-logout" onclick="logout()">Sign out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Code entry — ALWAYS visible -->
+  <div class="code-section">
+    <label class="field-label" for="code">6-Character Device Code</label>
+    <input type="text" id="code" maxlength="6" placeholder="A1B2C3"
+           autocomplete="off" autocapitalize="characters" spellcheck="false"
+           disabled oninput="onCodeInput(this)">
+    <div class="hint" id="code-hint">Shown on your GRUDA Node display at startup</div>
+    <div class="login-hint" id="login-hint" style="display:none">↑ Sign in above, then enter your code here</div>
+  </div>
+
+  <div style="margin-top:14px">
+    <button class="primary" id="pair-btn" onclick="pairDevice()" disabled>
+      PAIR DEVICE
+    </button>
+  </div>
+
+  <div class="msg" id="msg"></div>
+</div>
+
+<script>
+const API = 'https://api.grudge-studio.com';
+const ID  = 'https://id.grudge-studio.com';
+
+// ── Auth state ────────────────────────────────────────────────────────────────
+function getToken() { return localStorage.getItem('grudge_auth_token'); }
+function getUser()  {
+  try { return JSON.parse(localStorage.getItem('grudge_user') || 'null'); } catch { return null; }
+}
+
+function logout() {
+  ['grudge_auth_token','grudge_user','grudge_id','grudge_username','grudge_session_token','grudge-session']
+    .forEach(k => localStorage.removeItem(k));
+  location.reload();
+}
+
+function loginWith(provider) {
+  const returnUrl = encodeURIComponent(location.href);
+  if (provider === 'discord') {
+    location.href = `${ID}/auth/discord/start?return=${returnUrl}`;
+  } else if (provider === 'google') {
+    location.href = `${ID}/auth/google/start?return=${returnUrl}`;
+  } else if (provider === 'github') {
+    location.href = `${ID}/auth/github/start?return=${returnUrl}`;
+  }
+}
+
+// ── Token ingestion from URL ──────────────────────────────────────────────────
+function ingestToken(token) {
+  localStorage.setItem('grudge_auth_token', token);
+  // Fetch and store user info
+  fetch(`${API}/api/auth/user`, { headers: { Authorization: `Bearer ${token}` } })
+    .then(r => r.ok ? r.json() : null)
+    .then(u => {
+      if (u) {
+        localStorage.setItem('grudge_user', JSON.stringify(u));
+        localStorage.setItem('grudge_id', u.grudgeId || u.grudge_id || '');
+        localStorage.setItem('grudge_username', u.username || '');
+      }
+    })
+    .catch(() => {})
+    .finally(() => {
+      history.replaceState({}, '', location.pathname);
+      renderState();
+    });
+}
+
+// ── Render UI based on auth ───────────────────────────────────────────────────
+function renderState() {
+  const token = getToken();
+  const user  = getUser();
+  const loggedIn = !!(token && (user || localStorage.getItem('grudge_id')));
+
+  const loginPanel = document.getElementById('login-panel');
+  const userPanel  = document.getElementById('user-panel');
+  const codeInput  = document.getElementById('code');
+  const pairBtn    = document.getElementById('pair-btn');
+  const codeHint   = document.getElementById('code-hint');
+  const loginHint  = document.getElementById('login-hint');
+
+  if (loggedIn) {
+    loginPanel.style.display = 'none';
+    userPanel.style.display  = 'block';
+
+    const name = (user && (user.username || user.grudgeId)) || localStorage.getItem('grudge_username') || 'Warlord';
+    const gid  = (user && user.grudgeId) || localStorage.getItem('grudge_id') || '';
+    document.getElementById('user-name-el').textContent = name;
+    document.getElementById('user-id-el').textContent   = gid ? gid.slice(0,8).toUpperCase() + '...' : '';
+
+    codeInput.disabled = false;
+    codeInput.focus();
+    codeHint.style.display  = 'block';
+    loginHint.style.display = 'none';
+
+    // Update steps
+    setStep(2);
+  } else {
+    loginPanel.style.display = 'block';
+    userPanel.style.display  = 'none';
+
+    codeInput.disabled = true;
+    pairBtn.disabled   = true;
+    codeHint.style.display  = 'none';
+    loginHint.style.display = 'block';
+
+    setStep(1);
+  }
+}
+
+function setStep(n) {
+  [1,2,3,4].forEach(i => {
+    const el = document.getElementById(`step${i}`);
+    el.classList.remove('active','done');
+    if (i < n) el.classList.add('done');
+    else if (i === n) el.classList.add('active');
+  });
+}
+
+// ── Code input handler ────────────────────────────────────────────────────────
+function onCodeInput(el) {
+  el.value = el.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const pairBtn = document.getElementById('pair-btn');
+  const token = getToken();
+  pairBtn.disabled = !(el.value.length === 6 && token);
+
+  if (el.value.length === 6) setStep(3);
+  else if (getToken()) setStep(2);
+}
+
+// ── Pairing ───────────────────────────────────────────────────────────────────
+async function pairDevice() {
+  const code  = document.getElementById('code').value.trim().toUpperCase();
+  const token = getToken();
+  const btn   = document.getElementById('pair-btn');
+  const msg   = document.getElementById('msg');
+
+  if (code.length !== 6) { showMsg('Enter a 6-character code from your device display.', false); return; }
+  if (!token) { showMsg('Please sign in first.', false); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'PAIRING...';
+  msg.className = 'msg';
+  msg.style.display = 'none';
+
+  try {
+    const r = await fetch(`${API}/device/auth/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ code }),
+    });
+    const d = await r.json();
+    if (r.ok) {
+      showMsg('✅ Device paired! Your GRUDA Node will connect automatically.', true);
+      document.getElementById('code').value = '';
+      setStep(4);
+    } else {
+      showMsg(d.error || 'Pairing failed — check the code and try again.', false);
+      setStep(2);
+    }
+  } catch {
+    showMsg('Connection error — check your internet and try again.', false);
+  }
+  btn.disabled = false;
+  btn.textContent = 'PAIR DEVICE';
+}
+
+function showMsg(text, ok) {
+  const m = document.getElementById('msg');
+  m.textContent = text;
+  m.className = 'msg ' + (ok ? 'ok' : 'err');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Pick up token from URL (SSO redirect / OAuth callback)
+  const params = new URLSearchParams(location.search);
+  const urlToken = params.get('token') || params.get('sso_token');
+  if (urlToken) {
+    ingestToken(urlToken);
+    return; // ingestToken calls renderState() when done
+  }
+
+  // Handle sso_required
+  if (params.get('sso_required') === 'true') {
+    history.replaceState({}, '', location.pathname);
+  }
+
+  renderState();
+
+  // Code input: uppercase + filter
+  const ci = document.getElementById('code');
+  ci.addEventListener('keydown', e => { if (e.key === 'Enter') pairDevice(); });
+});
+</script>
+</body>
+</html>
