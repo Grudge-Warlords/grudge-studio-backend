@@ -3,532 +3,188 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GRUDA Node — Device Pairing</title>
+<title>GRUDGE ID — Sign In & Device Pairing</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Jost:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@700;900&family=Spectral+SC:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://js.puter.com/v2/"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    min-height: 100vh;
-    background: radial-gradient(ellipse at 50% 0%, rgba(219,99,49,.15) 0%, #060810 60%);
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Jost', sans-serif; color: #e8dcc8; padding: 20px;
-  }
-  .card {
-    background: linear-gradient(160deg,#0d0f1c,#120d1e);
-    border: 1px solid rgba(212,169,106,.25);
-    border-radius: 16px;
-    padding: 36px 32px 30px;
-    width: 100%; max-width: 440px;
-    position: relative; overflow: hidden;
-  }
-  .gold-bar { position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#DB6331,#FAAC47,#DB6331); }
-
-  /* Header */
-  .logo-wrap { text-align:center; margin-bottom:8px; }
-  .logo-wrap svg { width:48px; height:48px; }
-  h1 { font-family:'Cinzel',serif; font-size:1.5rem; color:#FAAC47; text-align:center; letter-spacing:3px; }
-  .sub { font-size:.7rem; color:rgba(255,255,255,.3); text-align:center; letter-spacing:2px; text-transform:uppercase; margin-top:4px; margin-bottom:24px; }
-
-  /* Step indicators */
-  .steps { display:flex; gap:0; margin-bottom:24px; }
-  .step-item { flex:1; text-align:center; position:relative; }
-  .step-item:not(:last-child)::after { content:''; position:absolute; top:14px; left:60%; width:80%; height:1px; background:rgba(255,255,255,.1); }
-  .step-num { width:28px; height:28px; border-radius:50%; border:1px solid rgba(250,172,71,.3); color:rgba(255,255,255,.3); font-family:'Cinzel',serif; font-size:.65rem; display:flex; align-items:center; justify-content:center; margin:0 auto 4px; background:rgba(0,0,0,.3); transition:.2s; }
-  .step-label { font-size:.6rem; color:rgba(255,255,255,.25); letter-spacing:.5px; text-transform:uppercase; }
-  .step-item.active .step-num { border-color:#FAAC47; color:#FAAC47; background:rgba(250,172,71,.1); }
-  .step-item.active .step-label { color:rgba(250,172,71,.7); }
-  .step-item.done .step-num { border-color:rgba(34,197,94,.5); color:#4ade80; background:rgba(34,197,94,.08); }
-  .step-item.done .step-label { color:rgba(34,197,94,.6); }
-
-  /* Auth section */
-  .auth-box { background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.07); border-radius:10px; padding:16px; margin-bottom:20px; }
-  .auth-box p { font-size:.8rem; color:rgba(255,255,255,.45); text-align:center; margin-bottom:12px; }
-  .user-row { display:flex; align-items:center; gap:10px; }
-  .user-avatar { width:36px; height:36px; border-radius:50%; background:rgba(250,172,71,.12); border:1px solid rgba(250,172,71,.3); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
-  .user-name { font-family:'Cinzel',serif; color:#FAAC47; font-size:.9rem; }
-  .user-id { font-size:.7rem; font-family:monospace; color:rgba(255,255,255,.3); margin-top:2px; }
-  .btn-logout { margin-left:auto; font-size:.65rem; color:rgba(255,255,255,.25); background:none; border:none; cursor:pointer; text-decoration:underline; }
-
-  /* Login buttons */
-  .login-options { display:flex; flex-direction:column; gap:8px; }
-  button.primary {
-    width:100%; padding:13px;
-    background:linear-gradient(135deg,#DB6331,#FAAC47);
-    border:none; border-radius:8px; color:#0a0a12;
-    font-family:'Cinzel',serif; font-size:.88rem; font-weight:900; letter-spacing:2px;
-    cursor:pointer; transition:all .2s;
-  }
-  button.primary:disabled { opacity:.35; cursor:default; }
-  button.primary:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 6px 20px rgba(250,172,71,.3); }
-  button.secondary {
-    width:100%; padding:11px;
-    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
-    border-radius:8px; color:#e8dcc8;
-    font-family:'Jost',sans-serif; font-size:.82rem; letter-spacing:1px;
-    cursor:pointer; transition:all .2s;
-  }
-  button.secondary:hover { background:rgba(255,255,255,.1); }
-
-  /* Code entry */
-  .code-section { margin-bottom:4px; }
-  label.field-label { display:block; font-size:.68rem; letter-spacing:1.5px; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:8px; }
-  input[type=text] {
-    width:100%; padding:16px; font-size:2rem; font-family:'Cinzel',serif;
-    letter-spacing:12px; text-align:center; text-transform:uppercase;
-    background:rgba(0,0,0,.4); border:1px solid rgba(255,255,255,.12);
-    border-radius:8px; color:#FAAC47; outline:none;
-    transition:border-color .2s, opacity .2s;
-  }
-  input[type=text]:focus { border-color:rgba(250,172,71,.5); }
-  input[type=text]:disabled { opacity:.3; cursor:not-allowed; }
-  .hint { font-size:.68rem; color:rgba(255,255,255,.2); text-align:center; margin-top:6px; }
-  .login-hint { font-size:.72rem; color:rgba(250,172,71,.6); text-align:center; margin-top:6px; }
-
-  /* Message */
-  .msg { display:none; margin-top:12px; padding:10px 14px; border-radius:8px; font-size:.82rem; text-align:center; }
-  .msg.ok  { background:rgba(34,197,94,.1); border:1px solid rgba(34,197,94,.3); color:#4ade80; display:block; }
-  .msg.err { background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.25); color:#f87171; display:block; }
-
-  /* Divider */
-  .divider { display:flex; align-items:center; gap:12px; margin:16px 0; }
-  .divider::before, .divider::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.08); }
-  .divider span { font-size:.65rem; color:rgba(255,255,255,.2); letter-spacing:1px; text-transform:uppercase; }
-
-  /* Form inputs */
-  .form-group { margin-bottom:10px; }
-  .form-group label { display:block; font-size:.68rem; letter-spacing:1px; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:4px; }
-  .form-group input { width:100%; padding:10px 12px; font-size:.85rem; background:rgba(0,0,0,.4); border:1px solid rgba(255,255,255,.12); border-radius:6px; color:#e8dcc8; outline:none; font-family:'Jost',sans-serif; }
-  .form-group input:focus { border-color:rgba(250,172,71,.5); }
-  .form-group input::placeholder { color:rgba(255,255,255,.2); }
-  .login-tabs { display:flex; gap:0; margin-bottom:14px; }
-  .login-tab { flex:1; padding:8px; text-align:center; font-size:.7rem; letter-spacing:1px; text-transform:uppercase; color:rgba(255,255,255,.3); background:rgba(0,0,0,.2); border:1px solid rgba(255,255,255,.06); cursor:pointer; transition:.2s; font-family:'Cinzel',serif; }
-  .login-tab:first-child { border-radius:6px 0 0 6px; }
-  .login-tab:last-child { border-radius:0 6px 6px 0; }
-  .login-tab.active { color:#FAAC47; border-color:rgba(250,172,71,.3); background:rgba(250,172,71,.08); }
-  .tab-panel { display:none; }
-  .tab-panel.active { display:block; }
-  .inline-row { display:flex; gap:8px; }
-  .inline-row > * { flex:1; }
+:root {
+  --bg: hsl(225 30% 8%);
+  --card: hsl(225 25% 12%);
+  --surface: hsl(225 25% 15%);
+  --muted-bg: hsl(225 20% 18%);
+  --input-bg: hsl(225 25% 15%);
+  --text: hsl(45 30% 90%);
+  --text-muted: hsl(45 15% 60%);
+  --text-dim: hsl(45 10% 45%);
+  --gold: hsl(43 85% 55%);
+  --gold-light: hsl(43 90% 70%);
+  --gold-dark: hsl(43 70% 35%);
+  --border: hsl(43 60% 30%);
+  --border-dim: hsl(225 15% 22%);
+  --green: hsl(142 71% 45%);
+  --red: hsl(0 70% 50%);
+  --font-heading: 'Cinzel Decorative', 'Cinzel', serif;
+  --font-body: 'Spectral SC', 'Inter', serif;
+  --font-ui: 'Inter', system-ui, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+body {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem;
+  background: radial-gradient(ellipse at 50% 0%, hsla(43, 70%, 40%, 0.08) 0%, transparent 60%), var(--bg);
+}
+a { color: var(--gold); text-decoration: none; } a:hover { color: var(--gold-light); }
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; opacity: 0.08;
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSA2MCAwIEwgMCAwIDAgNjAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIwLjUiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZykiLz48L3N2Zz4=");
+}
+.auth-container { width: 100%; max-width: 440px; position: relative; z-index: 1; }
+.brand-header { text-align: center; margin-bottom: 1.75rem; }
+.brand-logo { width: 72px; height: 72px; border-radius: 14px; border: 2px solid var(--border); box-shadow: 0 0 30px hsla(43,70%,45%,.15); margin: 0 auto 0.75rem; background: var(--surface); display: flex; align-items: center; justify-content: center; }
+.brand-logo svg { width: 44px; height: 44px; }
+.brand-title { font-family: var(--font-heading); font-size: 2rem; font-weight: 900; background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: 0.06em; }
+.brand-sub { font-family: var(--font-ui); font-size: 0.75rem; color: var(--text-dim); letter-spacing: 0.15em; text-transform: uppercase; margin-top: 0.15rem; }
+.brand-tagline { font-family: var(--font-ui); font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; }
+.auth-card { background: var(--card); border: 1px solid var(--border-dim); border-radius: 14px; padding: 1.75rem; position: relative; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+.gold-bar { position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--gold-dark), var(--gold-light), var(--gold-dark)); }
+.steps { display: flex; margin-bottom: 1.5rem; }
+.step-item { flex: 1; text-align: center; position: relative; }
+.step-item:not(:last-child)::after { content: ''; position: absolute; top: 13px; left: 60%; width: 80%; height: 1px; background: var(--border-dim); }
+.step-num { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border-dim); color: var(--text-dim); font-family: var(--font-heading); font-size: 0.6rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 3px; background: rgba(0,0,0,.3); transition: .2s; }
+.step-label { font-family: var(--font-ui); font-size: 0.6rem; color: var(--text-dim); letter-spacing: 0.04em; text-transform: uppercase; }
+.step-item.active .step-num { border-color: var(--gold); color: var(--gold); background: hsla(43,85%,55%,.1); }
+.step-item.active .step-label { color: var(--gold); }
+.step-item.done .step-num { border-color: var(--green); color: var(--green); background: hsla(142,71%,45%,.08); }
+.step-item.done .step-label { color: var(--green); }
+.auth-box { background: var(--surface); border: 1px solid var(--border-dim); border-radius: 10px; padding: 1.25rem; margin-bottom: 1.25rem; }
+.auth-box p { font-family: var(--font-ui); font-size: 0.82rem; color: var(--text-muted); text-align: center; margin-bottom: 0.75rem; }
+.user-row { display: flex; align-items: center; gap: 10px; }
+.user-avatar { width: 40px; height: 40px; border-radius: 10px; background: var(--surface); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-size: 1.1rem; color: var(--gold); flex-shrink: 0; }
+.user-name { font-family: var(--font-heading); font-size: 0.9rem; color: var(--gold); }
+.user-id { font-family: var(--font-ui); font-size: 0.7rem; color: var(--text-dim); letter-spacing: 0.04em; margin-top: 1px; }
+.btn-logout { margin-left: auto; font-family: var(--font-ui); font-size: 0.7rem; color: var(--text-dim); background: none; border: none; cursor: pointer; text-decoration: underline; } .btn-logout:hover { color: var(--text-muted); }
+.gilded-button { width: 100%; padding: 0.75rem 1.25rem; font-family: var(--font-heading); font-size: 0.9rem; font-weight: 700; letter-spacing: 0.05em; color: var(--bg); background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark)); border: none; border-radius: 8px; cursor: pointer; transition: opacity .2s, transform .1s; box-shadow: 0 2px 12px hsla(43,70%,45%,.3); }
+.gilded-button:hover { opacity: 0.9; } .gilded-button:active { transform: scale(0.98); } .gilded-button:disabled { opacity: 0.4; cursor: not-allowed; }
+.dark-button { width: 100%; padding: 0.65rem 1rem; font-family: var(--font-ui); font-size: 0.82rem; font-weight: 500; color: var(--text); background: var(--surface); border: 1px solid var(--border-dim); border-radius: 8px; cursor: pointer; transition: background .2s, border-color .2s; }
+.dark-button:hover { background: var(--muted-bg); border-color: var(--border); }
+.provider-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 0.75rem; }
+.provider-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 0.65rem 0.25rem; font-family: var(--font-ui); font-size: 0.6rem; font-weight: 500; letter-spacing: 0.04em; color: var(--text-muted); background: var(--surface); border: 1px solid var(--border-dim); border-radius: 8px; cursor: pointer; text-transform: uppercase; transition: .2s; }
+.provider-btn:hover { background: var(--muted-bg); border-color: var(--border); color: var(--gold); }
+.provider-btn .icon { font-size: 1.25rem; line-height: 1; }
+.auth-divider { display: flex; align-items: center; gap: 0.75rem; margin: 1rem 0; font-family: var(--font-ui); font-size: 0.7rem; color: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase; }
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--border-dim); }
+.login-tabs { display: flex; margin-bottom: 1rem; }
+.login-tab { flex: 1; padding: 0.55rem; text-align: center; font-family: var(--font-heading); font-size: 0.7rem; letter-spacing: 0.06em; color: var(--text-dim); background: rgba(0,0,0,.2); border: 1px solid var(--border-dim); cursor: pointer; transition: .2s; }
+.login-tab:first-child { border-radius: 6px 0 0 6px; } .login-tab:last-child { border-radius: 0 6px 6px 0; }
+.login-tab.active { color: var(--gold); border-color: var(--border); background: hsla(43,70%,40%,.06); }
+.tab-panel { display: none; } .tab-panel.active { display: block; }
+.input-group { margin-bottom: 0.75rem; }
+.input-group label { display: block; font-family: var(--font-ui); font-size: 0.72rem; font-weight: 500; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+.input-group input { width: 100%; padding: 0.6rem 0.8rem; font-family: var(--font-ui); font-size: 0.88rem; color: var(--text); background: var(--input-bg); border: 1px solid var(--border-dim); border-radius: 8px; outline: none; transition: border-color .2s; }
+.input-group input:focus { border-color: var(--gold); box-shadow: 0 0 0 2px hsla(43,85%,55%,.12); }
+.input-group input::placeholder { color: var(--text-dim); }
+.input-group input:disabled { opacity: 0.35; cursor: not-allowed; }
+.inline-row { display: flex; gap: 0.5rem; } .inline-row > * { flex: 1; }
+.code-input { width: 100%; padding: 0.9rem; font-size: 1.75rem; font-family: var(--font-heading); letter-spacing: 10px; text-align: center; text-transform: uppercase; background: rgba(0,0,0,.35); border: 1px solid var(--border-dim); border-radius: 8px; color: var(--gold); outline: none; transition: .2s; }
+.code-input:focus { border-color: var(--gold); } .code-input:disabled { opacity: 0.25; }
+.msg { display: none; margin-top: 0.75rem; padding: 0.6rem 0.85rem; border-radius: 8px; font-family: var(--font-ui); font-size: 0.8rem; text-align: center; }
+.msg.ok { display: block; color: var(--green); background: hsla(142,71%,45%,.08); border: 1px solid hsla(142,71%,45%,.25); }
+.msg.err { display: block; color: hsl(0,80%,70%); background: hsla(0,60%,30%,.15); border: 1px solid hsla(0,60%,40%,.25); }
+.hint { font-family: var(--font-ui); font-size: 0.7rem; color: var(--text-dim); text-align: center; margin-top: 0.35rem; }
+.login-hint { font-family: var(--font-ui); font-size: 0.72rem; color: var(--gold); text-align: center; margin-top: 0.35rem; }
+.auth-footer { text-align: center; margin-top: 1rem; font-family: var(--font-ui); font-size: 0.72rem; color: var(--text-dim); }
+.auth-footer a { color: var(--text-muted); } .auth-footer a:hover { color: var(--gold); }
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="gold-bar"></div>
-
-  <!-- Header -->
-  <div class="logo-wrap">
-    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="4" y="4" width="40" height="40" rx="8" fill="rgba(219,99,49,.15)" stroke="rgba(250,172,71,.4)" stroke-width="1.5"/>
-      <path d="M16 20L24 14L32 20V34H28V26H20V34H16V20Z" fill="#FAAC47"/>
-      <circle cx="24" cy="24" r="3" fill="#DB6331"/>
-    </svg>
+<div class="auth-container">
+  <div class="brand-header">
+    <div class="brand-logo">
+      <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16 20L24 12L32 20V36H28V27H20V36H16V20Z" fill="url(#gld)"/>
+        <circle cx="24" cy="23" r="3.5" fill="hsl(225,30%,8%)"/>
+        <defs><linearGradient id="gld" x1="16" y1="12" x2="32" y2="36"><stop stop-color="#e8cc66"/><stop offset="1" stop-color="#8c7420"/></linearGradient></defs>
+      </svg>
+    </div>
+    <div class="brand-title">GRUDGE ID</div>
+    <div class="brand-sub">Identity & Authentication</div>
+    <div class="brand-tagline">Your universal gaming passport across all GRUDGE games</div>
   </div>
-  <h1>GRUDA NODE</h1>
-  <div class="sub">Device Pairing</div>
-
-  <!-- Steps -->
-  <div class="steps">
-    <div class="step-item active" id="step1">
-      <div class="step-num">1</div>
-      <div class="step-label">Power On</div>
+  <div class="auth-card">
+    <div class="gold-bar"></div>
+    <div class="steps">
+      <div class="step-item active" id="step1"><div class="step-num">1</div><div class="step-label">Power On</div></div>
+      <div class="step-item" id="step2"><div class="step-num">2</div><div class="step-label">Sign In</div></div>
+      <div class="step-item" id="step3"><div class="step-num">3</div><div class="step-label">Enter Code</div></div>
+      <div class="step-item" id="step4"><div class="step-num">4</div><div class="step-label">Connected</div></div>
     </div>
-    <div class="step-item" id="step2">
-      <div class="step-num">2</div>
-      <div class="step-label">Sign In</div>
-    </div>
-    <div class="step-item" id="step3">
-      <div class="step-num">3</div>
-      <div class="step-label">Enter Code</div>
-    </div>
-    <div class="step-item" id="step4">
-      <div class="step-num">4</div>
-      <div class="step-label">Connected</div>
-    </div>
-  </div>
-
-  <!-- Auth box: changes based on login state -->
-  <div class="auth-box" id="auth-box">
-    <!-- NOT logged in: show login options -->
-    <div id="login-panel">
-      <p>Sign in to link this device to your Grudge account</p>
-
-      <!-- PRIMARY: Grudge ID (Puter) -->
-      <button class="primary" id="puter-btn" onclick="loginWithGrudgeId()" style="margin-bottom:14px">
-        ⚔️ CONNECT GRUDGE ID
-      </button>
-
-      <!-- Tabs: OAuth / Credentials / Guest -->
-      <div class="login-tabs">
-        <div class="login-tab active" onclick="showTab('oauth')">OAuth</div>
-        <div class="login-tab" onclick="showTab('creds')">Login</div>
-        <div class="login-tab" onclick="showTab('guest')">Guest</div>
-      </div>
-
-      <!-- OAuth tab -->
-      <div class="tab-panel active" id="tab-oauth">
-        <div class="login-options">
-          <button class="secondary" onclick="loginWith('discord')">🎮 Continue with Discord</button>
-          <button class="secondary" onclick="loginWith('google')">G&nbsp;&nbsp;Continue with Google</button>
-          <button class="secondary" onclick="loginWith('github')">⬡&nbsp;&nbsp;Continue with GitHub</button>
+    <div class="auth-box" id="auth-box">
+      <div id="login-panel">
+        <p>Sign in to link this device to your Grudge account</p>
+        <button class="gilded-button" id="puter-btn" onclick="loginWithGrudgeId()" style="margin-bottom:0.75rem">⚔ CONNECT GRUDGE ID</button>
+        <div class="provider-grid">
+          <button class="provider-btn" onclick="loginWith('discord')"><span class="icon">🎮</span>Discord</button>
+          <button class="provider-btn" onclick="loginWith('google')"><span class="icon">G</span>Google</button>
+          <button class="provider-btn" onclick="loginWith('github')"><span class="icon">⬡</span>GitHub</button>
+          <button class="provider-btn" onclick="loginAsGuest()"><span class="icon">⚡</span>Guest</button>
         </div>
-      </div>
-
-      <!-- Credentials tab -->
-      <div class="tab-panel" id="tab-creds">
-        <div class="form-group">
-          <label for="login-id">Username / Email / Grudge ID</label>
-          <input type="text" id="login-id" placeholder="warlord123" autocomplete="username">
+        <div class="auth-divider"><span>or continue with</span></div>
+        <div class="login-tabs">
+          <div class="login-tab active" onclick="showTab('creds')">Login</div>
+          <div class="login-tab" onclick="showTab('register')">Register</div>
         </div>
-        <div class="form-group">
-          <label for="login-pw">Password</label>
-          <input type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password">
+        <div class="tab-panel active" id="tab-creds">
+          <div class="input-group"><label for="login-id">Username / Email / Grudge ID</label><input type="text" id="login-id" placeholder="warlord123" autocomplete="username"></div>
+          <div class="input-group"><label for="login-pw">Password</label><input type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password"></div>
+          <button class="gilded-button" onclick="loginWithCreds()" id="creds-btn">SIGN IN</button>
         </div>
-        <button class="primary" onclick="loginWithCreds()" id="creds-btn">🛡️ SIGN IN</button>
-        <div class="divider"><span>or register</span></div>
-        <div class="form-group">
-          <label for="reg-user">New Username</label>
-          <input type="text" id="reg-user" placeholder="WarriorKing" autocomplete="off">
-        </div>
-        <div class="inline-row">
-          <div class="form-group">
-            <label for="reg-email">Email (optional)</label>
-            <input type="email" id="reg-email" placeholder="you@mail.com" autocomplete="email">
+        <div class="tab-panel" id="tab-register">
+          <div class="input-group"><label for="reg-user">Username</label><input type="text" id="reg-user" placeholder="WarriorKing" autocomplete="off"></div>
+          <div class="inline-row">
+            <div class="input-group"><label for="reg-email">Email <span style="text-transform:none;font-weight:400;color:var(--text-dim)">(optional)</span></label><input type="email" id="reg-email" placeholder="you@mail.com" autocomplete="email"></div>
+            <div class="input-group"><label for="reg-pw">Password</label><input type="password" id="reg-pw" placeholder="••••••" autocomplete="new-password"></div>
           </div>
-          <div class="form-group">
-            <label for="reg-pw">Password</label>
-            <input type="password" id="reg-pw" placeholder="••••••" autocomplete="new-password">
-          </div>
+          <button class="dark-button" onclick="registerAccount()" id="reg-btn" style="color:var(--gold);border-color:var(--border)">CREATE ACCOUNT</button>
         </div>
-        <button class="secondary" onclick="registerAccount()" id="reg-btn">CREATE ACCOUNT</button>
       </div>
-
-      <!-- Guest tab -->
-      <div class="tab-panel" id="tab-guest">
-        <p style="font-size:.78rem;color:rgba(255,255,255,.4);margin-bottom:12px;text-align:center">Play instantly — your progress is saved. Claim your account later.</p>
-        <button class="primary" onclick="loginAsGuest()">⚔️ PLAY AS GUEST</button>
+      <div id="user-panel" style="display:none">
+        <div class="user-row">
+          <div class="user-avatar">⚔</div>
+          <div><div class="user-name" id="user-name-el">Warlord</div><div class="user-id" id="user-id-el"></div></div>
+          <button class="btn-logout" onclick="logout()">Sign out</button>
+        </div>
       </div>
     </div>
-    <!-- Logged in: show user info -->
-    <div id="user-panel" style="display:none">
-      <div class="user-row">
-        <div class="user-avatar">🛡️</div>
-        <div>
-          <div class="user-name" id="user-name-el">Warlord</div>
-          <div class="user-id" id="user-id-el"></div>
-        </div>
-        <button class="btn-logout" onclick="logout()">Sign out</button>
-      </div>
+    <div>
+      <div class="input-group"><label for="code">6-Character Device Code</label><input type="text" id="code" class="code-input" maxlength="6" placeholder="A1B2C3" autocomplete="off" autocapitalize="characters" spellcheck="false" disabled oninput="onCodeInput(this)"></div>
+      <div class="hint" id="code-hint">Shown on your GRUDA Node display at startup</div>
+      <div class="login-hint" id="login-hint" style="display:none">↑ Sign in above, then enter your code here</div>
     </div>
+    <div style="margin-top:0.75rem"><button class="gilded-button" id="pair-btn" onclick="pairDevice()" disabled>PAIR DEVICE</button></div>
+    <div class="msg" id="msg"></div>
   </div>
-
-  <!-- Code entry — ALWAYS visible -->
-  <div class="code-section">
-    <label class="field-label" for="code">6-Character Device Code</label>
-    <input type="text" id="code" maxlength="6" placeholder="A1B2C3"
-           autocomplete="off" autocapitalize="characters" spellcheck="false"
-           disabled oninput="onCodeInput(this)">
-    <div class="hint" id="code-hint">Shown on your GRUDA Node display at startup</div>
-    <div class="login-hint" id="login-hint" style="display:none">↑ Sign in above, then enter your code here</div>
-  </div>
-
-  <div style="margin-top:14px">
-    <button class="primary" id="pair-btn" onclick="pairDevice()" disabled>
-      PAIR DEVICE
-    </button>
-  </div>
-
-  <div class="msg" id="msg"></div>
+  <div class="auth-footer">Your GRUDGE ID works across all GRUDGE games and services.<br><a href="/privacy">Privacy Policy</a> · <a href="/tos">Terms of Service</a></div>
 </div>
-
 <script>
-const API = 'https://api.grudge-studio.com';
-const ID  = 'https://id.grudge-studio.com';
-
-// ── Grudge ID (Puter) login ───────────────────────────────────────────────────
-async function loginWithGrudgeId() {
-  const btn = document.getElementById('puter-btn');
-  btn.disabled = true;
-  btn.textContent = 'CONNECTING...';
-  try {
-    // Sign in with Puter (popup)
-    const puterUser = await puter.auth.signIn();
-    if (!puterUser) throw new Error('Sign in cancelled');
-
-    // Exchange Puter UUID for Grudge JWT
-    const r = await fetch(`${ID}/auth/puter`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        puterUuid: puterUser.uuid,
-        puterUsername: puterUser.username,
-      }),
-    });
-    const d = await r.json();
-    if (r.ok && d.token) {
-      handleAuthSuccess(d);
-    } else {
-      showMsg(d.error || 'Grudge ID login failed', false);
-    }
-  } catch (err) {
-    if (err.message !== 'Sign in cancelled') showMsg('Grudge ID error: ' + err.message, false);
-  }
-  btn.disabled = false;
-  btn.textContent = '⚔️ CONNECT GRUDGE ID';
-}
-
-// ── Auth state ────────────────────────────────────────────────────────────────
-function getToken() { return localStorage.getItem('grudge_auth_token'); }
-function getUser()  {
-  try { return JSON.parse(localStorage.getItem('grudge_user') || 'null'); } catch { return null; }
-}
-
-function logout() {
-  fetch(`${ID}/auth/logout`, { method:'POST', headers:{ Authorization:`Bearer ${getToken()}` } }).catch(()=>{});
-  ['grudge_auth_token','grudge_user','grudge_id','grudge_username','grudge_session_token','grudge-session']
-    .forEach(k => localStorage.removeItem(k));
-  location.reload();
-}
-
-// ── OAuth login — uses 302 redirect routes (NOT /start JSON routes) ──────────
-function loginWith(provider) {
-  const redirect = encodeURIComponent(location.href);
-  // These routes do a proper 302 → provider → callback → redirect back with ?token=
-  location.href = `${ID}/auth/${provider}?redirect_uri=${redirect}`;
-}
-
-// ── Tabs ──────────────────────────────────────────────────────────────────────
-function showTab(name) {
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  event.target.classList.add('active');
-}
-
-// ── Username/password login ──────────────────────────────────────────────────
-async function loginWithCreds() {
-  const identifier = document.getElementById('login-id').value.trim();
-  const password   = document.getElementById('login-pw').value;
-  if (!identifier || !password) { showMsg('Enter username and password.', false); return; }
-  const btn = document.getElementById('creds-btn');
-  btn.disabled = true; btn.textContent = 'SIGNING IN...';
-  try {
-    const r = await fetch(`${ID}/auth/login`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ identifier, password }),
-    });
-    const d = await r.json();
-    if (r.ok && d.token) {
-      handleAuthSuccess(d);
-    } else {
-      showMsg(d.error || 'Login failed', false);
-    }
-  } catch { showMsg('Connection error', false); }
-  btn.disabled = false; btn.textContent = '🛡️ SIGN IN';
-}
-
-// ── Register ─────────────────────────────────────────────────────────────────
-async function registerAccount() {
-  const username = document.getElementById('reg-user').value.trim();
-  const email    = document.getElementById('reg-email').value.trim();
-  const password = document.getElementById('reg-pw').value;
-  if (!username || !password) { showMsg('Username and password required.', false); return; }
-  const btn = document.getElementById('reg-btn');
-  btn.disabled = true; btn.textContent = 'CREATING...';
-  try {
-    const r = await fetch(`${ID}/auth/register`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ username, email: email || undefined, password }),
-    });
-    const d = await r.json();
-    if (r.ok && d.token) {
-      handleAuthSuccess(d);
-    } else {
-      showMsg(d.error || 'Registration failed', false);
-    }
-  } catch { showMsg('Connection error', false); }
-  btn.disabled = false; btn.textContent = 'CREATE ACCOUNT';
-}
-
-// ── Guest login ──────────────────────────────────────────────────────────────
-async function loginAsGuest() {
-  const deviceId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
-  try {
-    const r = await fetch(`${ID}/auth/guest`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ deviceId }),
-    });
-    const d = await r.json();
-    if (r.ok && d.token) {
-      handleAuthSuccess(d);
-    } else {
-      showMsg(d.error || 'Guest login failed', false);
-    }
-  } catch { showMsg('Connection error', false); }
-}
-
-// ── Common auth success handler ──────────────────────────────────────────────
-function handleAuthSuccess(data) {
-  localStorage.setItem('grudge_auth_token', data.token);
-  if (data.user) localStorage.setItem('grudge_user', JSON.stringify(data.user));
-  if (data.grudgeId || data.grudge_id) localStorage.setItem('grudge_id', data.grudgeId || data.grudge_id);
-  if (data.username) localStorage.setItem('grudge_username', data.username);
-  renderState();
-  showMsg('Signed in! Enter your device code below.', true);
-}
-
-// ── Token ingestion from URL ──────────────────────────────────────────────────
-function ingestToken(token) {
-  localStorage.setItem('grudge_auth_token', token);
-  // Fetch and store user info
-  fetch(`${API}/api/auth/user`, { headers: { Authorization: `Bearer ${token}` } })
-    .then(r => r.ok ? r.json() : null)
-    .then(u => {
-      if (u) {
-        localStorage.setItem('grudge_user', JSON.stringify(u));
-        localStorage.setItem('grudge_id', u.grudgeId || u.grudge_id || '');
-        localStorage.setItem('grudge_username', u.username || '');
-      }
-    })
-    .catch(() => {})
-    .finally(() => {
-      history.replaceState({}, '', location.pathname);
-      renderState();
-    });
-}
-
-// ── Render UI based on auth ───────────────────────────────────────────────────
-function renderState() {
-  const token = getToken();
-  const user  = getUser();
-  const loggedIn = !!(token && (user || localStorage.getItem('grudge_id')));
-
-  const loginPanel = document.getElementById('login-panel');
-  const userPanel  = document.getElementById('user-panel');
-  const codeInput  = document.getElementById('code');
-  const pairBtn    = document.getElementById('pair-btn');
-  const codeHint   = document.getElementById('code-hint');
-  const loginHint  = document.getElementById('login-hint');
-
-  if (loggedIn) {
-    loginPanel.style.display = 'none';
-    userPanel.style.display  = 'block';
-
-    const name = (user && (user.username || user.grudgeId)) || localStorage.getItem('grudge_username') || 'Warlord';
-    const gid  = (user && user.grudgeId) || localStorage.getItem('grudge_id') || '';
-    document.getElementById('user-name-el').textContent = name;
-    document.getElementById('user-id-el').textContent   = gid ? gid.slice(0,8).toUpperCase() + '...' : '';
-
-    codeInput.disabled = false;
-    codeInput.focus();
-    codeHint.style.display  = 'block';
-    loginHint.style.display = 'none';
-
-    // Update steps
-    setStep(2);
-  } else {
-    loginPanel.style.display = 'block';
-    userPanel.style.display  = 'none';
-
-    codeInput.disabled = true;
-    pairBtn.disabled   = true;
-    codeHint.style.display  = 'none';
-    loginHint.style.display = 'block';
-
-    setStep(1);
-  }
-}
-
-function setStep(n) {
-  [1,2,3,4].forEach(i => {
-    const el = document.getElementById(`step${i}`);
-    el.classList.remove('active','done');
-    if (i < n) el.classList.add('done');
-    else if (i === n) el.classList.add('active');
-  });
-}
-
-// ── Code input handler ────────────────────────────────────────────────────────
-function onCodeInput(el) {
-  el.value = el.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const pairBtn = document.getElementById('pair-btn');
-  const token = getToken();
-  pairBtn.disabled = !(el.value.length === 6 && token);
-
-  if (el.value.length === 6) setStep(3);
-  else if (getToken()) setStep(2);
-}
-
-// ── Pairing ───────────────────────────────────────────────────────────────────
-async function pairDevice() {
-  const code  = document.getElementById('code').value.trim().toUpperCase();
-  const token = getToken();
-  const btn   = document.getElementById('pair-btn');
-  const msg   = document.getElementById('msg');
-
-  if (code.length !== 6) { showMsg('Enter a 6-character code from your device display.', false); return; }
-  if (!token) { showMsg('Please sign in first.', false); return; }
-
-  btn.disabled = true;
-  btn.textContent = 'PAIRING...';
-  msg.className = 'msg';
-  msg.style.display = 'none';
-
-  try {
-    const r = await fetch(`${ID}/device/approve`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ code }),
-    });
-    const d = await r.json();
-    if (r.ok) {
-      showMsg('✅ Device paired! Redirecting to your account…', true);
-      setStep(4);
-      setTimeout(() => { location.href = '/account'; }, 1200);
-    } else {
-      showMsg(d.error || 'Pairing failed — check the code and try again.', false);
-      setStep(2);
-    }
-  } catch {
-    showMsg('Connection error — check your internet and try again.', false);
-  }
-  btn.disabled = false;
-  btn.textContent = 'PAIR DEVICE';
-}
-
-function showMsg(text, ok) {
-  const m = document.getElementById('msg');
-  m.textContent = text;
-  m.className = 'msg ' + (ok ? 'ok' : 'err');
-}
-
-// ── Init ──────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  // Pick up token from URL (SSO redirect / OAuth callback)
-  const params = new URLSearchParams(location.search);
-  const urlToken = params.get('token') || params.get('sso_token');
-  if (urlToken) {
-    ingestToken(urlToken);
-    return; // ingestToken calls renderState() when done
-  }
-
-  // Handle sso_required
-  if (params.get('sso_required') === 'true') {
-    history.replaceState({}, '', location.pathname);
-  }
-
-  renderState();
-
-  // If already signed in AND no ?pair=1 query flag, go straight to account
-  if (getToken() && !new URLSearchParams(location.search).has('pair')) {
-    // small delay so user sees the page flash
-  }
-
-  // Code input: uppercase + filter
-  const ci = document.getElementById('code');
-  ci.addEventListener('keydown', e => { if (e.key === 'Enter') pairDevice(); });
-});
+const ID='https://id.grudge-studio.com';
+async function loginWithGrudgeId(){const b=document.getElementById('puter-btn');b.disabled=true;b.textContent='CONNECTING...';try{const u=await puter.auth.signIn();if(!u)throw new Error('Cancelled');const r=await fetch(`${ID}/auth/puter`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({puterUuid:u.uuid,puterUsername:u.username})});const d=await r.json();if(r.ok&&d.token)handleAuthSuccess(d);else showMsg(d.error||'Grudge ID login failed',false)}catch(e){if(e.message!=='Cancelled')showMsg('Error: '+e.message,false)}b.disabled=false;b.textContent='⚔ CONNECT GRUDGE ID'}
+function getToken(){return localStorage.getItem('grudge_auth_token')}
+function getUser(){try{return JSON.parse(localStorage.getItem('grudge_user')||'null')}catch{return null}}
+function logout(){fetch(`${ID}/auth/logout`,{method:'POST',headers:{Authorization:`Bearer ${getToken()}`}}).catch(()=>{});['grudge_auth_token','grudge_user','grudge_id','grudge_username','grudge_session_token','grudge-session'].forEach(k=>localStorage.removeItem(k));location.reload()}
+function loginWith(p){location.href=`${ID}/auth/${p}?redirect_uri=${encodeURIComponent(location.href)}`}
+function showTab(n){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.login-tab').forEach(t=>t.classList.remove('active'));document.getElementById('tab-'+n).classList.add('active');event.target.classList.add('active')}
+async function loginWithCreds(){const i=document.getElementById('login-id').value.trim(),p=document.getElementById('login-pw').value;if(!i||!p){showMsg('Enter username and password.',false);return}const b=document.getElementById('creds-btn');b.disabled=true;b.textContent='SIGNING IN...';try{const r=await fetch(`${ID}/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identifier:i,password:p})});const d=await r.json();if(r.ok&&d.token)handleAuthSuccess(d);else showMsg(d.error||'Login failed',false)}catch{showMsg('Connection error',false)}b.disabled=false;b.textContent='SIGN IN'}
+async function registerAccount(){const u=document.getElementById('reg-user').value.trim(),e=document.getElementById('reg-email').value.trim(),p=document.getElementById('reg-pw').value;if(!u||!p){showMsg('Username and password required.',false);return}const b=document.getElementById('reg-btn');b.disabled=true;b.textContent='CREATING...';try{const r=await fetch(`${ID}/auth/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,email:e||undefined,password:p})});const d=await r.json();if(r.ok&&d.token)handleAuthSuccess(d);else showMsg(d.error||'Registration failed',false)}catch{showMsg('Connection error',false)}b.disabled=false;b.textContent='CREATE ACCOUNT'}
+async function loginAsGuest(){const did=crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);try{const r=await fetch(`${ID}/auth/guest`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceId:did})});const d=await r.json();if(r.ok&&d.token)handleAuthSuccess(d);else showMsg(d.error||'Guest login failed',false)}catch{showMsg('Connection error',false)}}
+function handleAuthSuccess(d){localStorage.setItem('grudge_auth_token',d.token);if(d.user)localStorage.setItem('grudge_user',JSON.stringify(d.user));if(d.grudgeId||d.grudge_id)localStorage.setItem('grudge_id',d.grudgeId||d.grudge_id);if(d.username)localStorage.setItem('grudge_username',d.username);renderState();showMsg('Signed in! Enter your device code below.',true)}
+function ingestToken(t){localStorage.setItem('grudge_auth_token',t);fetch(`${ID}/auth/user`,{headers:{Authorization:`Bearer ${t}`}}).then(r=>r.ok?r.json():null).then(u=>{if(u){localStorage.setItem('grudge_user',JSON.stringify(u));localStorage.setItem('grudge_id',u.grudgeId||u.grudge_id||'');localStorage.setItem('grudge_username',u.username||'')}}).catch(()=>{}).finally(()=>{history.replaceState({},'',location.pathname);renderState()})}
+function renderState(){const t=getToken(),u=getUser(),ok=!!(t&&(u||localStorage.getItem('grudge_id')));document.getElementById('login-panel').style.display=ok?'none':'block';document.getElementById('user-panel').style.display=ok?'block':'none';const ci=document.getElementById('code'),pb=document.getElementById('pair-btn');if(ok){const n=(u&&(u.username||u.grudgeId))||localStorage.getItem('grudge_username')||'Warlord';const g=(u&&u.grudgeId)||localStorage.getItem('grudge_id')||'';document.getElementById('user-name-el').textContent=n;document.getElementById('user-id-el').textContent=g?g.slice(0,8).toUpperCase()+'...':'';ci.disabled=false;ci.focus();document.getElementById('code-hint').style.display='block';document.getElementById('login-hint').style.display='none';setStep(2)}else{ci.disabled=true;pb.disabled=true;document.getElementById('code-hint').style.display='none';document.getElementById('login-hint').style.display='block';setStep(1)}}
+function setStep(n){[1,2,3,4].forEach(i=>{const e=document.getElementById(`step${i}`);e.classList.remove('active','done');if(i<n)e.classList.add('done');else if(i===n)e.classList.add('active')})}
+function onCodeInput(el){el.value=el.value.toUpperCase().replace(/[^A-Z0-9]/g,'');document.getElementById('pair-btn').disabled=!(el.value.length===6&&getToken());if(el.value.length===6)setStep(3);else if(getToken())setStep(2)}
+async function pairDevice(){const c=document.getElementById('code').value.trim().toUpperCase(),t=getToken(),b=document.getElementById('pair-btn');if(c.length!==6){showMsg('Enter a 6-character code.',false);return}if(!t){showMsg('Sign in first.',false);return}b.disabled=true;b.textContent='PAIRING...';document.getElementById('msg').className='msg';document.getElementById('msg').style.display='none';try{const r=await fetch(`${ID}/device/approve`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${t}`},body:JSON.stringify({code:c})});const d=await r.json();if(r.ok){showMsg('✅ Device paired! Redirecting…',true);setStep(4);setTimeout(()=>{location.href='/account'},1200)}else{showMsg(d.error||'Pairing failed.',false);setStep(2)}}catch{showMsg('Connection error.',false)}b.disabled=false;b.textContent='PAIR DEVICE'}
+function showMsg(t,ok){const m=document.getElementById('msg');m.textContent=t;m.className='msg '+(ok?'ok':'err')}
+document.addEventListener('DOMContentLoaded',()=>{const p=new URLSearchParams(location.search);const ut=p.get('token')||p.get('sso_token');if(ut){ingestToken(ut);return}if(p.get('sso_required')==='true')history.replaceState({},'',location.pathname);renderState();document.getElementById('code').addEventListener('keydown',e=>{if(e.key==='Enter')pairDevice()})});
 </script>
 </body>
 </html>

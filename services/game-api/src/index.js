@@ -20,6 +20,8 @@ const economyRoutes    = require('./routes/economy');
 const craftingRoutes   = require('./routes/crafting');
 const combatRoutes     = require('./routes/combat');
 const islandRoutes     = require('./routes/islands');
+const arenaRoutes      = require('./routes/arena');
+const playerIslandRoutes = require('./routes/player-islands');
 const pvpRoutes        = require('./routes/pvp');
 
 const app = express();
@@ -117,6 +119,8 @@ app.use('/economy',     requireAuth, economyLimiter, economyRoutes);
 app.use('/crafting',    requireAuth, craftingRoutes);
 app.use('/combat',      requireAuth, combatRoutes);
 app.use('/islands',     requireAuth, islandRoutes);
+app.use('/arena',       requireAuth, arenaRoutes);
+app.use('/player-islands', requireAuth, playerIslandRoutes);
 app.use('/pvp',         requireAuth, pvpLimiter, pvpRoutes);
 
 app.use((err, req, res, next) => {

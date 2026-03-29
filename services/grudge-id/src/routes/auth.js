@@ -945,6 +945,7 @@ router.post('/github/exchange', async (req, res, next) => {
 
     const db = getDB();
     const ghIdStr = String(gh.id);
+    const ghUsername = gh.login || null;
 
     let [rows] = await db.query('SELECT * FROM users WHERE github_id = ? LIMIT 1', [ghIdStr]);
     let user = rows[0];
@@ -954,15 +955,15 @@ router.post('/github/exchange', async (req, res, next) => {
       [rows] = await db.query('SELECT * FROM users WHERE email = ? LIMIT 1', [primaryEmail]);
       user = rows[0];
       if (user) {
-        await db.query('UPDATE users SET github_id = ? WHERE grudge_id = ?', [ghIdStr, user.grudge_id]).catch(() => {});
+        await db.query('UPDATE users SET github_id = ?, github_username = ? WHERE grudge_id = ?', [ghIdStr, ghUsername, user.grudge_id]).catch(() => {});
       }
     }
 
     if (user) {
       if (user.is_banned) return res.status(403).json({ error: user.ban_reason || 'Account banned' });
       await db.query(
-        'UPDATE users SET last_login = NOW(), avatar_url = COALESCE(avatar_url, ?) WHERE grudge_id = ?',
-        [gh.avatar_url || null, user.grudge_id]
+        'UPDATE users SET last_login = NOW(), avatar_url = COALESCE(avatar_url, ?), github_username = COALESCE(github_username, ?) WHERE grudge_id = ?',
+        [gh.avatar_url || null, ghUsername, user.grudge_id]
       );
     } else {
       isNewUser = true;
@@ -1144,6 +1145,7 @@ router.get('/github/callback', async (req, res, next) => {
 
     const db = getDB();
     const ghIdStr = String(gh.id);
+    const ghUsername2 = gh.login || null;
 
     let [rows] = await db.query('SELECT * FROM users WHERE github_id = ? LIMIT 1', [ghIdStr]);
     let user = rows[0];
@@ -1151,14 +1153,14 @@ router.get('/github/callback', async (req, res, next) => {
     if (!user && primaryEmail) {
       [rows] = await db.query('SELECT * FROM users WHERE email = ? LIMIT 1', [primaryEmail]);
       user = rows[0];
-      if (user) await db.query('UPDATE users SET github_id = ? WHERE grudge_id = ?', [ghIdStr, user.grudge_id]).catch(() => {});
+      if (user) await db.query('UPDATE users SET github_id = ?, github_username = ? WHERE grudge_id = ?', [ghIdStr, ghUsername2, user.grudge_id]).catch(() => {});
     }
 
     if (user) {
       if (user.is_banned) return res.status(403).json({ error: user.ban_reason || 'Account banned' });
       await db.query(
-        'UPDATE users SET last_login = NOW(), avatar_url = COALESCE(avatar_url, ?) WHERE grudge_id = ?',
-        [gh.avatar_url || null, user.grudge_id]
+        'UPDATE users SET last_login = NOW(), avatar_url = COALESCE(avatar_url, ?), github_username = COALESCE(github_username, ?) WHERE grudge_id = ?',
+        [gh.avatar_url || null, ghUsername2, user.grudge_id]
       );
     } else {
       user = await getOrCreateUser(db, 'github_id', ghIdStr, {

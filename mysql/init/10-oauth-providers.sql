@@ -12,7 +12,8 @@ BEGIN
   ALTER TABLE users ADD COLUMN puter_username  VARCHAR(64)  DEFAULT NULL AFTER puter_uuid;
   ALTER TABLE users ADD COLUMN google_id       VARCHAR(64)  UNIQUE DEFAULT NULL AFTER puter_username;
   ALTER TABLE users ADD COLUMN github_id       VARCHAR(64)  UNIQUE DEFAULT NULL AFTER google_id;
-  ALTER TABLE users ADD COLUMN phone           VARCHAR(32)  UNIQUE DEFAULT NULL AFTER github_id;
+  ALTER TABLE users ADD COLUMN github_username  VARCHAR(64)  DEFAULT NULL AFTER github_id;
+  ALTER TABLE users ADD COLUMN phone           VARCHAR(32)  UNIQUE DEFAULT NULL AFTER github_username;
   ALTER TABLE users ADD COLUMN avatar_url      VARCHAR(512) DEFAULT NULL AFTER phone;
 END //
 DELIMITER ;
