@@ -11,7 +11,7 @@ on:
         description: "Also deploy the Unity headless game server"
         type: boolean
         default: false
-        required: false
+        required: falseh
 
 concurrency:
   group: deploy-main
@@ -30,7 +30,7 @@ jobs:
       - name: Install & lint ai-agent
         working-directory: services/ai-agent
         run: |
-          npm ci --ignore-scripts
+          npm install --ignore-scripts
           node -e "require('./src/index.js')" 2>&1 | head -5 && echo 'Syntax OK' || exit 1
       - name: Syntax-check all services
         run: |
