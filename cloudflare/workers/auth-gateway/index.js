@@ -27,7 +27,12 @@ const TOKEN_ROUTES = new Set([
   '/auth/guest',
   '/auth/wallet',
   '/auth/puter',
+  '/auth/puter-bridge',
   '/auth/discord/exchange',
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/guest',
+  '/api/auth/web3auth',
 ]);
 
 // Routes that need rate limiting (sensitive auth actions)
@@ -63,6 +68,12 @@ const ALLOWED_ORIGINS = new Set([
   'https://starwaygruda-webclient-as2n.vercel.app',
   'https://app.puter.com',
   'https://molochdagod.github.io',
+  'https://nemesis-grudge-qu02egpmh-grudgenexus.vercel.app',
+  'https://nemesis.grudge-studio.com',
+  'https://grudge-pipeline.vercel.app',
+  'https://gruda-legion-production.up.railway.app',
+  'https://id.grudge-studio.com',
+  'https://info.grudge-studio.com',
 ]);
 
 // ── Security headers ─────────────────────────────────────────────────────────
@@ -127,6 +138,19 @@ export default {
     // ── Token-issuing routes — proxy + cache ──────────────────────────────
     if (TOKEN_ROUTES.has(path) && method === 'POST') {
       return proxyAndCache(request, env, ctx, path, origin);
+    }
+
+    // ── Platform compat /api/auth/* routes ─────────────────────────
+    if (path.startsWith('/api/auth/')) {
+      if (TOKEN_ROUTES.has(path) && method === 'POST') {
+        return proxyAndCache(request, env, ctx, path, origin);
+      }
+      return proxyPassthrough(request, env, path, origin);
+    }
+
+    // ── Static auth page + SDK ──────────────────────────────────
+    if (path === '/auth' || path === '/auth/' || path.startsWith('/auth/grudge-auth-redirect')) {
+      return proxyPassthrough(request, env, path, origin);
     }
 
     // ── Pass-through routes (discord redirect, puter-link, etc.) ────────────

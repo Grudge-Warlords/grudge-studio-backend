@@ -10,6 +10,8 @@ const path = require('path');
 const authRoutes   = require('./routes/auth');
 const identityRoutes = require('./routes/identity');
 const deviceRoutes = require('./routes/device');
+const platformCompat = require('./routes/platform-compat');
+const ssoRoutes = require('./routes/sso');
 const { initDB } = require('./db');
 
 const app = express();
@@ -103,8 +105,16 @@ app.get('/favicon.ico', (req, res) => {
 app.get('/tos', (req, res) => { sendHtmlPage(res, path.join(__dirname, '..', 'public', 'tos.html'), 'https://grudge-studio.com/tos'); });
 app.get('/privacy', (req, res) => { sendHtmlPage(res, path.join(__dirname, '..', 'public', 'privacy.html'), 'https://grudge-studio.com/privacy'); });
 
-app.get('/health', (req, res) => res.json({ status: 'ok', service: 'grudge-id' }));
+app.get('/health', (req, res) => res.json({ status: 'ok', service: 'grudge-id', ts: Date.now() }));
+
+// Static auth frontend (WCS-styled login page)
+const path = require('path');
+app.use('/auth', express.static(path.join(__dirname, '..', 'public')));
+app.get('/auth', (_req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'auth.html')));
+
 app.use('/auth',     authLimiter, authRoutes);
+app.use('/auth',     ssoRoutes);                    // GET /auth/sso-check
+app.use('/api/auth', authLimiter, platformCompat);   // /api/auth/* compat for grudge-platform
 app.use('/identity', identityRoutes);
 app.use('/device',   deviceRoutes);
 
