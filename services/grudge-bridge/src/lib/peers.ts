@@ -29,6 +29,16 @@ export interface HeartbeatPayload {
   timestamp: string;
   services: string[];
   uptime: number;
+  /** Validator identity (GRD-V-xxx) */
+  validatorIdentity?: string;
+  /** Whether validator is enabled */
+  validatorEnabled?: boolean;
+  /** Legion GRD-17 status */
+  legionEnabled?: boolean;
+  /** Legion inbox size */
+  legionInboxSize?: number;
+  /** Number of GRD-17 messages sent */
+  legionTotalSent?: number;
 }
 
 /** In-memory peer status registry */
@@ -147,6 +157,9 @@ export async function broadcastHeartbeat(config: BridgeConfig): Promise<void> {
     timestamp: new Date().toISOString(),
     services: [],
     uptime: process.uptime(),
+    validatorIdentity: config.validator.identity,
+    validatorEnabled: config.validator.enabled,
+    legionEnabled: config.legion.enabled,
   };
 
   for (const peer of config.peers) {

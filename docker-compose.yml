@@ -461,6 +461,18 @@ services:
       PEER_NODES: ${BRIDGE_PEER_NODES:-}
       DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
       COMPOSE_DIR: /opt/grudge-studio-backend
+      # Validator — cross-node state verification
+      VALIDATOR_ENABLED: ${VALIDATOR_ENABLED:-true}
+      VALIDATOR_CRON: ${VALIDATOR_CRON:-*/5 * * * *}
+      VALIDATOR_TABLES: ${VALIDATOR_TABLES:-users,characters,gold_transactions,island_state}
+      # Legion AI — GRD-17 inter-node communication
+      LEGION_ENABLED: ${LEGION_ENABLED:-true}
+      GRD17_HMAC_SECRET: ${GRD17_HMAC_SECRET}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      AI_AGENT_URL: http://ai-agent:3004
+      LEGION_MAX_INBOX: ${LEGION_MAX_INBOX:-1000}
+      LEGION_MSG_TTL: ${LEGION_MSG_TTL:-3600}
     depends_on:
       mysql:
         condition: service_healthy
