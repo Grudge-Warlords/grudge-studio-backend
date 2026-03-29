@@ -7,7 +7,7 @@
 FROM node:20-alpine AS deps
 WORKDIR /build
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev --ignore-scripts \
+RUN npm install --omit=dev --ignore-scripts \
     && npm cache clean --force
 
 # ── Stage 2: Development (optional, for local docker-compose) ─
