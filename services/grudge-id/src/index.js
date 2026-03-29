@@ -33,28 +33,39 @@ const authLimiter = rateLimit({
 });
 
 // ── Routes ────────────────────────────────────
-app.get('/', (req, res) => res.json({
-  service: 'grudge-id',
-  version: '1.0.0',
-  description: 'Grudge Studio — Identity & Authentication API',
-  endpoints: {
-    health: 'GET /health',
-    auth: {
-      wallet: 'POST /auth/wallet',
-      discord: 'GET /auth/discord',
-      discord_callback: 'GET /auth/discord/callback',
-      login: 'POST /auth/login',
-      register: 'POST /auth/register',
-      guest: 'POST /auth/guest',
-      verify: 'POST /auth/verify',
+app.get('/', (req, res) => {
+  // Browsers get the auth/device-pairing page; API clients get JSON
+  const accept = (req.headers.accept || '').toLowerCase();
+  if (accept.includes('text/html')) {
+    return res.redirect('/device');
+  }
+  res.json({
+    service: 'grudge-id',
+    version: '1.1.0',
+    description: 'Grudge Studio — Identity & Authentication',
+    login: 'https://id.grudge-studio.com/device',
+    endpoints: {
+      health: 'GET /health',
+      auth: {
+        wallet: 'POST /auth/wallet',
+        discord: 'GET /auth/discord',
+        discord_callback: 'GET /auth/discord/callback',
+        google: 'GET /auth/google',
+        github: 'GET /auth/github',
+        login: 'POST /auth/login',
+        register: 'POST /auth/register',
+        guest: 'POST /auth/guest',
+        verify: 'POST /auth/verify',
+        sso_check: 'GET /auth/sso-check?return=URL',
+      },
+      identity: {
+        me: 'GET /identity/me (Bearer JWT)',
+        update: 'PATCH /identity/me (Bearer JWT)',
+      },
     },
-    identity: {
-      me: 'GET /identity/me (Bearer JWT)',
-      update: 'PATCH /identity/me (Bearer JWT)',
-    },
-  },
-  docs: 'https://github.com/MolochDaGod/grudge-studio-backend/blob/main/docs/API.md',
-}));
+    docs: 'https://github.com/MolochDaGod/grudge-studio-backend/blob/main/docs/API.md',
+  });
+});
 
 // ♠️ GRUDA Node pages ────────────────────────────────────────────────────────────
 const fs   = require('fs');
