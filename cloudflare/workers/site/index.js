@@ -26,6 +26,7 @@ import backendPage from './pages/backend.html';
 import clientPage from './pages/client.html';
 import infraPage from './pages/infra.html';
 import systemsPage from './pages/systems.html';
+import grudgeherosPage from './pages/grudgeheros.html';
 
 const SERVICES = [
   { key: 'id',       label: 'Identity API',   url: 'https://id.grudge-studio.com/health' },
@@ -92,6 +93,7 @@ export default {
     if (path === '/client') return serveHTML(clientPage);
     if (path === '/infra') return serveHTML(infraPage);
     if (path === '/systems') return serveHTML(systemsPage);
+    if (path === '/grudgeheros') return serveHTML(grudgeherosPage);
     if (path === '/landing') return handlePage(env);  // old landing still accessible
     return handlePage(env);
   },
