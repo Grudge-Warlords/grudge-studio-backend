@@ -7,7 +7,7 @@ const bcrypt = require('bcryptjs');
 const axios = require('axios');
 const { getDB } = require('../db');
 const { verifyTurnstile } = require('../middleware/turnstile');
-const { isAllowedRedirect, DEFAULT_AUTH_REDIRECT } = require('../../../shared/cors');
+const { isAllowedRedirect, DEFAULT_AUTH_REDIRECT } = require('../../shared/cors');
 
 const JWT_SECRET         = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN     = process.env.JWT_EXPIRES_IN || '7d';
