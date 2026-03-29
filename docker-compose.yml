@@ -88,7 +88,10 @@ services:
   # WALLET SERVICE
   # ─────────────────────────────────────────
   wallet-service:
-    build: ./services/wallet-service
+    build:
+      context: ./services
+      dockerfile: wallet-service/Dockerfile
+      target: production
     container_name: wallet-service
     restart: unless-stopped
     environment:
@@ -169,7 +172,10 @@ services:
   # GAME API — GAME_API_GRUDA
   # ─────────────────────────────────────────
   game-api:
-    build: ./services/game-api
+    build:
+      context: ./services
+      dockerfile: game-api/Dockerfile
+      target: production
     container_name: game-api
     restart: unless-stopped
     environment:
@@ -218,7 +224,10 @@ services:
   # AI AGENT — Dynamic Missions, Companions, Faction Intel
   # ─────────────────────────────────────────
   ai-agent:
-    build: ./services/ai-agent
+    build:
+      context: ./services
+      dockerfile: ai-agent/Dockerfile
+      target: production
     container_name: ai-agent
     restart: unless-stopped
     environment:
@@ -244,7 +253,10 @@ services:
   # ACCOUNT API — Profiles, Social, Achievements, Puter Cloud
   # ─────────────────────────────────────────────
   account-api:
-    build: ./services/account-api
+    build:
+      context: ./services
+      dockerfile: account-api/Dockerfile
+      target: production
     container_name: account-api
     restart: unless-stopped
     environment:
@@ -288,7 +300,10 @@ services:
   # LAUNCHER API — Version Manifest, Computer Registration, Launch Tokens
   # ─────────────────────────────────────────────
   launcher-api:
-    build: ./services/launcher-api
+    build:
+      context: ./services
+      dockerfile: launcher-api/Dockerfile
+      target: production
     container_name: launcher-api
     restart: unless-stopped
     environment:
@@ -333,7 +348,10 @@ services:
   # ASSET SERVICE — Upload, metadata, conversions, export bundles
   # ─────────────────────────────────────────────
   asset-service:
-    build: ./services/asset-service
+    build:
+      context: ./services
+      dockerfile: asset-service/Dockerfile
+      target: production
     container_name: asset-service
     restart: unless-stopped
     environment:
@@ -378,7 +396,10 @@ services:
   # Namespaces: /game (island rooms), /crew, /global
   # ─────────────────────────────────────────────
   ws-service:
-    build: ./services/ws-service
+    build:
+      context: ./services
+      dockerfile: ws-service/Dockerfile
+      target: production
     container_name: ws-service
     restart: unless-stopped
     environment:
@@ -405,6 +426,50 @@ services:
       - "traefik.http.services.ws-service.loadbalancer.server.port=3007"
       - "traefik.http.services.ws-service.loadbalancer.sticky.cookie=true"
       - "traefik.http.services.ws-service.loadbalancer.sticky.cookie.name=grudge_ws"
+      - "traefik.docker.network=coolify"
+    networks:
+      - grudge-net
+      - coolify
+
+  # ─────────────────────────────────────────────
+  # GRUDGE BRIDGE — 3-Node VPS Operations Manager
+  # Backups, dumps, SHA verification, deploy orchestration
+  # Peers: Windows VPS (Radmin), GrudgeYonko (Radmin)
+  # ─────────────────────────────────────────────
+  grudge-bridge:
+    build: ./services/grudge-bridge
+    container_name: grudge-bridge
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      NODE_ROLE: primary
+      NODE_NAME: linux-vps
+      BRIDGE_API_KEY: ${BRIDGE_API_KEY}
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_CONTAINER: grudge-mysql
+      R2_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT}
+      R2_BUCKET: grudge-assets
+      R2_KEY: ${OBJECT_STORAGE_KEY}
+      R2_SECRET: ${OBJECT_STORAGE_SECRET}
+      PEER_NODES: ${BRIDGE_PEER_NODES:-}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      COMPOSE_DIR: /opt/grudge-studio-backend
+    depends_on:
+      mysql:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grudge-bridge.rule=Host(`bridge.grudge-studio.com`)"
+      - "traefik.http.routers.grudge-bridge.entrypoints=https"
+      - "traefik.http.routers.grudge-bridge.tls.certresolver=letsencrypt"
+      - "traefik.http.services.grudge-bridge.loadbalancer.server.port=4000"
       - "traefik.docker.network=coolify"
     networks:
       - grudge-net

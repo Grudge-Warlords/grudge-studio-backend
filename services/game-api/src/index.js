@@ -2,7 +2,7 @@ require('dotenv').config();
 const express    = require('express');
 const helmet     = require('helmet');
 const cors       = require('cors');
-const { grudgeCors } = require('../shared/cors');
+const { grudgeCors } = require('../../shared/cors');
 const discordRoutes  = require('./routes/discord');
 const jwt        = require('jsonwebtoken');
 const rateLimit  = require('express-rate-limit');
