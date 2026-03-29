@@ -4,6 +4,8 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const { grudgeCors } = require('../shared/cors');
+const fs   = require('fs');
+const path = require('path');
 
 const authRoutes   = require('./routes/auth');
 const identityRoutes = require('./routes/identity');
@@ -34,16 +36,16 @@ const authLimiter = rateLimit({
 
 // ── Routes ────────────────────────────────────
 app.get('/', (req, res) => {
-  // Browsers get the auth/device-pairing page; API clients get JSON
+  // Browsers get the login page; API clients get JSON
   const accept = (req.headers.accept || '').toLowerCase();
   if (accept.includes('text/html')) {
-    return res.redirect('/device');
+    return sendHtmlPage(res, path.join(__dirname, '..', 'public', 'login.html'), 'https://grudge-studio.com');
   }
   res.json({
     service: 'grudge-id',
     version: '1.1.0',
     description: 'Grudge Studio — Identity & Authentication',
-    login: 'https://id.grudge-studio.com/device',
+    login: 'https://id.grudge-studio.com',
     endpoints: {
       health: 'GET /health',
       auth: {
@@ -67,28 +69,26 @@ app.get('/', (req, res) => {
   });
 });
 
-// ♠️ GRUDA Node pages ────────────────────────────────────────────────────────────
-const fs   = require('fs');
-const path = require('path');
-app.get('/device',  (req, res) => { sendHtmlPage(res, path.join(__dirname, '..', 'public', 'device.html'),  'https://grudge-studio.com/device'); });
-app.get('/account', (req, res) => { sendHtmlPage(res, path.join(__dirname, '..', 'public', 'account.html'), 'https://grudge-studio.com/account'); });
-
-// ?? HTML page CSP (allows inline scripts + Google Fonts) ?????????????????????
+// ── HTML page CSP (allows inline scripts + Google Fonts) ─────────────────────
 const HTML_CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://js.puter.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
-  "img-src 'self' data: https:",
+  "img-src 'self' data: https: blob:",
   "connect-src 'self' https://api.grudge-studio.com https://id.grudge-studio.com https://api.puter.com https://*.puter.com wss://*.puter.com",
   "frame-ancestors 'none'",
 ].join('; ');
 
 function sendHtmlPage(res, filePath, fallbackUrl) {
   res.setHeader('Content-Security-Policy', HTML_CSP);
-  if (require('fs').existsSync(filePath)) return res.sendFile(filePath);
+  if (fs.existsSync(filePath)) return res.sendFile(filePath);
   res.redirect(fallbackUrl);
 }
+
+// ── GRUDA Node pages ─────────────────────────────────────────────────────────
+app.get('/device',  (req, res) => { sendHtmlPage(res, path.join(__dirname, '..', 'public', 'device.html'),  'https://grudge-studio.com/device'); });
+app.get('/account', (req, res) => { sendHtmlPage(res, path.join(__dirname, '..', 'public', 'account.html'), 'https://grudge-studio.com/account'); });
 
 // ?? Favicon ???????????????????????????????????????????????????????????????????
 app.get('/favicon.ico', (req, res) => {
