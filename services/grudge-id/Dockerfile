@@ -4,14 +4,14 @@
 # ═══════════════════════════════════════════════════════════════
 
 # ── Stage 1: Install deps (thrown away after) ─────────────────
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /build
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev --ignore-scripts \
     && npm cache clean --force
 
 # ── Stage 2: Development (optional, for local docker-compose) ─
-FROM node:20-alpine AS development
+FROM node:22-alpine AS development
 WORKDIR /app/grudge-id
 COPY package.json package-lock.json* ./
 RUN npm install && ln -s /app/grudge-id/node_modules /app/node_modules
@@ -22,7 +22,7 @@ EXPOSE 3001
 CMD ["npx", "nodemon", "src/index.js"]
 
 # ── Stage 3: Production (final image) ─────────────────────────
-FROM node:20-alpine AS production
+FROM node:22-alpine AS production
 
 # Security: update Alpine packages to patch CVEs (zlib etc)
 RUN apk upgrade --no-cache \
