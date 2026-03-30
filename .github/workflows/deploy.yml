@@ -1,6 +1,14 @@
 name: Deploy to Grudge Studio VPS
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/**'
+      - 'shared/**'
+      - 'docker-compose*.yml'
+      - 'migrations/**'
+      - 'scripts/**'
   workflow_dispatch:
     inputs:
       services:
@@ -11,7 +19,7 @@ on:
         description: "Also deploy the Unity headless game server"
         type: boolean
         default: false
-        required: falseh
+        required: false
 
 concurrency:
   group: deploy-main
@@ -35,7 +43,7 @@ jobs:
       - name: Syntax-check all services
         run: |
           FAIL=0
-          for svc in grudge-id wallet-service game-api ai-agent account-api launcher-api asset-service ws-service; do
+          for svc in grudge-id wallet-service game-api ai-agent account-api launcher-api asset-service ws-service grudge-bridge; do
             DIR="services/$svc"
             if [ -f "$DIR/package.json" ]; then
               MAIN=$(node -e "console.log(require('./$DIR/package.json').main || 'src/index.js')")
@@ -174,7 +182,7 @@ jobs:
           SERVICES="${{ github.event.inputs.services || 'all' }}"
 
           if [ "$SERVICES" = "all" ]; then
-            REBUILD="ai-agent wallet-service account-api launcher-api asset-service game-api grudge-id ws-service"
+            REBUILD="ai-agent wallet-service account-api launcher-api asset-service game-api grudge-id ws-service grudge-bridge"
           else
             REBUILD=$(echo $SERVICES | tr ',' ' ')
           fi
@@ -208,7 +216,7 @@ jobs:
               case $SVC in
                 grudge-id) PORT=3001;; game-api) PORT=3003;; ai-agent) PORT=3004;;
                 account-api) PORT=3005;; launcher-api) PORT=3006;; ws-service) PORT=3007;;
-                asset-service) PORT=3008;; *) PORT="";;  esac
+                asset-service) PORT=3008;; grudge-bridge) PORT=4000;; *) PORT="";;  esac
               if [ -n "$PORT" ]; then
                 if $SSH "curl -sf --max-time 5 http://localhost:$PORT/health" > /dev/null 2>&1; then
                   SVC_HEALTHY=true

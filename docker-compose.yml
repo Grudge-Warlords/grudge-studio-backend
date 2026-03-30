@@ -17,7 +17,7 @@ volumes:
 # All externally-exposed services share this default.
 # Override per-env by setting CORS_ORIGINS in .env
 x-cors-origins: &cors-origins
-  CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://www.grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://client.grudge-studio.com,https://wallet.grudge-studio.com,https://play.grudge-studio.com,https://grudge-platform.vercel.app,https://grudgeplatform.com,https://www.grudgeplatform.com,https://grudgeplatform.io,https://www.grudgeplatform.io,https://play.grudgeplatform.io,https://grudachain.grudgestudio.com,https://grudachain-rho.vercel.app,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://gruda-wars.vercel.app,https://grudge-engine-web.vercel.app,https://starwaygruda-webclient-as2n.vercel.app,https://grim-armada-web.vercel.app,https://grudge-angeler.vercel.app,https://grudge-rts.vercel.app,https://grudge-space-rts.vercel.app,https://grudge-rts.grudge-studio.com,https://grudge-studio-dash.vercel.app,https://grudge-studio-dash.pages.dev,https://nexus-nemesis-game.vercel.app,https://grudge-pvp-server.vercel.app,https://grudge-origins.vercel.app,https://app.puter.com,https://molochdagod.github.io}
+  CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://www.grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://client.grudge-studio.com,https://wallet.grudge-studio.com,https://play.grudge-studio.com,https://grudge-platform.vercel.app,https://grudgeplatform.com,https://www.grudgeplatform.com,https://grudgeplatform.io,https://www.grudgeplatform.io,https://play.grudgeplatform.io,https://grudachain.grudgestudio.com,https://grudachain-rho.vercel.app,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://gruda-wars.vercel.app,https://grudge-engine-web.vercel.app,https://starwaygruda-webclient-as2n.vercel.app,https://grim-armada-web.vercel.app,https://grudge-angeler.vercel.app,https://grudge-rts.vercel.app,https://grudge-space-rts.vercel.app,https://grudge-rts.grudge-studio.com,https://grudge-studio-dash.vercel.app,https://grudge-studio-dash.pages.dev,https://nexus-nemesis-game.vercel.app,https://grudge-pvp-server.vercel.app,https://grudge-origins.vercel.app,https://the-engine-grudgenexus.vercel.app,https://app.puter.com,https://molochdagod.github.io}
 
 services:
 
@@ -147,7 +147,7 @@ services:
       DATABASE_URL: postgresql://${PORTAL_DB_USER:-rec0ded_user}:${PORTAL_DB_PASSWORD}@portal-postgres:5432/rec0ded88
       ADMIN_PASSCODE: ${PORTAL_ADMIN_PASSCODE}
       ADMIN_SESSION_SECRET: ${PORTAL_SESSION_SECRET}
-      CORS_ORIGINS: https://grudge-studio.com,http://localhost:5173
+      CORS_ORIGINS: https://grudge-studio.com,https://the-engine-grudgenexus.vercel.app,http://localhost:5173
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:5000/api/platforms').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
       interval: 30s

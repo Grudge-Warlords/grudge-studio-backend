@@ -34,7 +34,8 @@ const SERVICES = [
   { key: 'account',  label: 'Account API',     url: 'https://account.grudge-studio.com/health' },
   { key: 'launcher', label: 'Launcher API',    url: 'https://launcher.grudge-studio.com/health' },
   { key: 'ws',       label: 'WebSocket',       url: 'https://ws.grudge-studio.com/health' },
-  { key: 'assets',   label: 'Asset CDN',       url: 'https://assets.grudge-studio.com/health' },
+  { key: 'assets',   label: 'Asset Service',   url: 'https://assets-api.grudge-studio.com/health' },
+  { key: 'cdn',      label: 'Asset CDN',        url: 'https://assets.grudge-studio.com/health' },
 ];
 
 const KV_STATUS_KEY  = 'status:latest';
