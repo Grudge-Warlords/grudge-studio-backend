@@ -3,7 +3,7 @@
  * Serves grudge-studio.com — landing, status, docs, tools, admin, sub-pages
  *
  * Public routes:
- *   /           — Landing page with live status
+ *   /           — Redirect to The Engine (the-engine-grudgenexus.vercel.app)
  *   /backend    — Backend Architecture roadmap
  *   /client     — Client Portal (also client.grudge-studio.com)
  *   /infra      — Infrastructure Bible
@@ -57,25 +57,10 @@ export default {
     // CORS preflight
     if (request.method === 'OPTIONS') return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type,Authorization' } });
 
-    // ── SSO-based root redirect ─────────────────────────────────────
-    // grudge-studio.com/ → logged in → The Engine, not logged in → client portal
+    // ── Root → The Engine ──────────────────────────────────────────────
+    // grudge-studio.com/ lands directly on The Engine (no SSO bounce)
     if (path === '/' && host === 'grudge-studio.com') {
-      const ssoToken = url.searchParams.get('sso_token');
-      const ssoRequired = url.searchParams.get('sso_required');
-
-      if (ssoToken) {
-        // User has a valid session → send to The Engine
-        return Response.redirect('https://the-engine-grudgenexus.vercel.app', 302);
-      }
-      if (ssoRequired) {
-      // No session → send to device/auth portal for login
-        return Response.redirect('https://id.grudge-studio.com/device', 302);
-      }
-      // First visit — ask grudge-id to check the SSO cookie and redirect back
-      return Response.redirect(
-        `https://id.grudge-studio.com/auth/sso-check?return=${encodeURIComponent('https://grudge-studio.com/')}`,
-        302
-      );
+      return Response.redirect('https://the-engine-grudgenexus.vercel.app', 302);
     }
 
     // API routes

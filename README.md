@@ -1,4 +1,12 @@
-# Grudge Studio Backend
+# ⚠️ FROZEN — Grudge Studio Backend (Legacy)
+
+> **This repository is frozen as of `freeze-v1.0`.** All active development has moved to
+> [**grudge-backend**](https://github.com/MolochDaGod/grudge-backend) — the unified Node.js/TypeScript
+> backend with PostgreSQL + Drizzle ORM.
+>
+> This repo is kept as a read-only reference for migration. Do not commit new features here.
+
+---
 
 Full-stack microservices backend for **grudgewarlords.com** and **grudge-studio.com**.
 
