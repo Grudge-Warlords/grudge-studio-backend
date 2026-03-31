@@ -10,6 +10,7 @@ const path = require('path');
 const authRoutes   = require('./routes/auth');
 const identityRoutes = require('./routes/identity');
 const deviceRoutes = require('./routes/device');
+const adminRoutes  = require('./routes/admin');
 const platformCompat = require('./routes/platform-compat');
 const ssoRoutes = require('./routes/sso');
 const { initDB } = require('./db');
@@ -67,7 +68,7 @@ app.get('/', (req, res) => {
         update: 'PATCH /identity/me (Bearer JWT)',
       },
     },
-    docs: 'https://github.com/MolochDaGod/grudge-studio-backend/blob/main/docs/API.md',
+    docs: 'https://docs.grudge-studio.com',
   });
 });
 
@@ -108,7 +109,6 @@ app.get('/privacy', (req, res) => { sendHtmlPage(res, path.join(__dirname, '..',
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'grudge-id', ts: Date.now() }));
 
 // Static auth frontend (WCS-styled login page)
-const path = require('path');
 app.use('/auth', express.static(path.join(__dirname, '..', 'public')));
 app.get('/auth', (_req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'auth.html')));
 
@@ -117,6 +117,7 @@ app.use('/auth',     ssoRoutes);                    // GET /auth/sso-check
 app.use('/api/auth', authLimiter, platformCompat);   // /api/auth/* compat for grudge-platform
 app.use('/identity', identityRoutes);
 app.use('/device',   deviceRoutes);
+app.use('/admin',    adminRoutes);
 
 // ── Error handler ─────────────────────────────
 app.use((err, req, res, next) => {
