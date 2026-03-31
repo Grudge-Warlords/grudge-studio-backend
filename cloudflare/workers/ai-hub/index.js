@@ -97,6 +97,16 @@ export default {
         return corsResponse(await handleEmbed(request, env, auth, requestId), origin);
       }
 
+      // GET /v1/babylon/search — semantic search over BabylonJS 9 API docs
+      if (url.pathname === '/v1/babylon/search' && method === 'GET') {
+        return corsResponse(await handleBabylonSearch(url, env, auth, requestId), origin);
+      }
+
+      // GET /v1/babylon/health — Babylon AI Workers health
+      if (url.pathname === '/v1/babylon/health' && method === 'GET') {
+        return corsResponse(await handleBabylonHealth(env), origin);
+      }
+
       // ── Admin routes ───────────────────────────────────────────
       if (url.pathname.startsWith('/v1/admin')) {
         if (auth.scope !== 'admin') {
@@ -213,14 +223,24 @@ async function handleHealth(env) {
     vpsStatus = 'unreachable';
   }
 
+  // Babylon AI Workers health
+  let babylonStatus = 'unknown';
+  try {
+    const bResp = await fetch(`${env.BABYLON_AI_WORKER_URL || 'https://babylon-ai-workers.grudge.workers.dev'}/health`, { signal: AbortSignal.timeout(5000) });
+    babylonStatus = bResp.ok ? 'healthy' : `error-${bResp.status}`;
+  } catch {
+    babylonStatus = 'unreachable';
+  }
+
   return json({
     status: 'ok',
     service: 'grudge-ai-hub',
-    version: '1.0.0',
+    version: '1.1.0',
     environment: env.ENVIRONMENT,
     providers: {
       workers_ai: 'available',
       vps_ai_agent: vpsStatus,
+      babylon_ai: babylonStatus,
     },
     timestamp: new Date().toISOString(),
   });
@@ -247,7 +267,7 @@ async function handleListAgents(env) {
     });
   } catch (err) {
     // D1 unavailable — return static fallback
-    const roles = ['general', 'dev', 'balance', 'lore', 'art', 'mission', 'companion', 'faction'];
+    const roles = ['general', 'dev', 'balance', 'lore', 'art', 'mission', 'companion', 'faction', 'havok', 'sage'];
     return json({
       agents: roles.map(r => ({ role: r, endpoint: `/v1/agents/${r}/chat` })),
       count: roles.length,
@@ -309,6 +329,29 @@ async function handleChat(request, env, auth, requestId, role) {
   const useModel = model || roleConfig.model;
   const useTemp = temperature ?? roleConfig.temperature;
   const useMaxTokens = max_tokens || roleConfig.max_tokens;
+
+  // ── Babylon specialist check: route to Babylon AI Workers ──
+  if (BABYLON_ROLES.has(role)) {
+    const babylonResult = await escalateToBabylon(env, role, fullMessages, requestId);
+    const latency = Date.now() - start;
+    await logRequest(env, {
+      requestId, apiKeyId: auth.keyId, role, provider: babylonResult.provider || 'babylon-ai',
+      model: babylonResult.model || 'llama-3.1-70b-instruct', status: babylonResult.error ? 'error' : 'ok',
+      latencyMs: latency, error: babylonResult.error,
+    });
+    if (babylonResult.error) {
+      return json({ error: babylonResult.error, provider: 'babylon-ai', request_id: requestId }, 502);
+    }
+    return json({
+      response: babylonResult.content,
+      provider: babylonResult.provider,
+      model: babylonResult.model,
+      worker: babylonResult.worker,
+      source: babylonResult.source,
+      role,
+      request_id: requestId,
+    });
+  }
 
   // ── Escalation check: if role requires VPS, go straight there ──
   if (roleConfig.escalate_to_vps) {
@@ -489,6 +532,15 @@ const VPS_ROLE_MAP = {
   faction: '/ai/faction/intel',
 };
 
+// Babylon AI Workers — domain-specialist roles (Cloudflare Workers, not VPS)
+// These bypass the VPS escalation path and go directly to the Babylon workers.
+const BABYLON_ROLES = new Set(['havok', 'sage']);
+
+const BABYLON_ROLE_MAP = {
+  havok: '/havok',  // Physics, character controllers, collision, constraints
+  sage:  '/sage',   // Rendering, materials, animations, terrain, VFX
+};
+
 async function escalateToVps(env, role, messages, temperature, maxTokens, requestId) {
   const vpsUrl = env.VPS_AI_AGENT_URL;
   const internalKey = env.VPS_INTERNAL_KEY;
@@ -544,6 +596,100 @@ async function escalateToVps(env, role, messages, temperature, maxTokens, reques
     };
   } catch (err) {
     return { error: `VPS unreachable: ${err.message}` };
+  }
+}
+
+
+// ════════════════════════════════════════════════════════════════
+//  Babylon AI Workers (domain-specialist escalation)
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * Escalate a havok/sage query to the Babylon AI Workers.
+ * These are Cloudflare Workers with Vectorize RAG over BabylonJS 9 API docs.
+ */
+async function escalateToBabylon(env, role, messages, requestId) {
+  const babylonUrl = env.BABYLON_AI_WORKER_URL || 'https://babylon-ai-workers.grudge.workers.dev';
+  const endpoint = BABYLON_ROLE_MAP[role] || '/sage';
+
+  try {
+    // Extract user message (Babylon workers expect { question, context, code })
+    const userMessage = messages.filter(m => m.role === 'user').pop()?.content || '';
+
+    // Extract code block if present
+    let code;
+    const codeMatch = userMessage.match(/```[\s\S]*?```/);
+    if (codeMatch) {
+      code = codeMatch[0].replace(/```\w*\n?/g, '').replace(/```$/g, '').trim();
+    }
+
+    const resp = await fetch(`${babylonUrl}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Request-Id': requestId,
+      },
+      body: JSON.stringify({
+        question: userMessage,
+        context: 'grudge-studio',
+        code,
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => 'unknown');
+      return { error: `Babylon AI returned ${resp.status}: ${errText}` };
+    }
+
+    const data = await resp.json();
+    return {
+      content: data.answer || '',
+      provider: 'babylon-ai',
+      model: data.model || 'llama-3.1-70b-instruct',
+      worker: data.worker || role,
+      source: data.source || 'rag+llm',
+    };
+  } catch (err) {
+    return { error: `Babylon AI unreachable: ${err.message}` };
+  }
+}
+
+/** GET /v1/babylon/search — semantic search over BabylonJS docs */
+async function handleBabylonSearch(url, env, auth, requestId) {
+  const babylonUrl = env.BABYLON_AI_WORKER_URL || 'https://babylon-ai-workers.grudge.workers.dev';
+  const q = url.searchParams.get('q') || '';
+  const domain = url.searchParams.get('domain') || 'all';
+
+  if (!q) return json({ error: '"q" parameter is required' }, 400);
+
+  try {
+    const resp = await fetch(
+      `${babylonUrl}/search?q=${encodeURIComponent(q)}&domain=${encodeURIComponent(domain)}`,
+      { signal: AbortSignal.timeout(10000) }
+    );
+    const data = await resp.json();
+
+    await logRequest(env, {
+      requestId, apiKeyId: auth.keyId, role: 'babylon-search', provider: 'babylon-ai',
+      model: 'bge-base-en-v1.5', status: resp.ok ? 'ok' : 'error', latencyMs: 0,
+    });
+
+    return json(data, resp.status);
+  } catch (err) {
+    return json({ error: `Babylon search failed: ${err.message}`, request_id: requestId }, 502);
+  }
+}
+
+/** GET /v1/babylon/health — Babylon AI Workers health */
+async function handleBabylonHealth(env) {
+  const babylonUrl = env.BABYLON_AI_WORKER_URL || 'https://babylon-ai-workers.grudge.workers.dev';
+  try {
+    const resp = await fetch(`${babylonUrl}/health`, { signal: AbortSignal.timeout(5000) });
+    const data = await resp.json();
+    return json(data);
+  } catch (err) {
+    return json({ status: 'unreachable', error: err.message }, 502);
   }
 }
 
@@ -738,6 +884,8 @@ const ALLOWED_ORIGINS = [
   'https://nexus-nemesis-game.vercel.app',
   'https://grudge-angeler.vercel.app',
   'https://grudge-rts.vercel.app',
+  'https://babylon-ai-workers.grudge.workers.dev',
+  'https://dungeon-crawler-quest.vercel.app',
   'https://app.puter.com',
   'https://molochdagod.github.io',
 ];

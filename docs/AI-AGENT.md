@@ -212,3 +212,86 @@ const { GrudaLegionNode } = require('gruda-legion-sdk');
 const legion = new GrudaLegionNode({ apiKey: process.env.LEGION_HUB_API_KEY });
 const reply = await legion.dev('Review this combat formula for bugs');
 ```
+
+---
+
+## Babylon AI Workers (BabylonJS 9 + Havok Specialists)
+
+**Cloudflare Worker:** `babylon-ai-workers.grudge.workers.dev`  
+**Source:** `D:\GrudgeStudio\babylon-ai-workers`  
+**Integrated via:** AI Hub at `ai.grudge-studio.com/v1/agents/havok/chat` and `sage/chat`
+
+Two domain-specialist workers with Vectorize RAG over BabylonJS 9 API documentation. Unlike the general ai-agent (which uses Anthropic/OpenAI/DeepSeek), these use Workers AI + Vectorize for fast, domain-specific answers.
+
+### Architecture
+
+```
+Client (editor, game page, SDK)
+    │
+    ├── Direct: babylon-ai-workers.grudge.workers.dev/havok
+    │
+    ├── Via AI Hub: ai.grudge-studio.com/v1/agents/havok/chat  (auth required)
+    │
+    └── Via GDevelop: /api/gruda-legion/babylon/havok  (proxied)
+            │
+            ▼
+        babylon-ai-workers (Cloudflare Worker)
+            │
+            ├── Vectorize (bge-base-en-v1.5 embeddings → semantic search)
+            ├── KV (cached responses + learned patterns)
+            ├── R2 (full API doc pages)
+            └── Workers AI (llama-3.1-70b-instruct)
+```
+
+### Workers
+
+| Worker | Role | Endpoint | Domain |
+|---|---|---|---|
+| Havok Scholar | Physics specialist | `/havok` | PhysicsCharacterController, HavokPlugin, collision, constraints, rigid bodies |
+| Babylon Sage | Rendering specialist | `/sage` | PBRMaterial, AnimationGroup, SceneLoader, terrain, post-processing, VFX |
+
+### Endpoints
+
+```
+POST /havok    — Ask Havok Scholar { question, context?, code? }
+POST /sage     — Ask Babylon Sage { question, context?, code? }
+POST /learn    — Ingest new API docs { title, content, domain, url?, category? }
+GET  /search   — Semantic search ?q=query&domain=physics|rendering|all
+GET  /health   — Health check
+```
+
+Response format:
+```json
+{
+  "answer": "Working BabylonJS 9 code and explanation...",
+  "worker": "havok-scholar",
+  "source": "rag+llm",
+  "model": "llama-3.1-70b-instruct"
+}
+```
+
+### Knowledge Base
+
+8 ingested BabylonJS 9 API docs (vectorized via bge-base-en-v1.5):
+- PhysicsCharacterController, HavokPlugin, Character Controller State Machine
+- DefaultRenderingPipeline, Animation Retargeting, TerrainMaterial
+- SSAO2 Rendering Pipeline, SceneLoader.ImportMeshAsync
+
+To ingest more docs: `npm run ingest` (set `WORKER_URL` to the deployed worker URL)
+
+### Client SDK
+
+Drop-in `grudge-babylon-sdk.js` for any editor or game page:
+
+```html
+<script src="/grudge-babylon-sdk.js"></script>
+<script>
+  // Auto-routes physics vs rendering
+  const { answer } = await BabylonAI.ask('How do I set up character jump with Havok?');
+  // Or target a specific worker
+  const physics = await BabylonAI.askHavok('Explain checkSupport vs calculateMovement');
+  const render  = await BabylonAI.askSage('Best post-processing for outdoor terrain?');
+  // Semantic search
+  const results = await BabylonAI.search('animation retargeting', 'rendering');
+</script>
+```

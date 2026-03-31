@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db');
 
-const VALID_RACES   = ['human', 'elf', 'worge', 'undead', 'orc'];
+const VALID_RACES   = ['human', 'orc', 'elf', 'undead', 'barbarian', 'dwarf'];
 const VALID_CLASSES = ['warrior', 'mage', 'ranger', 'worge'];
 // Numeric fields the game server may write back after combat/events
 const MUTABLE_STATS = ['hp', 'max_hp', 'strength', 'dexterity', 'intelligence', 'level',

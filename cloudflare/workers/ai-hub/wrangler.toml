@@ -23,6 +23,7 @@ id      = "486553dfacdc40b394e630b1cdfa97d6"
 [vars]
 ENVIRONMENT              = "production"
 VPS_AI_AGENT_URL         = "https://api.grudge-studio.com"
+BABYLON_AI_WORKER_URL    = "https://babylon-ai-workers.grudge.workers.dev"
 RATE_LIMIT_RPM           = "60"
 RATE_LIMIT_RPM_ADMIN     = "300"
 MAX_PAYLOAD_BYTES        = "65536"

@@ -80,10 +80,12 @@ INTERNAL NETWORK:
 **Cloudflare Workers** (no VPS — deployed via `npx wrangler deploy`):
 
 | Worker | Route | Config |
-|--------|-------|--------|
-| `grudge-studio-site` | grudge-studio.com/* | cloudflare/workers/site/ |
-| `grudge-dashboard` | dash.grudge-studio.com/* | cloudflare/workers/dashboard/ |
-| `grudge-r2-cdn` | assets.grudge-studio.com/* | cloudflare/workers/r2-cdn/ |
+||--------|-------|--------|
+|| `grudge-studio-site` | grudge-studio.com/* | cloudflare/workers/site/ |
+|| `grudge-dashboard` | dash.grudge-studio.com/* | cloudflare/workers/dashboard/ |
+|| `grudge-r2-cdn` | assets.grudge-studio.com/* | cloudflare/workers/r2-cdn/ |
+|| `grudge-ai-hub` | ai.grudge-studio.com/* | cloudflare/workers/ai-hub/ |
+|| `babylon-ai-workers` | babylon-ai-workers.grudge.workers.dev | D:\GrudgeStudio\babylon-ai-workers/ |
 
 ---
 
@@ -364,6 +366,37 @@ GET  /ai/context             — Full system context JSON (game rules, factions,
 POST /ai/mission/generate    — Generate a mission for a player
 POST /ai/companion/interact  — AI companion dialogue / action
 GET  /ai/faction/intel       — Faction-level mission + behavioral data
+```
+
+### Babylon AI Workers (Cloudflare — BabylonJS 9 Specialists)
+
+**URL:** `https://babylon-ai-workers.grudge.workers.dev`  
+**Also via:** `https://ai.grudge-studio.com/v1/agents/havok/chat` and `/v1/agents/sage/chat`  
+**Source:** `D:\GrudgeStudio\babylon-ai-workers`  
+**Storage:** Vectorize (embeddings), KV (cache + learned patterns), R2 (large docs), Workers AI (LLM)
+
+Two domain-specialist workers with RAG over BabylonJS 9 API docs:
+
+**Havok Scholar** — Physics, character controllers, collision, constraints:
+```
+POST /havok   — { question, context?, code? } → { answer, worker, source, model }
+```
+
+**Babylon Sage** — Rendering, materials, animations, terrain, VFX:
+```
+POST /sage    — { question, context?, code? } → { answer, worker, source, model }
+```
+
+**Shared endpoints:**
+```
+POST /learn   — Ingest new BabylonJS docs into knowledge base
+GET  /search  — Semantic search (?q=query&domain=physics|rendering|all)
+GET  /health  — { status, workers, version, storage }
+```
+
+**Client SDK:** `public/grudge-babylon-sdk.js` (drop-in for any editor/game page)
+```javascript
+const answer = await BabylonAI.ask('How do I set up PhysicsCharacterController?');
 ```
 
 ### Mission Generation (called by game-api)
