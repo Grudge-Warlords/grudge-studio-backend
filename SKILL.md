@@ -104,6 +104,47 @@ NO production traffic goes through local machine.
 | ObjectStore | Game data JSON API (GitHub Pages) |
 | phantom-connect-sdk | Reference — Phantom wallet SDK |
 
+## Game Server Architecture (Real-time + PvP)
+
+Already built in docker-compose:
+
+### ws-service (port 3007, ws.grudge-studio.com)
+Socket.IO server with 4 namespaces:
+- `/game` — Island rooms. Players join by island, get player:join/leave, combat:z_key events.
+- `/crew` — Crew chat rooms. crew:message relay within crew groups.
+- `/pvp` — PvP lobbies. join_lobby, leave_lobby, ready, action relay (attack/parry/dodge/z_key/ability/worge_form/hit/death/position). Supports headless server push via pvp:game_state and pvp:server_match_end.
+- `/global` — Faction standings, announcements, mission completions.
+
+All namespaces use JWT auth middleware. Redis pub/sub bridges events from game-api and ai-agent.
+
+### PvP Server Manager (in game-api)
+Manages headless Unity game server pool via Redis:
+- Servers register with heartbeat (30s TTL)
+- `allocateServer(lobby_code, player_count)` assigns idle server
+- `markInMatch()`, `releaseServer()`, `deregisterServer()`
+- Matchmaking worker in ws-service runs every 2s, pairs players within ±150 ELO
+- Match modes: duel, crew_battle, arena_ffa
+
+### grudge-headless (port 7777, profile-gated)
+Unity Linux dedicated game server. Connects to ws-service via internal Socket.IO.
+Pushes authoritative game state, submits match results via pvp:server_match_end.
+Requires `bin/` upload (not in git). Start with: `docker compose --profile gameserver up -d grudge-headless`
+
+### What's NOT running but should be:
+1. **redis** — Required by ws-service (pub/sub), game-api (cache, queues, server pool). Start on VPS.
+2. **grudge-headless** — Unity server binary needs to be uploaded to VPS services/grudge-headless/bin/
+3. **Chat system** — crew:message in /crew namespace works but needs:
+   - Message persistence (currently ephemeral)
+   - DM/whisper support
+   - Global chat channel
+   - Chat history API endpoint in game-api
+   - Profanity filter
+4. **Spectator mode** — /game namespace has island rooms but no spectator join without auth
+5. **Server scaling** — Currently single headless server. For production need:
+   - Multiple grudge-headless instances with unique server_ids
+   - Server pool monitoring in uptime-kuma
+   - Auto-scaling based on queue depth
+
 ## Environment Variables (VPS .env)
 
 Critical keys (never expose):
