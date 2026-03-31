@@ -105,6 +105,10 @@ services:
       WALLET_MASTER_SEED: ${WALLET_MASTER_SEED}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       SOLANA_RPC_URL: ${SOLANA_RPC_URL}
+      # Phantom Connect Server SDK
+      PHANTOM_ORGANIZATION_ID: ${PHANTOM_ORGANIZATION_ID}
+      PHANTOM_APP_ID: ${PHANTOM_APP_ID:-656b4ef2-7acc-44fe-bec7-4b288cfdd2e9}
+      PHANTOM_API_PRIVATE_KEY: ${PHANTOM_API_PRIVATE_KEY}
     depends_on:
       mysql:
         condition: service_healthy
