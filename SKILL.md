@@ -54,32 +54,58 @@ Player → Any Grudge App → id.grudge-studio.com/auth/{method}
 - All apps capture inbound tokens from URL params on boot
 - Shared localStorage keys: grudge_auth_token, grudge_id, grudge_username, grudge_user_id
 
-## Vercel Frontend Deployments (22 projects)
+## Vercel Frontend Deployments
 
-| Project | Domain | What |
-|---------|--------|------|
-| grudge-builder | grudgewarlords.com | Main game portal (StarWayGRUDA-WebClient) |
-| grudachain | grudachain.grudgestudio.com | Nexus hub — link directory for all apps |
-| grudge-platform | grudge-platform.vercel.app | App Launcher, ops dashboard |
-| gdevelop-assistant | gdevelop-assistant.vercel.app | Dev tools, AI chat, 20+ games, editors |
-| warlord-crafting-suite | warlord-crafting-suite.vercel.app | WCS game systems (grudge-wars repo) |
-| the-engine | grudge-studio.com | Landing page / marketing |
-| auth-gateway | id.grudge-studio.com | Auth SSO (Vercel serverless, proxies to VPS grudge-id) |
-| grudge-studio-dash | dash.grudge-studio.com | Dashboard |
-| star-way-gruda-web-client | play.grudge-studio.com | 3D game client |
-| objectstore | objectstore.vercel.app | Game data API mirror |
-| grudge-game-data-hub | info.grudge-studio.com | Game info |
-| dungeon-crawler-quest | dungeon-crawler-quest.vercel.app | 3D dungeon game |
-| grim-armada-web | grim-armada-web.vercel.app | Ship game |
-| tge-billing | tge-billing.vercel.app | Billing |
+With custom domains:
+- grudgewarlords.com → grudge-builder — Main game portal / entry point
+- grudge-studio.com → the-engine — Landing page / marketing site
+- id.grudge-studio.com → auth-gateway — Vercel serverless proxy to VPS grudge-id. Auth SSO pages
+- dash.grudge-studio.com → grudge-studio-dash — Admin dashboard
+- play.grudge-studio.com → star-way-gruda-web-client — 3D game client (BabylonJS)
+- info.grudge-studio.com → grudge-game-data-hub — Game info / wiki
+- grudachain.grudgestudio.com → grudachain — Nexus hub, link directory
+- apps.grudge-studio.com → grudge-platform — App launcher, ops dashboard
+- dcq.grudge-studio.com → dungeon-crawler-quest — 3D dungeon game
+- armada.grudge-studio.com → grim-armada-web — Ship battle game
 
-THC-Labz (separate brand, do not modify):
+Pending custom domain (fix build first):
+- wcs.grudge-studio.com → grudge-wars — WCS / Grudge Warlords game (fix build error before assigning)
+- dev.grudge-studio.com → gdevelop-assistant — Dev tools, AI chat, editors (fix build error before assigning)
+
+Other Vercel (no custom domain needed):
+- objectstore.vercel.app → objectstore — Game data API mirror (canonical: molochdagod.github.io/ObjectStore)
+- tge-billing.vercel.app → tge-billing — Billing
+
+THC-Labz (separate brand, DO NOT TOUCH):
 thc-labz-battle, thc-dope-budz, thc-labz-site, growerz-collection, market-app, thc-growerz-nft-sdk, thc-dope-budz-client
+
+## Cloudflare Workers
+
+- assets.grudge-studio.com → r2-cdn worker — R2 CDN serving game assets
+- wallet.grudge-studio.com → site worker — Wallet info/connect page
+- ai.grudge-studio.com → ai-hub worker — AI agents, Gemini/Anthropic gateway
+- objectstore.grudge-studio.com → objectstore-api worker — R2 metadata API (needs DNS fix)
+
+Removed routes (2026-03-31 audit):
+- grudge-studio.com/* — was conflicting with Vercel the-engine (removed from site worker)
+- dash.grudge-studio.com/* — was conflicting with Vercel grudge-studio-dash (removed from dashboard worker)
+- client.grudge-studio.com/* — redundant with play.grudge-studio.com (removed from site worker)
+- auth.grudge-studio.com/* — dead, auth is at id.grudge-studio.com (removed from auth-gateway worker)
 
 ## Cloudflare DNS (grudge-studio.com managed via Cloudflare)
 
 Backend subdomains → Cloudflare Tunnel → VPS Docker containers
-Frontend subdomains → CNAME → Vercel
+Frontend subdomains → CNAME → cname.vercel-dns.com
+Worker subdomains → Worker routes (zone e8c0c2ee3063f24eb31affddabf9730a)
+
+DNS records needed (add in Cloudflare dashboard):
+- apps CNAME → cname.vercel-dns.com (proxied)
+- dcq CNAME → cname.vercel-dns.com (proxied)
+- armada CNAME → cname.vercel-dns.com (proxied)
+- wcs CNAME → cname.vercel-dns.com (proxied) — after build fix
+- dev CNAME → cname.vercel-dns.com (proxied) — after build fix
+- portal-api CNAME → tunnel UUID (same as api record) — for portal-api VPS service
+- assets-api CNAME → tunnel UUID (same as api record) — for asset-service VPS service
 
 ## Local Development (Windows)
 

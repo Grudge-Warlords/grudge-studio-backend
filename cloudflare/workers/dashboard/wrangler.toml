@@ -1,4 +1,8 @@
-name               = "grudge-dashboard"
+# ⚠️ DEPRECATED — This Cloudflare Worker dashboard has been replaced by the
+# React dashboard at dash.grudge-studio.com (Vercel project: grudge-studio-dash).
+# Kept for reference only. Do NOT deploy.
+# The health-ping cron worker is separate and remains active.
+name               = "grudge-dashboard-DEPRECATED"
 main               = "index.js"
 compatibility_date = "2025-02-04"
 account_id         = "ee475864561b02d4588180b8b9acf694"
@@ -7,9 +11,8 @@ account_id         = "ee475864561b02d4588180b8b9acf694"
 enabled = true
 
 # ── Custom domain ─────────────────────────────────────────────────────────────
-[[routes]]
-pattern = "dash.grudge-studio.com/*"
-zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
+# REMOVED: dash.grudge-studio.com/* — Vercel project `grudge-studio-dash` owns this domain.
+# Dashboard worker is accessible via workers.dev URL only (for staging/internal use).
 
 # ── D1 Database (Grudge Studio primary CF data) ───────────────────────────────
 [[d1_databases]]

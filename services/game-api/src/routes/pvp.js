@@ -24,6 +24,7 @@ const router  = express.Router();
 const { getDB }    = require('../db');
 const { getRedis } = require('../redis');
 const serverManager = require('../pvp-server-manager');
+const { VALID_MODES, MODE_MAX_PLAYERS, getModeConfig, requiresDedicatedServer } = require('../mode-configs');
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -35,10 +36,6 @@ function genLobbyCode() {
   return code;
 }
 
-const VALID_MODES      = ['duel', 'crew_battle', 'arena_ffa'];
-const MODE_MAX_PLAYERS = { duel: 2, crew_battle: 10, arena_ffa: 16 };
-const ELO_K           = 32;   // ELO K-factor — higher = faster rating movement
-const QUEUE_ELO_RANGE = 150;  // auto-match within ±150 ELO
 const QUEUE_TTL_S     = 300;  // remove from queue after 5 minutes
 
 /** ELO expected score formula */
@@ -86,7 +83,8 @@ router.post('/lobby', async (req, res, next) => {
     const grudge_id = req.isInternal ? (req.body.grudge_id || req.user?.grudge_id) : req.user.grudge_id;
     if (!grudge_id) return res.status(400).json({ error: 'grudge_id required' });
 
-    if (!VALID_MODES.includes(mode))
+    const modeCfg = getModeConfig(mode);
+    if (!modeCfg)
       return res.status(400).json({ error: `mode must be: ${VALID_MODES.join(', ')}` });
     if (!char_id)
       return res.status(400).json({ error: 'char_id required' });
@@ -96,8 +94,8 @@ router.post('/lobby', async (req, res, next) => {
     if (!char) return res.status(403).json({ error: 'Character not found or not yours' });
 
     const max_players = Math.min(
-      Number(req.body.max_players) || MODE_MAX_PLAYERS[mode],
-      MODE_MAX_PLAYERS[mode]
+      Number(req.body.max_players) || modeCfg.maxPlayers,
+      modeCfg.maxPlayers
     );
 
     // Prevent duplicate active lobbies for same host
@@ -284,18 +282,23 @@ router.post('/lobby/:code/start', async (req, res, next) => {
     if (unready.length > 0)
       return res.status(409).json({ error: `${unready.length} player(s) not ready` });
 
-    // Attempt to allocate a dedicated game server for this match
+    // Attempt to allocate a dedicated game server for modes that need it
+    const startModeCfg = getModeConfig(lobby.mode);
     let server = null;
-    try {
-      server = await serverManager.allocateServer(code, players.length);
-      if (server) {
-        await serverManager.markInMatch(server.server_id, players.length);
-        console.log(`[pvp] Allocated server ${server.server_id} (${server.host}:${server.port}) for ${code}`);
-      } else {
-        console.log(`[pvp] No dedicated server available for ${code} — using relay mode`);
+    if (requiresDedicatedServer(lobby.mode)) {
+      try {
+        server = await serverManager.allocateServer(code, players.length);
+        if (server) {
+          await serverManager.markInMatch(server.server_id, players.length);
+          console.log(`[pvp] Allocated server ${server.server_id} (${server.host}:${server.port}) for ${code}`);
+        } else {
+          console.log(`[pvp] No dedicated server available for ${code} — using relay mode`);
+        }
+      } catch (e) {
+        console.warn('[pvp] Server allocation error:', e.message);
       }
-    } catch (e) {
-      console.warn('[pvp] Server allocation error:', e.message);
+    } else {
+      console.log(`[pvp] Mode ${lobby.mode} uses relay — skipping server allocation`);
     }
 
     await db.query(
@@ -313,6 +316,14 @@ router.post('/lobby/:code/start', async (req, res, next) => {
         island:     lobby.island,
         // Include server connection info so clients can connect directly
         server:     server ? { host: server.host, port: server.port, server_id: server.server_id } : null,
+        // Mode config for client setup (tick rate, timeout, respawns, etc.)
+        modeConfig: startModeCfg ? {
+          tickRateHz:        startModeCfg.tickRateHz,
+          timeoutSec:        startModeCfg.timeoutSec,
+          matchTimeLimitSec: startModeCfg.matchTimeLimitSec,
+          respawns:          startModeCfg.respawns,
+          serverType:        startModeCfg.serverType,
+        } : null,
         players:    players.map(p => ({
           grudge_id: p.grudge_id,
           char_id:   p.char_id,
@@ -439,8 +450,11 @@ router.post('/queue', async (req, res, next) => {
     const { mode = 'duel', char_id } = req.body;
     const grudge_id = req.user.grudge_id;
 
-    if (!VALID_MODES.includes(mode))
+    const queueModeCfg = getModeConfig(mode);
+    if (!queueModeCfg)
       return res.status(400).json({ error: `mode must be: ${VALID_MODES.join(', ')}` });
+    if (!queueModeCfg.queueEnabled)
+      return res.status(400).json({ error: `Matchmaking queue not available for ${mode}` });
     if (!char_id)
       return res.status(400).json({ error: 'char_id required' });
 
@@ -503,6 +517,13 @@ router.get('/ratings', async (req, res, next) => {
     );
     res.json({ grudge_id: target, ratings: rows });
   } catch (err) { next(err); }
+});
+
+// ── GET /pvp/mode-configs ────────────────────────────────────
+// Expose mode registry for ws-service and clients.
+router.get('/mode-configs', (req, res) => {
+  const { GAME_MODES } = require('../mode-configs');
+  res.json({ modes: GAME_MODES });
 });
 
 // ── GET /pvp/leaderboard ─────────────────────────────────────

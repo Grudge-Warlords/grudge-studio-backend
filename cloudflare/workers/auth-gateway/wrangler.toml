@@ -7,15 +7,8 @@ account_id         = "ee475864561b02d4588180b8b9acf694"
 enabled = true
 
 # ── Custom domains ─────────────────────────────────────────────────────────
-# Primary route (grudge-studio.com is on Cloudflare)
-[[routes]]
-pattern = "auth.grudge-studio.com/*"
-zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
-
-# Legacy route (enable after grudgestudio.com is added to Cloudflare)
-# [[routes]]
-# pattern   = "auth.grudgestudio.com/*"
-# zone_name = "grudgestudio.com"
+# REMOVED: auth.grudge-studio.com/* — DEAD. Auth is at id.grudge-studio.com (Vercel auth-gateway → VPS grudge-id).
+# This worker is deprecated. Auth gateway lives on Vercel project `auth-gateway`.
 
 # ── KV (shared namespace — sessions, rate limiting, bans) ─────────────────────
 [[kv_namespaces]]

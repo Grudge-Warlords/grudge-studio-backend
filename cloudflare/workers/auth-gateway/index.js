@@ -71,7 +71,6 @@ const ALLOWED_ORIGINS = new Set([
   'https://nemesis-grudge-qu02egpmh-grudgenexus.vercel.app',
   'https://nemesis.grudge-studio.com',
   'https://grudge-pipeline.vercel.app',
-  'https://gruda-legion-production.up.railway.app',
   'https://id.grudge-studio.com',
   'https://info.grudge-studio.com',
 ]);

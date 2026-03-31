@@ -23,6 +23,7 @@ const islandRoutes     = require('./routes/islands');
 const arenaRoutes      = require('./routes/arena');
 const playerIslandRoutes = require('./routes/player-islands');
 const pvpRoutes        = require('./routes/pvp');
+const adminRoutes      = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -122,6 +123,7 @@ app.use('/islands',     requireAuth, islandRoutes);
 app.use('/arena',       requireAuth, arenaRoutes);
 app.use('/player-islands', requireAuth, playerIslandRoutes);
 app.use('/pvp',         requireAuth, pvpLimiter, pvpRoutes);
+app.use('/admin',       requireAuth, adminRoutes);
 
 app.use((err, req, res, next) => {
   console.error('[game-api]', err.message);

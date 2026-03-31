@@ -6,15 +6,9 @@ account_id         = "ee475864561b02d4588180b8b9acf694"
 [observability]
 enabled = true
 
-# ── Custom domain ──────────────────────────────────────────────────────────────
-[[routes]]
-pattern = "grudge-studio.com/*"
-zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
-
-[[routes]]
-pattern = "client.grudge-studio.com/*"
-zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
-
+# ── Custom domains ─────────────────────────────────────────────────────────────
+# REMOVED: grudge-studio.com/* — Vercel project `the-engine` owns this domain.
+# REMOVED: client.grudge-studio.com/* — redundant with play.grudge-studio.com.
 [[routes]]
 pattern = "wallet.grudge-studio.com/*"
 zone_id = "e8c0c2ee3063f24eb31affddabf9730a"

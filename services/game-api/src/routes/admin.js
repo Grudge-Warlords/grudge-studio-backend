@@ -1,0 +1,232 @@
+/**
+ * GRUDGE STUDIO — Admin Dashboard API
+ * Mount: /admin
+ *
+ * All routes require both:
+ *   - Valid JWT with role 'admin' or 'owner'
+ *   - OR x-internal-key header
+ *
+ * Provides: DB introspection, aggregate stats, container management (via Bridge),
+ * storage info, and PvP server pool status.
+ */
+
+const express = require('express');
+const router  = express.Router();
+const { getDB }    = require('../db');
+const { getRedis } = require('../redis');
+const serverManager = require('../pvp-server-manager');
+
+const BRIDGE_URL = process.env.BRIDGE_URL || '';
+const BRIDGE_KEY = process.env.BRIDGE_API_KEY || '';
+const ASSET_SERVICE_URL = process.env.ASSET_SERVICE_URL || 'http://asset-service:3008';
+
+// ── Admin-only middleware ────────────────────────────────────────
+// Rejects non-admin JWT holders. Internal key always passes.
+router.use((req, res, next) => {
+  if (req.isInternal) return next();
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const role = req.user.role || req.user.roles?.[0] || 'player';
+  if (role !== 'admin' && role !== 'owner') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+});
+
+// ── Helpers ──────────────────────────────────────────────────────
+
+async function bridgeFetch(path, method = 'GET', body) {
+  if (!BRIDGE_URL || !BRIDGE_KEY) return null;
+  const opts = {
+    method,
+    headers: { Authorization: `Bearer ${BRIDGE_KEY}`, 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(10000),
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(`${BRIDGE_URL}/api/bridge${path}`, opts);
+  if (!r.ok) throw new Error(`Bridge ${r.status}`);
+  return r.json();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DATABASE INTROSPECTION
+// ═══════════════════════════════════════════════════════════════
+
+// GET /admin/db/tables — list all tables with row counts and sizes
+router.get('/db/tables', async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [rows] = await db.query(`
+      SELECT TABLE_NAME AS name,
+             TABLE_ROWS AS \`rows\`,
+             ROUND(DATA_LENGTH / 1024, 1) AS size_kb,
+             ENGINE AS engine,
+             UPDATE_TIME AS updated_at
+      FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE()
+      ORDER BY TABLE_NAME
+    `);
+    res.json(rows);
+  } catch (e) { next(e); }
+});
+
+// GET /admin/db/tables/:table — paginated table data
+router.get('/db/tables/:table', async (req, res, next) => {
+  try {
+    const db = getDB();
+    const table = req.params.table.replace(/[^a-zA-Z0-9_]/g, ''); // sanitize
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const offset = Number(req.query.offset) || 0;
+
+    // Verify table exists
+    const [[exists]] = await db.query(
+      `SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
+      [table]
+    );
+    if (!exists) return res.status(404).json({ error: 'Table not found' });
+
+    const [rows] = await db.query(`SELECT * FROM \`${table}\` LIMIT ? OFFSET ?`, [limit, offset]);
+    const [[{ cnt }]] = await db.query(`SELECT COUNT(*) AS cnt FROM \`${table}\``);
+    res.json({ table, rows, total: cnt, limit, offset });
+  } catch (e) { next(e); }
+});
+
+// GET /admin/db/schema/:table — column definitions
+router.get('/db/schema/:table', async (req, res, next) => {
+  try {
+    const db = getDB();
+    const table = req.params.table.replace(/[^a-zA-Z0-9_]/g, '');
+    const [cols] = await db.query(`
+      SELECT COLUMN_NAME AS name,
+             DATA_TYPE AS type,
+             COLUMN_TYPE AS full_type,
+             IS_NULLABLE AS nullable,
+             COLUMN_KEY AS \`key\`,
+             COLUMN_DEFAULT AS \`default\`,
+             EXTRA AS extra
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?
+      ORDER BY ORDINAL_POSITION
+    `, [table]);
+    res.json({ table, columns: cols });
+  } catch (e) { next(e); }
+});
+
+// POST /admin/db/query — execute read-only SQL (SELECT only)
+router.post('/db/query', async (req, res, next) => {
+  try {
+    const { sql } = req.body;
+    if (!sql) return res.status(400).json({ error: 'sql required' });
+
+    // Only allow SELECT statements
+    const trimmed = sql.trim().toUpperCase();
+    if (!trimmed.startsWith('SELECT') && !trimmed.startsWith('SHOW') && !trimmed.startsWith('DESCRIBE') && !trimmed.startsWith('EXPLAIN')) {
+      return res.status(403).json({ error: 'Only SELECT / SHOW / DESCRIBE / EXPLAIN queries allowed' });
+    }
+
+    const db = getDB();
+    const [rows] = await db.query(sql);
+    res.json({ rows, count: rows.length });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// AGGREGATE STATS
+// ═══════════════════════════════════════════════════════════════
+
+router.get('/stats', async (req, res, next) => {
+  try {
+    const db = getDB();
+    const redis = getRedis();
+
+    const [[users]]    = await db.query('SELECT COUNT(*) AS count FROM users');
+    const [[chars]]    = await db.query('SELECT COUNT(*) AS count FROM characters');
+    const [[missions]] = await db.query('SELECT COUNT(*) AS count FROM missions WHERE status = ?', ['completed']);
+    const [[lobbies]]  = await db.query("SELECT COUNT(*) AS count FROM pvp_lobbies WHERE status = 'in_progress'");
+    const [[matches]]  = await db.query('SELECT COUNT(*) AS count FROM pvp_matches');
+
+    let goldCirculating = 0;
+    try {
+      const [[g]] = await db.query('SELECT COALESCE(SUM(gold), 0) AS total FROM characters');
+      goldCirculating = g?.total || 0;
+    } catch {}
+
+    let redisKeys = 0;
+    try { redisKeys = await redis.dbsize(); } catch {}
+
+    res.json({
+      total_accounts: users?.count || 0,
+      total_characters: chars?.count || 0,
+      total_missions_completed: missions?.count || 0,
+      active_pvp_lobbies: lobbies?.count || 0,
+      total_pvp_matches: matches?.count || 0,
+      gold_circulating: goldCirculating,
+      redis_keys: redisKeys,
+    });
+  } catch (e) { next(e); }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// CONTAINER MANAGEMENT (via Bridge proxy)
+// ═══════════════════════════════════════════════════════════════
+
+router.get('/containers', async (req, res) => {
+  try {
+    const data = await bridgeFetch('/health');
+    if (!data) return res.json([]);
+    // Bridge health returns container info — adapt as needed
+    res.json(data.containers || data.services || [data]);
+  } catch (e) {
+    res.status(502).json({ error: 'Bridge unreachable', detail: e.message });
+  }
+});
+
+router.post('/containers/:id/restart', async (req, res) => {
+  try {
+    const data = await bridgeFetch('/deploy', 'POST', { action: 'restart', service: req.params.id });
+    res.json(data || { ok: true });
+  } catch (e) {
+    res.status(502).json({ error: 'Bridge unreachable', detail: e.message });
+  }
+});
+
+router.get('/containers/:id/logs', async (req, res) => {
+  try {
+    const lines = Number(req.query.lines) || 100;
+    const data = await bridgeFetch(`/deploy?service=${req.params.id}&lines=${lines}`);
+    res.json(data || { logs: '' });
+  } catch (e) {
+    res.status(502).json({ error: 'Bridge unreachable', detail: e.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// STORAGE (via asset-service)
+// ═══════════════════════════════════════════════════════════════
+
+router.get('/storage/buckets', async (req, res) => {
+  try {
+    const r = await fetch(`${ASSET_SERVICE_URL}/storage/stats`, {
+      headers: { 'x-internal-key': process.env.INTERNAL_API_KEY },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!r.ok) throw new Error(`Asset service ${r.status}`);
+    res.json(await r.json());
+  } catch (e) {
+    res.status(502).json({ error: 'Asset service unreachable', detail: e.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// PVP SERVER POOL
+// ═══════════════════════════════════════════════════════════════
+
+router.get('/pvp/servers', async (req, res, next) => {
+  try {
+    const servers = await serverManager.listServers();
+    res.json({ servers });
+  } catch (e) { next(e); }
+});
+
+module.exports = router;

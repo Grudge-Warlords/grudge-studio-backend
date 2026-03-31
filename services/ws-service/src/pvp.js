@@ -31,7 +31,43 @@
 const GAME_API_URL = process.env.GAME_API_URL || 'http://game-api:3003';
 const INTERNAL_KEY = process.env.INTERNAL_API_KEY;
 const QUEUE_ELO_RANGE = 150;
-const VALID_MODES = ['duel', 'crew_battle', 'arena_ffa'];
+
+// ── Mode config (loaded from game-api on startup, cached) ────
+// Fallback list; authoritative config lives in game-api/src/mode-configs.js
+let MODE_CONFIGS = null;
+const VALID_MODES_FALLBACK = ['duel', 'crew_battle', 'arena_ffa', 'nemesis', 'rpg_fighter', 'thc_battle'];
+
+async function loadModeConfigs() {
+  try {
+    const http = require('http');
+    const [host, portStr] = (GAME_API_URL.replace('http://', '')).split(':');
+    const port = Number(portStr) || 3003;
+    const data = await new Promise((resolve, reject) => {
+      const req = http.get({ hostname: host, port, path: '/pvp/mode-configs', headers: { 'x-internal-key': INTERNAL_KEY } }, (res) => {
+        let body = '';
+        res.on('data', (c) => body += c);
+        res.on('end', () => { try { resolve(JSON.parse(body)); } catch { reject(new Error('parse error')); } });
+      });
+      req.on('error', reject);
+      req.setTimeout(3000, () => { req.destroy(); reject(new Error('timeout')); });
+    });
+    if (data?.modes) {
+      MODE_CONFIGS = data.modes;
+      console.log(`[ws/pvp] Loaded ${Object.keys(MODE_CONFIGS).length} mode configs from game-api`);
+    }
+  } catch (e) {
+    console.warn('[ws/pvp] Could not load mode configs from game-api:', e.message, '— using fallback');
+  }
+}
+
+function getValidModes() {
+  return MODE_CONFIGS ? Object.keys(MODE_CONFIGS) : VALID_MODES_FALLBACK;
+}
+
+function isValidAction(mode, actionType) {
+  if (!MODE_CONFIGS || !MODE_CONFIGS[mode]) return true; // permissive fallback
+  return MODE_CONFIGS[mode].allowedActions.includes(actionType);
+}
 
 /**
  * Sets up the /pvp namespace on the given Socket.IO server instance.
@@ -45,6 +81,13 @@ const VALID_MODES = ['duel', 'crew_battle', 'arena_ffa'];
 function setupPvP(io, redisSub, redisPub, authMiddleware) {
   const pvpNS = io.of('/pvp');
   pvpNS.use(authMiddleware);
+
+  // Load mode configs from game-api (retry every 10s until successful)
+  loadModeConfigs();
+  const cfgRetry = setInterval(async () => {
+    if (MODE_CONFIGS) { clearInterval(cfgRetry); return; }
+    await loadModeConfigs();
+  }, 10000);
 
   // ── Socket connections ──────────────────────────────────────
   pvpNS.on('connection', (socket) => {
@@ -80,12 +123,12 @@ function setupPvP(io, redisSub, redisPub, authMiddleware) {
     });
 
     // ── In-match action relay ─────────────────────────────
-    // Types: 'attack', 'parry', 'dodge', 'z_key', 'ability', 'worge_form', 'hit', 'death', 'position'
-    socket.on('pvp:action', ({ lobby_code, type, data } = {}) => {
+    // Action types validated against mode's allowedActions from mode-configs.
+    // Clients should pass { lobby_code, type, mode, data }.
+    socket.on('pvp:action', ({ lobby_code, type, mode, data } = {}) => {
       if (!lobby_code || !type) return;
-      if (!socket.rooms.has(`pvp:lobby:${lobby_code}`)) return; // must be in lobby
-      const VALID_ACTIONS = ['attack', 'parry', 'dodge', 'z_key', 'ability', 'worge_form', 'hit', 'death', 'position'];
-      if (!VALID_ACTIONS.includes(type)) return;
+      if (!socket.rooms.has(`pvp:lobby:${lobby_code}`)) return;
+      if (mode && !isValidAction(mode, type)) return;
 
       // Relay to everyone else in the lobby room
       socket.to(`pvp:lobby:${lobby_code}`).emit('pvp:action', {
@@ -160,11 +203,11 @@ function setupPvP(io, redisSub, redisPub, authMiddleware) {
 
     // ── Queue notifications (client just joined/left queue via REST) ─
     socket.on('pvp:queue_join', ({ mode } = {}) => {
-      if (!VALID_MODES.includes(mode)) return;
+      if (!getValidModes().includes(mode)) return;
       socket.join(`pvp:queue_watch:${mode}`);
     });
     socket.on('pvp:queue_leave', ({ mode } = {}) => {
-      if (!VALID_MODES.includes(mode)) return;
+      if (!getValidModes().includes(mode)) return;
       socket.leave(`pvp:queue_watch:${mode}`);
     });
 
@@ -192,7 +235,7 @@ function setupPvP(io, redisSub, redisPub, authMiddleware) {
   setInterval(() => runMatchmaking(pvpNS, redisPub), 2000);
 
   async function runMatchmaking(pvpNS, redisPub) {
-    for (const mode of VALID_MODES) {
+    for (const mode of getValidModes()) {
       try {
         await matchMode(mode, pvpNS, redisPub);
       } catch (e) {

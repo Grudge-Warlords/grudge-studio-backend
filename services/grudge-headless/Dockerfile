@@ -1,7 +1,7 @@
 # Ubuntu 22.04 matches the build target for the Unity Linux server
 FROM ubuntu:22.04
 
-# Unity Linux dependencies
+# Unity Linux dependencies + Node.js for sidecar
 RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     libglib2.0-dev \
@@ -20,6 +20,11 @@ RUN apt-get update && apt-get install -y \
     procps \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Node.js 22 LTS for sidecar process
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /opt/grudge-server
 
 # Copy the Linux server binary and data
@@ -28,6 +33,10 @@ WORKDIR /opt/grudge-server
 COPY bin/ ./bin/
 COPY config/ ./config/
 COPY scripts/ ./scripts/
+
+# Install sidecar dependencies
+COPY sidecar/ ./sidecar/
+RUN cd sidecar && npm install --omit=dev
 
 # Make server binary and scripts executable (ignore errors if bin is empty placeholder)
 RUN chmod +x ./bin/GrudgeLinuxServer.x86_64 2>/dev/null || true \

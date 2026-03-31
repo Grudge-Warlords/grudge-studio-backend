@@ -1,0 +1,13 @@
+{
+  "name": "grudge-headless-sidecar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sidecar process for Grudge headless game server — registration, heartbeat, WS relay",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.8.1"
+  }
+}
