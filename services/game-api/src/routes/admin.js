@@ -19,6 +19,8 @@ const serverManager = require('../pvp-server-manager');
 const BRIDGE_URL = process.env.BRIDGE_URL || '';
 const BRIDGE_KEY = process.env.BRIDGE_API_KEY || '';
 const ASSET_SERVICE_URL = process.env.ASSET_SERVICE_URL || 'http://asset-service:3008';
+const ACCOUNT_API_URL = process.env.ACCOUNT_API_URL || 'http://account-api:3005';
+const IDENTITY_API_URL = process.env.IDENTITY_API_URL || 'http://grudge-id:3001';
 
 // ── Admin-only middleware ────────────────────────────────────────
 // Rejects non-admin JWT holders. Internal key always passes.
@@ -218,14 +220,134 @@ router.get('/storage/buckets', async (req, res) => {
   }
 });
 
-// ═══════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════
 // PVP SERVER POOL
-// ═══════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════
 
 router.get('/pvp/servers', async (req, res, next) => {
   try {
     const servers = await serverManager.listServers();
     res.json({ servers });
+  } catch (e) { next(e); }
+});
+
+// ═════════════════════════════════════════════════════════════
+// ACCOUNT SERVICE PROXY (dashboard calls → account-api internal)
+// ═════════════════════════════════════════════════════════════
+
+async function proxyToService(serviceUrl, path, req, res) {
+  try {
+    const headers = { 'x-internal-key': process.env.INTERNAL_API_KEY, 'Content-Type': 'application/json' };
+    if (req.headers.authorization) headers['Authorization'] = req.headers.authorization;
+    const r = await fetch(`${serviceUrl}${path}`, { headers, signal: AbortSignal.timeout(8000) });
+    const data = await r.json().catch(() => null);
+    res.status(r.status).json(data || { error: 'Empty response' });
+  } catch (e) {
+    res.status(502).json({ error: 'Service unreachable', detail: e.message });
+  }
+}
+
+// Account list (all users from DB)
+router.get('/accounts', async (req, res, next) => {
+  try {
+    const db = getDB();
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const [rows] = await db.query(
+      `SELECT grudge_id, username, email, display_name, wallet_address, role, is_premium, is_banned, created_at
+       FROM users ORDER BY created_at DESC LIMIT ?`, [limit]
+    );
+    res.json(rows);
+  } catch (e) { next(e); }
+});
+
+// Account detail
+router.get('/accounts/:grudgeId', async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [[user]] = await db.query('SELECT * FROM users WHERE grudge_id = ? LIMIT 1', [req.params.grudgeId]);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const [chars] = await db.query('SELECT * FROM characters WHERE grudge_id = ?', [req.params.grudgeId]);
+    res.json({ ...user, characters: chars });
+  } catch (e) { next(e); }
+});
+
+// Active sessions (from DB active_sessions or users with recent activity)
+router.get('/accounts/sessions', async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [rows] = await db.query(
+      `SELECT grudge_id, username, last_login, last_ip, role
+       FROM users WHERE last_login > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+       ORDER BY last_login DESC LIMIT 50`
+    );
+    res.json(rows);
+  } catch (e) { next(e); }
+});
+
+// Audit log (from dash_events or a dedicated audit table)
+router.get('/accounts/audit-log', async (req, res, next) => {
+  try {
+    const db = getDB();
+    // Try audit_log table first, fall back to recent user activity
+    try {
+      const [rows] = await db.query('SELECT * FROM audit_log ORDER BY created_at DESC LIMIT 100');
+      return res.json(rows);
+    } catch {
+      // No audit_log table — return recent logins as audit entries
+      const [rows] = await db.query(
+        `SELECT grudge_id AS user_id, 'login' AS action, last_login AS timestamp, last_ip AS ip_address, '' AS details
+         FROM users WHERE last_login IS NOT NULL ORDER BY last_login DESC LIMIT 100`
+      );
+      return res.json(rows);
+    }
+  } catch (e) { next(e); }
+});
+
+// ═════════════════════════════════════════════════════════════
+// AUTH PROXY (dashboard → grudge-id internal)
+// ═════════════════════════════════════════════════════════════
+
+router.get('/auth/verify', (req, res) => proxyToService(IDENTITY_API_URL, '/auth/verify', req, res));
+router.get('/auth/user', (req, res) => proxyToService(IDENTITY_API_URL, '/auth/user', req, res));
+
+// ═════════════════════════════════════════════════════════════
+// ECONOMY PROXY (dashboard → game-api economy routes internal)
+// ═════════════════════════════════════════════════════════════
+
+router.get('/economy/summary', async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [[gold]] = await db.query('SELECT COALESCE(SUM(gold), 0) AS total FROM characters');
+    const [[chars]] = await db.query('SELECT COUNT(*) AS count FROM characters');
+    res.json({
+      gold_circulating: gold?.total || 0,
+      total_characters: chars?.count || 0,
+    });
+  } catch (e) { next(e); }
+});
+
+router.get('/economy/overview', async (req, res, next) => {
+  try {
+    const db = getDB();
+    const [[gold]] = await db.query('SELECT COALESCE(SUM(gold), 0) AS total FROM characters');
+    const [[richest]] = await db.query('SELECT name, gold FROM characters ORDER BY gold DESC LIMIT 1');
+    const [[txCount]] = await db.query("SELECT COUNT(*) AS count FROM gold_transactions WHERE created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)").catch(() => [[{ count: 0 }]]);
+    res.json({
+      gold_circulating: gold?.total || 0,
+      richest_character: richest || null,
+      transactions_24h: txCount?.count || 0,
+    });
+  } catch (e) { next(e); }
+});
+
+router.get('/economy/balance', async (req, res, next) => {
+  try {
+    const db = getDB();
+    const charId = req.query.char_id;
+    if (!charId) return res.status(400).json({ error: 'char_id required' });
+    const [[char]] = await db.query('SELECT gold FROM characters WHERE id = ?', [charId]);
+    if (!char) return res.status(404).json({ error: 'Character not found' });
+    res.json({ char_id: charId, gold: char.gold });
   } catch (e) { next(e); }
 });
 
