@@ -6,8 +6,8 @@ const { grudgeCors }     = require('../../shared/cors');
 const { makeRequireAuth } = require('../../shared/auth');
 const discordRoutes  = require('./routes/discord');
 const rateLimit  = require('express-rate-limit');
-const { initDB, getDB } = require('./db');
-const { initRedis } = require('./redis');
+const { initDB, getDB, isHealthy: isDBHealthy, deepCheck: dbDeepCheck } = require('./db');
+const { initRedis, isRedisReady } = require('./redis');
 
 const characterRoutes  = require('./routes/characters');
 const factionRoutes    = require('./routes/factions');
@@ -78,7 +78,29 @@ const pvpLimiter = rateLimit({
 const requireAuth = makeRequireAuth(getDB);
 
 // ── Routes ────────────────────────────
-app.get('/health', (req, res) => res.json({ status: 'ok', service: 'game-api', version: '2.0.0' }));
+app.get('/health', async (req, res) => {
+  const dbResult = await dbDeepCheck();
+  const redisUp = isRedisReady();
+
+  // Determine overall status
+  let status = 'ok';
+  if (!dbResult.ok) status = 'down';
+  else if (!redisUp) status = 'degraded'; // Redis optional but noted
+
+  const code = status === 'down' ? 503 : 200;
+  res.status(code).json({
+    status,
+    service: 'game-api',
+    version: '2.0.0',
+    uptime: Math.floor(process.uptime()),
+    db:    { ok: dbResult.ok, ms: dbResult.ms, error: dbResult.error || undefined },
+    redis: { ok: redisUp },
+    mem:   {
+      rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      heap: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+    },
+  });
+});
 app.use('/characters',  requireAuth, characterRoutes);
 app.use('/factions',    requireAuth, factionRoutes);
 app.use('/missions',    requireAuth, missionRoutes);

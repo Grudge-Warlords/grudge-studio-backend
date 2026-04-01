@@ -1,43 +1,24 @@
-name               = "grudge-objectstore-api"
+# ⚠️ DEPRECATED — DO NOT DEPLOY
+# This worker has been consolidated into the ObjectStore repo (D:\ObjectStore).
+# The canonical worker is "grudgeassets" deployed from D:\ObjectStore\wrangler.toml.
+# Both use the same R2 bucket (grudge-assets) and D1 database (grudge-objectstore).
+#
+# The ObjectStore repo version is more complete:
+#   - Conversion pipeline (Durable Objects for FBX→GLB)
+#   - 3D model routes (/v1/models)
+#   - Asset CRUD (/v1/assets)
+#   - Rate limiting, CORS, health check
+#
+# To remove this worker from Cloudflare:
+#   npx wrangler delete grudge-objectstore-api
+#
+# Route: objectstore.grudge-studio.com → handled by "grudgeassets" worker
+# CDN:   assets.grudge-studio.com → handled by "grudge-r2-cdn" worker
+
+name               = "grudge-objectstore-api-DEPRECATED"
 main               = "index.js"
 compatibility_date = "2025-03-01"
 account_id         = "ee475864561b02d4588180b8b9acf694"
 workers_dev        = true
 
-[observability]
-enabled = true
-
-# ── R2: grudge-assets is the real bucket (2,245 objects, 497 MB) ──────────────
-[[r2_buckets]]
-binding     = "BUCKET"
-bucket_name = "grudge-assets"
-
-# ── D1: metadata store (list, search, tags, categories) ──────────────────────
-[[d1_databases]]
-binding       = "DB"
-database_name = "grudge-objectstore"
-database_id   = "8fc367a8-9120-490e-a503-b0fcb755c044"
-
-# ── KV: rate limiting per IP ──────────────────────────────────────────────────
-[[kv_namespaces]]
-binding = "RATE_LIMIT"
-id      = "486553dfacdc40b394e630b1cdfa97d6"
-
-# ── Env vars ──────────────────────────────────────────────────────────────────
-[vars]
-ENVIRONMENT       = "production"
-PUBLIC_CDN_URL    = "https://assets.grudge-studio.com"
-PUBLIC_R2_URL     = "https://pub-e7fcf1fd4c9946ecb84b3766bbc7b50d.r2.dev"
-MAX_UPLOAD_BYTES  = "104857600"
-# NOTE: API_KEY is a wrangler SECRET — set with: npx wrangler secret put API_KEY
-
-# ── Route: objectstore.grudge-studio.com ─────────────────────────────────────
-[[routes]]
-pattern = "objectstore.grudge-studio.com/*"
-zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
-
-[env.staging]
-name = "grudge-objectstore-api-staging"
-workers_dev = true
-[env.staging.vars]
-ENVIRONMENT = "staging"
+# Removed routes to avoid conflict with canonical worker

@@ -13,7 +13,7 @@ const deviceRoutes = require('./routes/device');
 const adminRoutes  = require('./routes/admin');
 const platformCompat = require('./routes/platform-compat');
 const ssoRoutes = require('./routes/sso');
-const { initDB } = require('./db');
+const { initDB, deepCheck: dbDeepCheck } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -103,7 +103,22 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
 app.get('/tos', (req, res) => { sendHtmlPage(res, path.join(__dirname, '..', 'public', 'tos.html'), 'https://grudge-studio.com/tos'); });
 app.get('/privacy', (req, res) => { sendHtmlPage(res, path.join(__dirname, '..', 'public', 'privacy.html'), 'https://grudge-studio.com/privacy'); });
 
-app.get('/health', (req, res) => res.json({ status: 'ok', service: 'grudge-id', ts: Date.now() }));
+app.get('/health', async (req, res) => {
+  const dbResult = await dbDeepCheck();
+  const status = dbResult.ok ? 'ok' : 'down';
+  const code = status === 'down' ? 503 : 200;
+  res.status(code).json({
+    status,
+    service: 'grudge-id',
+    ts: Date.now(),
+    uptime: Math.floor(process.uptime()),
+    db: { ok: dbResult.ok, ms: dbResult.ms, error: dbResult.error || undefined },
+    mem: {
+      rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      heap: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+    },
+  });
+});
 
 // Static auth frontend (WCS-styled login page)
 app.use('/auth', express.static(path.join(__dirname, '..', 'public')));
