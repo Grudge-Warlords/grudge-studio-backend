@@ -5,6 +5,7 @@ const { Server } = require('socket.io');
 const jwt     = require('jsonwebtoken');
 const Redis   = require('ioredis');
 const { setupPvP } = require('./pvp');
+const { setupEngine } = require('./engine');
 
 const app    = express();
 const server = http.createServer(app);
@@ -174,6 +175,9 @@ crewNS.on('connection', (socket) => {
 // ── /pvp namespace ────────────────────────────────────────────
 const pvpHandler = setupPvP(io, redisSub, redisPub, authMiddleware);
 
+// ── /engine namespace — The Engine presence + scores + challenges ──
+const engineHandler = setupEngine(io, redisSub, redisPub, authMiddleware);
+
 // ── /global namespace — faction standings + announcements ───
 const globalNS = io.of('/global');
 globalNS.use(authMiddleware);
@@ -236,16 +240,19 @@ redisSub.on('message', (channel, message) => {
 // ── HTTP health endpoint ──────────────────────
 app.get('/health', (req, res) => {
   const pvpNS = io.of('/pvp');
+  const engineNS = io.of('/engine');
   res.json({
     status:    'ok',
     service:   'ws-service',
-    version:   '2.0.0',
+    version:   '2.1.0',
     connected: {
       game:   gameNS.sockets.size,
       crew:   crewNS.sockets.size,
       global: globalNS.sockets.size,
       pvp:    pvpNS.sockets.size,
+      engine: engineNS.sockets.size,
     },
+    enginePresence: engineHandler.getPresence(),
   });
 });
 

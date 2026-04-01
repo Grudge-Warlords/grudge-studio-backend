@@ -638,10 +638,14 @@ ssh root@74.208.155.229 "cd /opt/grudge-studio-backend && git pull && bash deplo
 Human, Orc, Elf, Undead, Barbarian, Dwarf
 
 ### Classes
-- **Warrior** — Shields, swords, 2h weapons. Stamina system. Parry/block/charge. AoE + group invincibility.
-- **Mage** — Staffs, tomes, wands, maces. Teleport blocks (max 10). Elemental builds.
-- **Ranger** — Bows, crossbows, guns, daggers, spears. RMB+LMB parry → counter dash.
-- **Worge** — 3 forms: Bear (tank), Raptor (stealth), Large Bird (flyable/mountable). Staffs, spears, bows.
+**All classes can equip all 17 weapon types. Classes have BENEFITS (mastery bonuses) with their specialty weapons, NOT restrictions.**
+
+- **Warrior** — Mastery bonuses: shields, swords, 2h weapons. Stamina system fills from parries/blocks. AoE charge attacks, group invincibility, double jump.
+- **Mage** — Mastery bonuses: staffs, tomes, wands, maces. Teleport blocks (max 10). Elemental builds. Off-hand relics.
+- **Ranger** — Mastery bonuses: bows, crossbows, guns, daggers, spears. RMB+LMB parry → 0.5s counter dash window.
+- **Worge** — Mastery bonuses: staffs, spears, daggers, bows, hammers, maces, relics. 3 forms: Bear (tank), Raptor (stealth/invisible), Large Bird (flyable/mountable by players or AI).
+
+**Weapon Mastery:** Each of the 17 weapon types has its own XP progression tree unlocked through use — not class-gated. Classes receive a head-start bonus on their specialty weapons. `classWeaponRestrictions` in legacy data should NOT be enforced in UI — treat as recommended loadouts only.
 
 ### Factions
 - **Crusade** — Allied with Human, Elf

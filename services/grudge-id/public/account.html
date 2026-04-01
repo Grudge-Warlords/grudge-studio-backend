@@ -4,323 +4,246 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Grudge Account</title>
+<link rel="icon" type="image/png" href="/grudge-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Jost:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;600;700;900&family=Spectral+SC:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    min-height: 100vh;
-    background: radial-gradient(ellipse at 50% 0%, rgba(219,99,49,.15) 0%, #060810 60%);
-    font-family: 'Jost', sans-serif; color: #e8dcc8; padding: 20px;
-  }
-  .wrap { max-width: 680px; margin: 0 auto; }
+:root {
+  --void: #07070f; --iron: #111120; --steel: #1a1a2e; --forge: #222238;
+  --gold: #c9a84c; --gold-light: #f0c060; --gold-dark: #8b6914;
+  --ember: #DB6331; --ember-light: #FAAC47;
+  --text: #e8dcc8; --text-muted: hsl(45,15%,60%); --text-dim: hsl(45,10%,40%);
+  --border: rgba(201,168,76,0.25); --border-dim: rgba(255,255,255,0.08);
+  --green: #22c55e; --red: #ef4444;
+  --font-heading: 'Cinzel Decorative', 'Cinzel', serif;
+  --font-title: 'Cinzel', serif;
+  --font-ui: 'Inter', system-ui, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  min-height: 100vh; background: var(--void); font-family: var(--font-ui); color: var(--text);
+  padding: 20px; -webkit-font-smoothing: antialiased;
+}
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 120% 60% at 50% -10%, rgba(219,99,49,0.1) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 50% at 80% 90%, rgba(201,168,76,0.05) 0%, transparent 50%),
+    var(--void);
+}
+body::after {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.03;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 60px, rgba(201,168,76,0.03) 60px, rgba(201,168,76,0.03) 61px),
+    repeating-linear-gradient(90deg, transparent, transparent 60px, rgba(201,168,76,0.03) 60px, rgba(201,168,76,0.03) 61px);
+}
+@keyframes float-up { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-20vh) scale(1); opacity: 0; } }
+.ember { position: fixed; width: 3px; height: 3px; background: var(--ember); border-radius: 50%; pointer-events: none; z-index: 0; filter: blur(1px); }
+.ember:nth-child(1) { left: 15%; animation: float-up 9s 0s infinite; }
+.ember:nth-child(2) { left: 40%; animation: float-up 7s 2s infinite; }
+.ember:nth-child(3) { left: 70%; animation: float-up 10s 1s infinite; }
+.ember:nth-child(4) { left: 88%; animation: float-up 8s 3s infinite; }
+a { color: var(--gold-light); text-decoration: none; } a:hover { color: var(--gold); }
+.wrap { max-width: 720px; margin: 0 auto; position: relative; z-index: 1; }
+.topbar {
+  display: flex; align-items: center; gap: 12px; padding: 14px 0; margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.topbar-logo { width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(201,168,76,0.3); overflow: hidden; flex-shrink: 0; }
+.topbar-logo img { width: 100%; height: 100%; object-fit: cover; }
+.topbar h1 {
+  font-family: var(--font-heading); font-size: 1rem; font-weight: 900;
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: .06em;
+}
+.topbar-actions { margin-left: auto; display: flex; gap: 8px; }
+.btn-sm {
+  padding: 7px 16px; border-radius: 8px; font-size: .7rem; letter-spacing: 1px;
+  font-family: var(--font-title); cursor: pointer; transition: .2s;
+}
+.btn-outline { background: none; border: 1px solid var(--border); color: var(--gold); }
+.btn-outline:hover { border-color: var(--gold-light); box-shadow: 0 0 12px rgba(201,168,76,0.15); }
+.btn-danger { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); color: #f87171; }
+.btn-danger:hover { background: rgba(239,68,68,0.15); }
 
-  /* Header bar */
-  .topbar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 0; margin-bottom: 24px;
-    border-bottom: 1px solid rgba(250,172,71,.15);
-  }
-  .topbar h1 { font-family:'Cinzel',serif; font-size:1.1rem; color:#FAAC47; letter-spacing:3px; }
-  .btn-sm {
-    padding: 7px 16px; border-radius:6px; font-size:.72rem; letter-spacing:1px;
-    font-family:'Cinzel',serif; cursor:pointer; transition:.2s;
-  }
-  .btn-outline {
-    background:none; border:1px solid rgba(250,172,71,.3); color:rgba(250,172,71,.7);
-  }
-  .btn-outline:hover { border-color:#FAAC47; color:#FAAC47; }
-  .btn-danger {
-    background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3); color:#f87171;
-  }
-  .btn-danger:hover { background:rgba(239,68,68,.2); }
+.card {
+  background: linear-gradient(160deg, rgba(17,17,32,0.95), rgba(10,10,20,0.98));
+  border: 1px solid var(--border); border-radius: 14px;
+  padding: 24px; margin-bottom: 16px; position: relative; overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.gold-bar { position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--gold-light), var(--ember), var(--gold-light), transparent); }
+.card-title { font-family: var(--font-title); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 16px; }
 
-  /* Cards */
-  .card {
-    background: linear-gradient(160deg,#0d0f1c,#120d1e);
-    border: 1px solid rgba(212,169,106,.2); border-radius: 14px;
-    padding: 24px; margin-bottom: 16px; position: relative; overflow: hidden;
-  }
-  .gold-bar { position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#DB6331,#FAAC47,#DB6331); }
-  .card-title {
-    font-family:'Cinzel',serif; font-size:.75rem; letter-spacing:2px; text-transform:uppercase;
-    color:rgba(250,172,71,.6); margin-bottom:16px;
-  }
+.identity-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media(max-width:500px) { .identity-grid { grid-template-columns: 1fr; } }
+.id-field label { font-size: .6rem; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,.3); margin-bottom: 4px; display: block; }
+.id-field .val {
+  font-family: monospace; font-size: .8rem; color: var(--text);
+  background: rgba(0,0,0,.35); border: 1px solid var(--border-dim); border-left: 2px solid rgba(201,168,76,0.2);
+  border-radius: 8px; padding: 8px 10px; word-break: break-all;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.copy-btn { background: none; border: none; color: rgba(201,168,76,.4); cursor: pointer; font-size: .8rem; flex-shrink: 0; }
+.copy-btn:hover { color: var(--gold); }
 
-  /* Identity block */
-  .identity-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  @media(max-width:480px) { .identity-grid { grid-template-columns:1fr; } }
-  .id-field label { font-size:.62rem; letter-spacing:1.5px; text-transform:uppercase; color:rgba(255,255,255,.35); margin-bottom:4px; display:block; }
-  .id-field .val {
-    font-family: monospace; font-size:.82rem; color:#e8dcc8;
-    background:rgba(0,0,0,.3); border:1px solid rgba(255,255,255,.08);
-    border-radius:6px; padding:8px 10px; word-break:break-all;
-    display:flex; align-items:center; justify-content:space-between; gap:8px;
-  }
-  .copy-btn { background:none; border:none; color:rgba(250,172,71,.5); cursor:pointer; font-size:.8rem; flex-shrink:0; }
-  .copy-btn:hover { color:#FAAC47; }
+.stats-row { display: flex; gap: 12px; margin-top: 12px; }
+.stat { flex: 1; background: rgba(0,0,0,.3); border: 1px solid var(--border-dim); border-radius: 10px; padding: 14px; text-align: center; }
+.stat-val { font-family: var(--font-heading); font-size: 1.1rem; color: var(--gold-light); }
+.stat-label { font-size: .6rem; color: var(--text-dim); margin-top: 2px; text-transform: uppercase; letter-spacing: 1px; }
 
-  /* Stats row */
-  .stats-row { display:flex; gap:12px; margin-top:12px; }
-  .stat { flex:1; background:rgba(0,0,0,.25); border-radius:8px; padding:12px; text-align:center; }
-  .stat-val { font-family:'Cinzel',serif; font-size:1.1rem; color:#FAAC47; }
-  .stat-label { font-size:.62rem; color:rgba(255,255,255,.3); margin-top:2px; text-transform:uppercase; letter-spacing:1px; }
+/* Quick links */
+.dest-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-top: 12px; }
+.dest-card {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 14px 8px; border-radius: 10px; cursor: pointer; transition: all .2s;
+  background: rgba(0,0,0,.25); border: 1px solid var(--border-dim); text-decoration: none; color: var(--text);
+}
+.dest-card:hover { border-color: var(--gold); background: rgba(201,168,76,0.04); transform: translateY(-2px); }
+.dest-icon { font-size: 1.4rem; }
+.dest-name { font-family: var(--font-title); font-size: .65rem; font-weight: 700; color: var(--gold-light); }
+@media(max-width:420px) { .dest-grid { grid-template-columns: 1fr; } }
 
-  /* Device list */
-  .device-list { display:flex; flex-direction:column; gap:10px; }
-  .device-row {
-    display:flex; align-items:center; gap:12px;
-    background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.07);
-    border-radius:10px; padding:12px 14px;
-  }
-  .device-icon { font-size:1.4rem; flex-shrink:0; }
-  .device-info { flex:1; }
-  .device-name { font-family:'Cinzel',serif; font-size:.85rem; color:#e8dcc8; }
-  .device-meta { font-size:.66rem; color:rgba(255,255,255,.3); margin-top:2px; }
-  .device-badge {
-    font-size:.62rem; padding:2px 8px; border-radius:20px;
-    background:rgba(34,197,94,.1); border:1px solid rgba(34,197,94,.3); color:#4ade80;
-  }
-  .empty-state { text-align:center; padding:24px; color:rgba(255,255,255,.25); font-size:.82rem; }
-  .empty-state a { color:rgba(250,172,71,.6); text-decoration:none; }
-  .empty-state a:hover { color:#FAAC47; }
+.device-list { display: flex; flex-direction: column; gap: 10px; }
+.device-row {
+  display: flex; align-items: center; gap: 12px;
+  background: rgba(0,0,0,.25); border: 1px solid var(--border-dim); border-radius: 10px; padding: 12px 14px;
+}
+.device-icon { font-size: 1.4rem; flex-shrink: 0; }
+.device-info { flex: 1; }
+.device-name { font-family: var(--font-title); font-size: .82rem; color: var(--text); }
+.device-meta { font-size: .64rem; color: var(--text-dim); margin-top: 2px; }
+.device-badge { font-size: .6rem; padding: 2px 8px; border-radius: 20px; background: rgba(34,197,94,.08); border: 1px solid rgba(34,197,94,.25); color: #4ade80; }
+.empty-state { text-align: center; padding: 24px; color: var(--text-dim); font-size: .82rem; }
 
-  /* Add device button */
-  .btn-primary {
-    width:100%; padding:12px; margin-top:12px;
-    background:linear-gradient(135deg,#DB6331,#FAAC47);
-    border:none; border-radius:8px; color:#0a0a12;
-    font-family:'Cinzel',serif; font-size:.85rem; font-weight:900; letter-spacing:2px;
-    cursor:pointer; transition:.2s;
-  }
-  .btn-primary:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(250,172,71,.3); }
+.conn-list { display: flex; flex-direction: column; gap: 8px; }
+.conn-row { display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,.2); border: 1px solid var(--border-dim); border-radius: 10px; padding: 10px 14px; }
+.conn-icon { font-size: 1.2rem; width: 28px; text-align: center; flex-shrink: 0; }
+.conn-info { flex: 1; }
+.conn-name { font-size: .8rem; font-family: var(--font-title); color: var(--text); }
+.conn-detail { font-size: .62rem; color: var(--text-dim); margin-top: 2px; }
+.conn-linked { font-size: .6rem; padding: 2px 8px; border-radius: 20px; background: rgba(34,197,94,.08); border: 1px solid rgba(34,197,94,.25); color: #4ade80; }
+.conn-unlinked { font-size: .6rem; padding: 2px 8px; border-radius: 20px; background: rgba(255,255,255,.03); border: 1px solid var(--border-dim); color: var(--text-dim); }
+.btn-link { padding: 5px 14px; border-radius: 6px; font-size: .62rem; letter-spacing: 1px; font-family: var(--font-title); cursor: pointer; background: rgba(201,168,76,.06); border: 1px solid var(--border); color: var(--gold); transition: .2s; }
+.btn-link:hover { background: rgba(201,168,76,.12); }
 
-  /* Connected accounts */
-  .conn-list { display:flex; flex-direction:column; gap:8px; }
-  .conn-row {
-    display:flex; align-items:center; gap:12px;
-    background:rgba(0,0,0,.2); border:1px solid rgba(255,255,255,.07);
-    border-radius:9px; padding:10px 14px;
-  }
-  .conn-icon { font-size:1.2rem; width:28px; text-align:center; flex-shrink:0; }
-  .conn-info { flex:1; }
-  .conn-name { font-size:.82rem; font-family:'Cinzel',serif; color:#e8dcc8; }
-  .conn-detail { font-size:.65rem; color:rgba(255,255,255,.3); margin-top:2px; }
-  .conn-linked { font-size:.65rem; padding:2px 8px; border-radius:20px; background:rgba(34,197,94,.1); border:1px solid rgba(34,197,94,.3); color:#4ade80; }
-  .conn-unlinked { font-size:.65rem; padding:2px 8px; border-radius:20px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); color:rgba(255,255,255,.3); }
-  .btn-link { padding:5px 14px; border-radius:6px; font-size:.65rem; letter-spacing:1px; font-family:'Cinzel',serif; cursor:pointer; background:rgba(250,172,71,.08); border:1px solid rgba(250,172,71,.25); color:rgba(250,172,71,.8); transition:.2s; }
-  .btn-link:hover { background:rgba(250,172,71,.15); color:#FAAC47; }
+.btn-primary {
+  width: 100%; padding: 12px; margin-top: 12px;
+  background: linear-gradient(135deg, var(--ember-light), var(--ember), var(--gold-dark));
+  border: none; border-radius: 10px; color: var(--void);
+  font-family: var(--font-title); font-size: .82rem; font-weight: 900; letter-spacing: 2px;
+  cursor: pointer; transition: .2s;
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(219,99,49,.3); }
 
-  /* Loading */
-  .loading { text-align:center; padding:40px; color:rgba(255,255,255,.3); }
-  .spinner { display:inline-block; width:24px; height:24px; border:2px solid rgba(250,172,71,.2); border-top-color:#FAAC47; border-radius:50%; animation:spin .7s linear infinite; margin-bottom:8px; }
-  @keyframes spin { to { transform:rotate(360deg); } }
-
-  /* Toast */
-  .toast {
-    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
-    background:rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.4); color:#4ade80;
-    padding:10px 20px; border-radius:8px; font-size:.8rem; pointer-events:none;
-    opacity:0; transition:opacity .3s;
-  }
-  .toast.show { opacity:1; }
+.loading { text-align: center; padding: 40px; color: var(--text-dim); }
+.spinner { display: inline-block; width: 28px; height: 28px; border: 2px solid rgba(201,168,76,.15); border-top-color: var(--gold); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.3); color: #4ade80; padding: 10px 20px; border-radius: 10px; font-size: .8rem; pointer-events: none; opacity: 0; transition: opacity .3s; z-index: 10; }
+.toast.show { opacity: 1; }
 </style>
 </head>
 <body>
+<div class="ember"></div><div class="ember"></div><div class="ember"></div><div class="ember"></div>
 <div class="wrap">
-
   <div class="topbar">
-    <h1>⚔ GRUDGE ACCOUNT</h1>
-    <div style="display:flex;gap:8px">
+    <div class="topbar-logo"><img src="/grudge-logo.png" alt=""></div>
+    <h1>GRUDGE ACCOUNT</h1>
+    <div class="topbar-actions">
       <button class="btn-sm btn-outline" onclick="location.href='/device'">+ Pair Device</button>
       <button class="btn-sm btn-danger" onclick="logout()">Sign Out</button>
     </div>
   </div>
-
-  <div id="main">
-    <div class="loading">
-      <div class="spinner"></div><br>Loading account…
-    </div>
-  </div>
-
+  <div id="main"><div class="loading"><div class="spinner"></div><br>Loading account…</div></div>
 </div>
 <div class="toast" id="toast"></div>
-
 <script>
-const ID  = 'https://id.grudge-studio.com';
-
-function getToken() { return localStorage.getItem('grudge_auth_token'); }
-function getUser()  {
-  try { return JSON.parse(localStorage.getItem('grudge_user') || 'null'); } catch { return null; }
+const ID='https://id.grudge-studio.com';
+function getToken(){return localStorage.getItem('grudge_auth_token');}
+function getUser(){try{return JSON.parse(localStorage.getItem('grudge_user')||'null');}catch{return null;}}
+function logout(){
+  fetch(`${ID}/auth/logout`,{method:'POST',headers:{Authorization:`Bearer ${getToken()}`}}).catch(()=>{});
+  ['grudge_auth_token','grudge_user','grudge_id','grudge_username','grudge_session_token','grudge-session'].forEach(k=>localStorage.removeItem(k));
+  location.href='/';
 }
-
-function logout() {
-  fetch(`${ID}/auth/logout`, { method:'POST', headers:{ Authorization:`Bearer ${getToken()}` } }).catch(()=>{});
-  ['grudge_auth_token','grudge_user','grudge_id','grudge_username','grudge_session_token','grudge-session']
-    .forEach(k => localStorage.removeItem(k));
-  location.href = '/device';
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+function copyText(text){navigator.clipboard?.writeText(text).then(()=>showToast('Copied!')).catch(()=>{});}
+function deviceIcon(type){return{node:'🖥️',mobile:'📱',desktop:'💻',web:'🌐'}[type]||'📡';}
+function fmtDate(iso){if(!iso)return '—';return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+async function unpairDevice(deviceId,name){
+  if(!confirm(`Unpair "${name}"?`))return;
+  const r=await fetch(`${ID}/device/${deviceId}`,{method:'DELETE',headers:{Authorization:`Bearer ${getToken()}`}});
+  if(r.ok){showToast('Device unpaired');loadPage();}else showToast('Error unpairing device');
 }
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
+function connRow(icon,name,detail,linked,linkUrl,note){
+  const badge=linked?'<span class="conn-linked">✓ Connected</span>':'<span class="conn-unlinked">○ Not linked</span>';
+  const action=(!linked&&linkUrl)?`<button class="btn-link" onclick="location.href='${esc(linkUrl)}'">+ Connect</button>`:'';
+  return `<div class="conn-row"><div class="conn-icon">${icon}</div><div class="conn-info"><div class="conn-name">${name}</div>${detail||note?`<div class="conn-detail">${esc(detail||note||'')}</div>`:''}</div>${badge}${action}</div>`;
 }
-
-function copyText(text) {
-  navigator.clipboard?.writeText(text).then(() => showToast('Copied!')).catch(() => {});
-}
-
-function deviceIcon(type) {
-  return { node:'🖥️', mobile:'📱', desktop:'💻', web:'🌐' }[type] || '📡';
-}
-
-function fmtDate(iso) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
-}
-
-async function unpairDevice(deviceId, name) {
-  if (!confirm(`Unpair "${name}"?`)) return;
-  const r = await fetch(`${ID}/device/${deviceId}`, {
-    method:'DELETE', headers:{ Authorization:`Bearer ${getToken()}` },
-  });
-  if (r.ok) { showToast('Device unpaired'); loadPage(); }
-  else showToast('Error unpairing device');
-}
-
-async function loadPage() {
-  const token = getToken();
-  if (!token) { location.href = '/device'; return; }
-
-  // Fetch user profile + devices in parallel
-  const [userRes, devRes] = await Promise.all([
-    fetch(`${ID}/auth/user`, { headers:{ Authorization:`Bearer ${token}` } }),
-    fetch(`${ID}/device/list`, { headers:{ Authorization:`Bearer ${token}` } }),
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+async function loadPage(){
+  const token=getToken();
+  if(!token){location.href='/';return;}
+  const[userRes,devRes]=await Promise.all([
+    fetch(`${ID}/auth/user`,{headers:{Authorization:`Bearer ${token}`}}),
+    fetch(`${ID}/device/list`,{headers:{Authorization:`Bearer ${token}`}}),
   ]);
-
-  if (userRes.status === 401) { location.href = '/device'; return; }
-
-  const user    = await userRes.json();
-  const devData = devRes.ok ? await devRes.json() : { devices: [] };
-  const devices = devData.devices || [];
-
-  const grudgeId = user.grudgeId || localStorage.getItem('grudge_id') || '—';
-  const wallet   = user.serverWalletAddress || '—';
-  const username = user.username || user.displayName || grudgeId.slice(0,8);
-
-  document.getElementById('main').innerHTML = `
-    <!-- Identity card -->
-    <div class="card">
-      <div class="gold-bar"></div>
+  if(userRes.status===401){location.href='/';return;}
+  const user=await userRes.json();
+  const devData=devRes.ok?await devRes.json():{devices:[]};
+  const devices=devData.devices||[];
+  const grudgeId=user.grudgeId||localStorage.getItem('grudge_id')||'—';
+  const wallet=user.serverWalletAddress||'—';
+  const username=user.username||user.displayName||grudgeId.slice(0,8);
+  document.getElementById('main').innerHTML=`
+    <div class="card"><div class="gold-bar"></div>
       <div class="card-title">Grudge Identity</div>
       <div class="identity-grid">
-        <div class="id-field">
-          <label>Display Name</label>
-          <div class="val">${escHtml(username)}</div>
-        </div>
-        <div class="id-field">
-          <label>Grudge ID</label>
-          <div class="val">
-            <span>${grudgeId.slice(0,18)}…</span>
-            <button class="copy-btn" onclick="copyText('${escHtml(grudgeId)}')" title="Copy">⧉</button>
-          </div>
-        </div>
-        <div class="id-field" style="grid-column:1/-1">
-          <label>Server Wallet</label>
-          <div class="val">
-            <span>${wallet === '—' ? '—' : wallet.slice(0,20) + '…'}</span>
-            ${wallet !== '—' ? `<button class="copy-btn" onclick="copyText('${escHtml(wallet)}')" title="Copy">⧉</button>` : ''}
-          </div>
-        </div>
+        <div class="id-field"><label>Display Name</label><div class="val">${esc(username)}</div></div>
+        <div class="id-field"><label>Grudge ID</label><div class="val"><span>${grudgeId.slice(0,18)}…</span><button class="copy-btn" onclick="copyText('${esc(grudgeId)}')" title="Copy">⧉</button></div></div>
+        <div class="id-field" style="grid-column:1/-1"><label>Server Wallet</label><div class="val"><span>${wallet==='—'?'—':wallet.slice(0,20)+'…'}</span>${wallet!=='—'?`<button class="copy-btn" onclick="copyText('${esc(wallet)}')" title="Copy">⧉</button>`:''}</div></div>
       </div>
       <div class="stats-row">
-        <div class="stat">
-          <div class="stat-val">${(user.gold ?? 0).toLocaleString()}</div>
-          <div class="stat-label">Gold</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val">${(user.gbuxBalance ?? 0).toFixed(2)}</div>
-          <div class="stat-label">GBUX</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val">${devices.length}</div>
-          <div class="stat-label">Devices</div>
-        </div>
+        <div class="stat"><div class="stat-val">${(user.gold??0).toLocaleString()}</div><div class="stat-label">Gold</div></div>
+        <div class="stat"><div class="stat-val">${(user.gbuxBalance??0).toFixed(2)}</div><div class="stat-label">GBUX</div></div>
+        <div class="stat"><div class="stat-val">${devices.length}</div><div class="stat-label">Devices</div></div>
+      </div>
+      <div class="dest-grid">
+        <a class="dest-card" href="https://grudge-studio.com"><div class="dest-icon">🎮</div><div class="dest-name">The Engine</div></a>
+        <a class="dest-card" href="https://grudge-arena.vercel.app"><div class="dest-icon">🏟️</div><div class="dest-name">Arena</div></a>
+        <a class="dest-card" href="https://gdevelop-assistant.vercel.app"><div class="dest-icon">🛠️</div><div class="dest-name">GDevelop</div></a>
+        <a class="dest-card" href="https://grudgewarlords.com"><div class="dest-icon">⚔️</div><div class="dest-name">Grudge Wars</div></a>
       </div>
     </div>
-
-    <!-- Devices card -->
-    <div class="card">
-      <div class="gold-bar"></div>
+    <div class="card"><div class="gold-bar"></div>
       <div class="card-title">Paired Devices</div>
-      ${devices.length === 0
-        ? `<div class="empty-state">No devices paired yet.<br><br><a href="/device">+ Pair a GRUDA Node</a></div>`
-        : `<div class="device-list">${devices.map(d => `
-            <div class="device-row">
-              <div class="device-icon">${deviceIcon(d.device_type)}</div>
-              <div class="device-info">
-                <div class="device-name">${escHtml(d.device_name || 'GRUDA Node')}</div>
-                <div class="device-meta">Paired ${fmtDate(d.paired_at)} · Last seen ${fmtDate(d.last_seen)}</div>
-              </div>
-              <span class="device-badge">Online</span>
-              <button class="btn-sm btn-danger" onclick="unpairDevice('${d.id}','${escHtml(d.device_name || 'GRUDA Node')}')" style="margin-left:8px">Unpair</button>
-            </div>`).join('')}
-          </div>`
+      ${devices.length===0
+        ?'<div class="empty-state">No devices paired yet.<br><br><a href="/device">+ Pair a GRUDA Node</a></div>'
+        :`<div class="device-list">${devices.map(d=>`
+          <div class="device-row">
+            <div class="device-icon">${deviceIcon(d.device_type)}</div>
+            <div class="device-info"><div class="device-name">${esc(d.device_name||'GRUDA Node')}</div><div class="device-meta">Paired ${fmtDate(d.paired_at)} · Last seen ${fmtDate(d.last_seen)}</div></div>
+            <span class="device-badge">Online</span>
+            <button class="btn-sm btn-danger" onclick="unpairDevice('${d.id}','${esc(d.device_name||'GRUDA Node')}')" style="margin-left:8px">Unpair</button>
+          </div>`).join('')}</div>`
       }
-      <button class="btn-primary" onclick="location.href='/device'">+ Pair New Device</button>
+      <button class="btn-primary" onclick="location.href='/device'">+ PAIR NEW DEVICE</button>
     </div>
-
-    <!-- Connected Accounts card -->
-    <div class="card">
-      <div class="gold-bar"></div>
+    <div class="card"><div class="gold-bar"></div>
       <div class="card-title">Connected Accounts</div>
       <div class="conn-list">
-        ${connRow('⚔️', 'Grudge ID', grudgeId ? grudgeId.slice(0,12)+'…' : '—', true, null, 'Always connected — this is your primary identity')}
-        ${connRow('🎮', 'Discord', user.discordTag || null, !!user.discordTag, `${ID}/auth/discord?redirect_uri=${encodeURIComponent(location.href)}`)}
-        ${connRow('G', 'Google', user.email && user.googleId ? user.email : null, !!user.googleId, `${ID}/auth/google?redirect_uri=${encodeURIComponent(location.href)}`)}
-        ${connRow('⬡', 'GitHub', user.githubUsername || null, !!user.githubId, `${ID}/auth/github?redirect_uri=${encodeURIComponent(location.href)}`)}
-        ${connRow('◎', 'Solana Wallet', user.walletAddress ? user.walletAddress.slice(0,12)+'…' : null, !!user.walletAddress, null, user.walletAddress ? 'Connected via Web3Auth' : 'Connect via grudgewarlords.com')}
-        ${connRow('🔑', 'Password', user.hasPassword ? '••••••••' : null, !!user.hasPassword, null, user.hasPassword ? 'Set — use Login tab on /device' : 'Set via Login tab on /device page')}
+        ${connRow('⚔️','Grudge ID',grudgeId?grudgeId.slice(0,12)+'…':'—',true,null,'Primary identity')}
+        ${connRow('🎮','Discord',user.discordTag||null,!!user.discordTag,`${ID}/auth/discord?redirect_uri=${encodeURIComponent(location.href)}`)}
+        ${connRow('G','Google',user.email&&user.googleId?user.email:null,!!user.googleId,`${ID}/auth/google?redirect_uri=${encodeURIComponent(location.href)}`)}
+        ${connRow('⬡','GitHub',user.githubUsername||null,!!user.githubId,`${ID}/auth/github?redirect_uri=${encodeURIComponent(location.href)}`)}
+        ${connRow('◎','Solana Wallet',user.walletAddress?user.walletAddress.slice(0,12)+'…':null,!!user.walletAddress,null,user.walletAddress?'Connected via Web3Auth':'Connect via grudgewarlords.com')}
+        ${connRow('🔑','Password',user.hasPassword?'••••••••':null,!!user.hasPassword,null,user.hasPassword?'Set':'Not set — use Login tab')}
       </div>
-    </div>
-  `;
-}
-
-function connRow(icon, name, detail, linked, linkUrl, note) {
-  const badge = linked
-    ? `<span class="conn-linked">✓ Connected</span>`
-    : `<span class="conn-unlinked">○ Not linked</span>`;
-  const action = (!linked && linkUrl)
-    ? `<button class="btn-link" onclick="location.href='${escHtml(linkUrl)}'">+ Connect</button>`
-    : '';
-  return `
-    <div class="conn-row">
-      <div class="conn-icon">${icon}</div>
-      <div class="conn-info">
-        <div class="conn-name">${name}</div>
-        ${detail || note ? `<div class="conn-detail">${escHtml(detail || note || '')}</div>` : ''}
-      </div>
-      ${badge}
-      ${action}
     </div>`;
 }
-
-function escHtml(s) {
-  return String(s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-
-// Ingest token from URL (OAuth redirect)
-const params = new URLSearchParams(location.search);
-const urlToken = params.get('token') || params.get('sso_token');
-if (urlToken) {
-  localStorage.setItem('grudge_auth_token', urlToken);
-  history.replaceState({}, '', location.pathname);
-}
-
+const params=new URLSearchParams(location.search);
+const urlToken=params.get('token')||params.get('sso_token');
+if(urlToken){localStorage.setItem('grudge_auth_token',urlToken);history.replaceState({},'',location.pathname);}
 loadPage();
 </script>
 </body>
