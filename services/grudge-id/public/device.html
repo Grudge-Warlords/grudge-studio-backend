@@ -9,19 +9,22 @@
 <script src="https://js.puter.com/v2/"></script>
 <style>
 :root {
-  --bg: hsl(225 30% 8%);
-  --card: hsl(225 25% 12%);
-  --surface: hsl(225 25% 15%);
-  --muted-bg: hsl(225 20% 18%);
-  --input-bg: hsl(225 25% 15%);
-  --text: hsl(45 30% 90%);
+  --void: #07070f; --iron: #111120; --steel: #1a1a2e;
+  --bg: #07070f;
+  --card: linear-gradient(160deg, rgba(17,17,32,0.95), rgba(10,10,20,0.98));
+  --surface: rgba(0,0,0,0.3);
+  --muted-bg: rgba(201,168,76,0.04);
+  --input-bg: rgba(0,0,0,0.4);
+  --text: #e8dcc8;
   --text-muted: hsl(45 15% 60%);
-  --text-dim: hsl(45 10% 45%);
-  --gold: hsl(43 85% 55%);
-  --gold-light: hsl(43 90% 70%);
-  --gold-dark: hsl(43 70% 35%);
-  --border: hsl(43 60% 30%);
-  --border-dim: hsl(225 15% 22%);
+  --text-dim: hsl(45 10% 40%);
+  --gold: #c9a84c;
+  --gold-light: #f0c060;
+  --gold-dark: #8b6914;
+  --ember: #DB6331;
+  --ember-light: #FAAC47;
+  --border: rgba(201,168,76,0.25);
+  --border-dim: rgba(255,255,255,0.08);
   --green: hsl(142 71% 45%);
   --red: hsl(0 70% 50%);
   --font-heading: 'Cinzel Decorative', 'Cinzel', serif;
@@ -32,22 +35,28 @@
 html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
 body {
   min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem;
-  background: radial-gradient(ellipse at 50% 0%, hsla(43, 70%, 40%, 0.08) 0%, transparent 60%), var(--bg);
+  background: var(--bg); overflow-x: hidden;
 }
-a { color: var(--gold); text-decoration: none; } a:hover { color: var(--gold-light); }
 body::before {
-  content: ''; position: fixed; inset: 0; pointer-events: none; opacity: 0.08;
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSA2MCAwIEwgMCAwIDAgNjAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIwLjUiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZykiLz48L3N2Zz4=");
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(219,99,49,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 60% at 20% 80%, rgba(139,0,0,0.08) 0%, transparent 50%), var(--bg);
 }
+body::after {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.04;
+  background-image: repeating-linear-gradient(0deg, transparent, transparent 60px, rgba(201,168,76,0.03) 60px, rgba(201,168,76,0.03) 61px),
+    repeating-linear-gradient(90deg, transparent, transparent 60px, rgba(201,168,76,0.03) 60px, rgba(201,168,76,0.03) 61px);
+}
+a { color: var(--gold-light); text-decoration: none; } a:hover { color: var(--gold); }
 .auth-container { width: 100%; max-width: 440px; position: relative; z-index: 1; }
 .brand-header { text-align: center; margin-bottom: 1.75rem; }
-.brand-logo { width: 72px; height: 72px; border-radius: 14px; border: 2px solid var(--border); box-shadow: 0 0 30px hsla(43,70%,45%,.15); margin: 0 auto 0.75rem; background: var(--surface); display: flex; align-items: center; justify-content: center; }
-.brand-logo svg { width: 44px; height: 44px; }
-.brand-title { font-family: var(--font-heading); font-size: 2rem; font-weight: 900; background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: 0.06em; }
+.brand-logo { width: 88px; height: 88px; border-radius: 50%; border: 2px solid rgba(201,168,76,0.3); box-shadow: 0 0 40px rgba(201,168,76,0.15), 0 0 80px rgba(219,99,49,0.08); margin: 0 auto 1rem; overflow: hidden; background: var(--iron); }
+.brand-logo img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.brand-title { font-family: var(--font-heading); font-size: 2rem; font-weight: 900; background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--ember)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 0.08em; filter: drop-shadow(0 0 20px rgba(201,168,76,0.3)); }
 .brand-sub { font-family: var(--font-ui); font-size: 0.75rem; color: var(--text-dim); letter-spacing: 0.15em; text-transform: uppercase; margin-top: 0.15rem; }
 .brand-tagline { font-family: var(--font-ui); font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; }
-.auth-card { background: var(--card); border: 1px solid var(--border-dim); border-radius: 14px; padding: 1.75rem; position: relative; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
-.gold-bar { position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--gold-dark), var(--gold-light), var(--gold-dark)); }
+.auth-card { background: linear-gradient(160deg, rgba(17,17,32,0.95), rgba(10,10,20,0.98)); border: 1px solid var(--border); border-radius: 16px; padding: 1.75rem; position: relative; overflow: hidden; box-shadow: 0 12px 48px rgba(0,0,0,0.6), 0 0 30px rgba(201,168,76,0.2); backdrop-filter: blur(12px); }
+.gold-bar { position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--gold-light), var(--ember), var(--gold-light), transparent); }
 .steps { display: flex; margin-bottom: 1.5rem; }
 .step-item { flex: 1; text-align: center; position: relative; }
 .step-item:not(:last-child)::after { content: ''; position: absolute; top: 13px; left: 60%; width: 80%; height: 1px; background: var(--border-dim); }
@@ -64,8 +73,8 @@ body::before {
 .user-name { font-family: var(--font-heading); font-size: 0.9rem; color: var(--gold); }
 .user-id { font-family: var(--font-ui); font-size: 0.7rem; color: var(--text-dim); letter-spacing: 0.04em; margin-top: 1px; }
 .btn-logout { margin-left: auto; font-family: var(--font-ui); font-size: 0.7rem; color: var(--text-dim); background: none; border: none; cursor: pointer; text-decoration: underline; } .btn-logout:hover { color: var(--text-muted); }
-.gilded-button { width: 100%; padding: 0.75rem 1.25rem; font-family: var(--font-heading); font-size: 0.9rem; font-weight: 700; letter-spacing: 0.05em; color: var(--bg); background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark)); border: none; border-radius: 8px; cursor: pointer; transition: opacity .2s, transform .1s; box-shadow: 0 2px 12px hsla(43,70%,45%,.3); }
-.gilded-button:hover { opacity: 0.9; } .gilded-button:active { transform: scale(0.98); } .gilded-button:disabled { opacity: 0.4; cursor: not-allowed; }
+.gilded-button { width: 100%; padding: 0.8rem 1.25rem; font-family: 'Cinzel', serif; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.06em; color: var(--void); background: linear-gradient(135deg, var(--ember-light), var(--ember), var(--gold-dark)); border: none; border-radius: 10px; cursor: pointer; transition: all .2s; box-shadow: 0 4px 20px rgba(219,99,49,0.3); }
+.gilded-button:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(219,99,49,0.4); } .gilded-button:active { transform: scale(0.98); } .gilded-button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .dark-button { width: 100%; padding: 0.65rem 1rem; font-family: var(--font-ui); font-size: 0.82rem; font-weight: 500; color: var(--text); background: var(--surface); border: 1px solid var(--border-dim); border-radius: 8px; cursor: pointer; transition: background .2s, border-color .2s; }
 .dark-button:hover { background: var(--muted-bg); border-color: var(--border); }
 .provider-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 0.75rem; }
@@ -81,8 +90,8 @@ body::before {
 .tab-panel { display: none; } .tab-panel.active { display: block; }
 .input-group { margin-bottom: 0.75rem; }
 .input-group label { display: block; font-family: var(--font-ui); font-size: 0.72rem; font-weight: 500; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
-.input-group input { width: 100%; padding: 0.6rem 0.8rem; font-family: var(--font-ui); font-size: 0.88rem; color: var(--text); background: var(--input-bg); border: 1px solid var(--border-dim); border-radius: 8px; outline: none; transition: border-color .2s; }
-.input-group input:focus { border-color: var(--gold); box-shadow: 0 0 0 2px hsla(43,85%,55%,.12); }
+.input-group input { width: 100%; padding: 0.65rem 0.85rem; font-family: var(--font-ui); font-size: 0.88rem; color: var(--text); background: rgba(0,0,0,0.4); border: 1px solid var(--border-dim); border-left: 2px solid rgba(201,168,76,0.2); border-radius: 8px; outline: none; transition: .2s; }
+.input-group input:focus { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(201,168,76,0.08); border-left-color: var(--gold); }
 .input-group input::placeholder { color: var(--text-dim); }
 .input-group input:disabled { opacity: 0.35; cursor: not-allowed; }
 .inline-row { display: flex; gap: 0.5rem; } .inline-row > * { flex: 1; }
@@ -100,13 +109,7 @@ body::before {
 <body>
 <div class="auth-container">
   <div class="brand-header">
-    <div class="brand-logo">
-      <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M16 20L24 12L32 20V36H28V27H20V36H16V20Z" fill="url(#gld)"/>
-        <circle cx="24" cy="23" r="3.5" fill="hsl(225,30%,8%)"/>
-        <defs><linearGradient id="gld" x1="16" y1="12" x2="32" y2="36"><stop stop-color="#e8cc66"/><stop offset="1" stop-color="#8c7420"/></linearGradient></defs>
-      </svg>
-    </div>
+    <div class="brand-logo"><img src="/grudge-logo.png" alt="Grudge Studio"></div>
     <div class="brand-title">GRUDGE ID</div>
     <div class="brand-sub">Identity & Authentication</div>
     <div class="brand-tagline">Your universal gaming passport across all GRUDGE games</div>

@@ -28,7 +28,8 @@ router.use((req, res, next) => {
   if (req.isInternal) return next();
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const role = req.user.role || req.user.roles?.[0] || 'player';
-  if (role !== 'admin' && role !== 'owner') {
+  // Allow: master (Racalvin), admin, owner (legacy alias for master)
+  if (!['admin', 'master', 'owner'].includes(role)) {
     return res.status(403).json({ error: 'Admin access required' });
   }
   next();

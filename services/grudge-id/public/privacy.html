@@ -4,33 +4,44 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Privacy Policy — Grudge Studio</title>
+<link rel="icon" type="image/png" href="/grudge-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Jost:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0a0c18; color: #c8c0b8; font-family: 'Jost', sans-serif; font-size: 15px; line-height: 1.75; padding: 40px 20px 80px; }
-  .container { max-width: 780px; margin: 0 auto; }
-  .header { text-align: center; margin-bottom: 48px; padding-bottom: 32px; border-bottom: 1px solid rgba(250,172,71,.2); }
+  body {
+    background: #07070f; color: #e8dcc8;
+    font-family: 'Inter', system-ui, sans-serif; font-size: 15px; line-height: 1.75;
+    padding: 40px 20px 80px;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background: radial-gradient(ellipse 120% 60% at 50% -10%, rgba(219,99,49,0.08) 0%, transparent 55%), #07070f;
+  }
+  .container { max-width: 780px; margin: 0 auto; position: relative; z-index: 1; }
+  .header { text-align: center; margin-bottom: 48px; padding-bottom: 32px; border-bottom: 1px solid rgba(201,168,76,.2); }
+  .header-logo { width: 56px; height: 56px; border-radius: 50%; border: 2px solid rgba(201,168,76,0.3); overflow: hidden; margin: 0 auto 12px; box-shadow: 0 0 30px rgba(201,168,76,0.1); }
+  .header-logo img { width: 100%; height: 100%; object-fit: cover; }
   .logo { font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 4px; color: #DB6331; text-transform: uppercase; margin-bottom: 12px; }
-  h1 { font-family: 'Cinzel', serif; font-size: 28px; color: #FAAC47; letter-spacing: 2px; margin-bottom: 8px; }
-  .date { font-size: 12px; color: rgba(255,255,255,.35); letter-spacing: 1px; }
-  h2 { font-family: 'Cinzel', serif; font-size: 16px; color: #FAAC47; letter-spacing: 1px; margin: 36px 0 12px; }
-  p { margin-bottom: 14px; }
-  ul { margin: 10px 0 14px 24px; }
-  ul li { margin-bottom: 6px; }
-  a { color: #DB6331; text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  .section { border-left: 2px solid rgba(219,99,49,.3); padding-left: 18px; margin-bottom: 4px; }
-  .footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,.08); text-align: center; font-size: 12px; color: rgba(255,255,255,.3); letter-spacing: 1px; }
+  h1 { font-family: 'Cinzel Decorative', 'Cinzel', serif; font-size: 28px; background: linear-gradient(135deg, #f0c060, #c9a84c, #DB6331); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 2px; margin-bottom: 8px; }
+  .date { font-size: 12px; color: rgba(255,255,255,.3); letter-spacing: 1px; }
+  h2 { font-family: 'Cinzel', serif; font-size: 16px; color: #f0c060; letter-spacing: 1px; margin: 36px 0 12px; }
+  p { margin-bottom: 14px; color: rgba(232,220,200,0.75); }
+  ul { margin: 10px 0 14px 24px; } ul li { margin-bottom: 6px; color: rgba(232,220,200,0.7); }
+  a { color: #DB6331; text-decoration: none; } a:hover { color: #f0c060; }
+  .section { border-left: 2px solid rgba(201,168,76,.2); padding-left: 18px; margin-bottom: 4px; }
+  .footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(201,168,76,.15); text-align: center; font-size: 12px; color: rgba(255,255,255,.3); letter-spacing: 1px; }
   strong { color: #e8dcc8; }
+  code { background: rgba(0,0,0,.3); padding: 2px 6px; border-radius: 4px; font-size: 13px; color: #c9a84c; }
   table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
-  th { text-align: left; padding: 8px 12px; background: rgba(250,172,71,.08); color: #FAAC47; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 1px; }
-  td { padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,.06); }
+  th { text-align: left; padding: 8px 12px; background: rgba(201,168,76,.06); color: #f0c060; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 1px; border-bottom: 1px solid rgba(201,168,76,.15); }
+  td { padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,.04); color: rgba(232,220,200,0.7); }
 </style>
 </head>
 <body>
 <div class="container">
   <div class="header">
+    <div class="header-logo"><img src="/grudge-logo.png" alt="Grudge Studio"></div>
     <div class="logo">Grudge Studio</div>
     <h1>Privacy Policy</h1>
     <div class="date">Last updated: March 28, 2026 &nbsp;·&nbsp; Effective: March 28, 2026</div>
