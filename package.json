@@ -15,17 +15,17 @@
   ],
   "scripts": {
     "dev": "concurrently -n \"id,wallet,game,ai,account,launcher,assets,ws\" -c \"cyan,yellow,green,magenta,blue,red,white,gray\" \"npm:dev:id\" \"npm:dev:wallet\" \"npm:dev:game\" \"npm:dev:ai\" \"npm:dev:account\" \"npm:dev:launcher\" \"npm:dev:assets\" \"npm:dev:ws\"",
-    "dev:id":       "npm run dev --workspace=services/grudge-id",
-    "dev:wallet":   "npm run dev --workspace=services/wallet-service",
-    "dev:game":     "npm run dev --workspace=services/game-api",
-    "dev:ai":       "npm run dev --workspace=services/ai-agent",
-    "dev:account":  "npm run dev --workspace=services/account-api",
+    "dev:id": "npm run dev --workspace=services/grudge-id",
+    "dev:wallet": "npm run dev --workspace=services/wallet-service",
+    "dev:game": "npm run dev --workspace=services/game-api",
+    "dev:ai": "npm run dev --workspace=services/ai-agent",
+    "dev:account": "npm run dev --workspace=services/account-api",
     "dev:launcher": "npm run dev --workspace=services/launcher-api",
-    "dev:assets":   "npm run dev --workspace=services/asset-service",
-    "dev:ws":       "npm run dev --workspace=services/ws-service",
+    "dev:assets": "npm run dev --workspace=services/asset-service",
+    "dev:ws": "npm run dev --workspace=services/ws-service",
     "install:all": "npm install --workspaces --include-workspace-root",
     "docker:deps": "docker compose up -d mysql redis",
-    "docker:dev":  "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build",
+    "docker:dev": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build",
     "docker:prod": "docker compose up --build -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
@@ -34,5 +34,9 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1021.0",
+    "mime-types": "^3.0.2"
   }
 }
