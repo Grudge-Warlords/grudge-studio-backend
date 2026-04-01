@@ -34,6 +34,7 @@ const ALLOWED_ORIGINS = new Set([
   'https://warlord-crafting-suite.vercel.app', 'https://grudge-warlords-game.vercel.app',
   'https://gruda-wars.vercel.app', 'https://grudge-engine-web.vercel.app',
   'https://nexus-nemesis-game.vercel.app', 'https://grim-armada-web.vercel.app',
+  'https://nemesis.grudge-studio.com',
   'https://app.puter.com', 'https://molochdagod.github.io',
 ]);
 
@@ -182,17 +183,19 @@ async function handleUpload(req, env, origin) {
   const metadata   = JSON.tryParse(formData.get('metadata') || '{}') || {};
   const mime       = file.type || 'application/octet-stream';
 
-  // Generate ID and R2 key
+  // Use provided r2_key (for pre-uploaded files) or generate UUID-based key
+  const providedKey = formData.get('r2_key');
   const id  = crypto.randomUUID();
-  const key = r2Key(category, id, filename);
+  const key = providedKey ? providedKey.toString() : r2Key(category, id, filename);
 
-  // Upload to R2
+  // Upload to R2 (skip if r2_key was provided — file already in R2)
   const buffer = await file.arrayBuffer();
-  await env.BUCKET.put(key, buffer, {
-    httpMetadata: { contentType: mime },
-    customMetadata: { originalFilename: filename },
-  });
-
+  if (!providedKey) {
+    await env.BUCKET.put(key, buffer, {
+      httpMetadata: { contentType: mime },
+      customMetadata: { originalFilename: filename },
+    });
+  }
   const size = buffer.byteLength;
 
   // Insert metadata into D1
@@ -212,6 +215,32 @@ async function handleUpload(req, env, origin) {
     url: `${CDN}/${key}`,
     created_at: new Date().toISOString(),
   }, 201, origin);
+}
+
+// ── Bulk index (register pre-uploaded R2 files into D1 without re-uploading) ──
+async function handleBulkIndex(req, env, origin) {
+  if (!requireAuth(req, env)) return json({ error: 'Forbidden' }, 403, origin);
+  const { assets } = await req.json().catch(() => ({ assets: [] }));
+  if (!Array.isArray(assets) || !assets.length) return json({ error: 'assets[] required' }, 400, origin);
+
+  const CDN = (env.PUBLIC_CDN_URL || '').replace(/\/$/, '');
+  let inserted = 0; let skipped = 0;
+  const stmt = env.DB.prepare(
+    `INSERT OR IGNORE INTO assets (id, r2_key, filename, mime, size, category, tags, visibility, metadata, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'public', '{}', datetime('now'))`
+  );
+  for (const a of assets) {
+    if (!a.key) continue;
+    const existing = await env.DB.prepare('SELECT id FROM assets WHERE r2_key = ?').bind(a.key).first();
+    if (existing) { skipped++; continue; }
+    const id = a.id || crypto.randomUUID();
+    const fname = a.filename || a.key.split('/').pop();
+    const mime  = a.mime || (fname.endsWith('.png') ? 'image/png' : fname.endsWith('.jpg') ? 'image/jpeg' : fname.endsWith('.glb') ? 'model/gltf-binary' : fname.endsWith('.mp3') ? 'audio/mpeg' : 'application/octet-stream');
+    const tags  = JSON.stringify(a.tags || []);
+    await stmt.bind(id, a.key, fname, mime, a.size || 0, a.category || 'other', tags).run();
+    inserted++;
+  }
+  return json({ inserted, skipped, total: assets.length, cdn: CDN }, 200, origin);
 }
 
 async function handleDelete(id, env, origin) {
@@ -254,6 +283,11 @@ export default {
     // POST /v1/assets  (upload)
     if (method === 'POST' && path === '/v1/assets') {
       return handleUpload(request, env, origin);
+    }
+
+    // POST /v1/assets/bulk-index  (register pre-uploaded R2 files into D1)
+    if (method === 'POST' && path === '/v1/assets/bulk-index') {
+      return handleBulkIndex(request, env, origin);
     }
 
     // GET /v1/assets/:id/file

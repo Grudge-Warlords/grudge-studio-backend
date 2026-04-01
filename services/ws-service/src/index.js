@@ -1,7 +1,6 @@
 require('dotenv').config();
 const http    = require('http');
 const express = require('express');
-const cors    = require('cors');
 const { Server } = require('socket.io');
 const jwt     = require('jsonwebtoken');
 const Redis   = require('ioredis');
@@ -268,10 +267,16 @@ const HEALTH_CORS_ORIGINS = [
   /^http:\/\/localhost(:\d+)?$/,
 ];
 
-app.get('/health', cors({
-  origin: (o, cb) => cb(null, !o || HEALTH_CORS_ORIGINS.some(p => p.test(o))),
-  methods: ['GET'],
-}), async (req, res) => {
+app.get('/health', async (req, res) => {
+  // Inline CORS — allow all Grudge subdomains, Vercel, Puter, localhost
+  const origin = req.headers.origin;
+  if (!origin || HEALTH_CORS_ORIGINS.some(p => p.test(origin))) {
+    if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Vary', 'Origin');
+  }
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
   const pvpNS    = io.of('/pvp');
   const engineNS = io.of('/engine');
 

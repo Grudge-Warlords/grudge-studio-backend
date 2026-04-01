@@ -54,6 +54,7 @@ const ALLOWED_ORIGINS = new Set([
   'https://auth.grudge-studio.com',
   'https://ai.grudge-studio.com',
   'https://grudge-rts.grudge-studio.com',
+  'https://nemesis.grudge-studio.com',
   // ── Vercel frontends ──
   'https://grudge-platform.vercel.app',
   'https://grudachain-rho.vercel.app',
