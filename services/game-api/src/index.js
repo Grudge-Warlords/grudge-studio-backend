@@ -2,11 +2,11 @@ require('dotenv').config();
 const express    = require('express');
 const helmet     = require('helmet');
 const cors       = require('cors');
-const { grudgeCors } = require('../../shared/cors');
+const { grudgeCors }     = require('../../shared/cors');
+const { makeRequireAuth } = require('../../shared/auth');
 const discordRoutes  = require('./routes/discord');
-const jwt        = require('jsonwebtoken');
 const rateLimit  = require('express-rate-limit');
-const { initDB } = require('./db');
+const { initDB, getDB } = require('./db');
 const { initRedis } = require('./redis');
 
 const characterRoutes  = require('./routes/characters');
@@ -72,40 +72,10 @@ const pvpLimiter = rateLimit({
   message: { error: 'PvP rate limit exceeded' },
 });
 
-// ── Auth middleware — accepts Grudge JWT or internal API key ───
-// Ban check: if JWT payload has is_banned, reject. Full DB check via getDB() is available
-// but we rely on token re-issue on login to propagate bans quickly (7d token TTL).
-// For instant ban enforcement, internal services should call grudge-id /auth/verify.
-async function requireAuth(req, res, next) {
-  // Game server / internal services use x-internal-key
-  if (req.headers['x-internal-key'] === process.env.INTERNAL_API_KEY) {
-    req.isInternal = true;
-    return next();
-  }
-  const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  try {
-    req.user = jwt.verify(header.slice(7), process.env.JWT_SECRET);
-    // ── Instant ban check against DB ────────────────────────────
-    const { getDB } = require('./db');
-    const db = getDB();
-    const [[row]] = await db.query(
-      'SELECT is_banned, ban_reason FROM users WHERE grudge_id = ? LIMIT 1',
-      [req.user.grudge_id]
-    );
-    if (row?.is_banned) {
-      return res.status(403).json({ error: row.ban_reason || 'Account banned' });
-    }
-    next();
-  } catch (err) {
-    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
-    next(err);
-  }
-}
+// ── Auth middleware — shared implementation with live DB ban check ─────────
+// Sourced from shared/auth.js. Accepts Grudge JWT or x-internal-key.
+// req.user = { grudge_id, username, role, puter_id, is_guest }
+const requireAuth = makeRequireAuth(getDB);
 
 // ── Routes ────────────────────────────
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'game-api', version: '2.0.0' }));
