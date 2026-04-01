@@ -160,48 +160,65 @@ router.patch('/:id/complete', async (req, res, next) => {
     const query = req.isInternal
       ? 'SELECT * FROM crafting_queue WHERE id = ? AND status = "queued"'
       : 'SELECT * FROM crafting_queue WHERE id = ? AND grudge_id = ? AND status = "queued"';
-    const params = req.isInternal
-      ? [req.params.id]
-      : [req.params.id, req.user.grudge_id];
+    const params = req.isInternal ? [req.params.id] : [req.params.id, req.user.grudge_id];
 
     const [[queueItem]] = await db.query(query, params);
     if (!queueItem) return res.status(404).json({ error: 'Queued craft not found' });
 
-    // Must have passed completes_at
     if (new Date(queueItem.completes_at) > new Date()) {
       const remaining = Math.ceil((new Date(queueItem.completes_at) - Date.now()) / 1000);
       return res.status(400).json({ error: `Not ready yet. ${remaining}s remaining.` });
     }
 
-    // Fetch recipe for output details
     const [[recipe]] = await db.query(
       'SELECT * FROM crafting_recipes WHERE recipe_key = ?',
       [queueItem.recipe_key]
     );
-    if (!recipe) return res.status(500).json({ error: 'Recipe not found for queue item' });
+    if (!recipe) return res.status(500).json({ error: 'Recipe not found' });
 
-    // Add item to inventory
-    const [inv] = await db.query(
-      `INSERT INTO inventory (grudge_id, char_id, item_type, item_key, tier)
-       VALUES (?, ?, ?, ?, ?)`,
-      [queueItem.grudge_id, queueItem.char_id, recipe.output_item_type,
-       recipe.output_item_key, recipe.output_tier]
-    );
-
-    // Mark craft complete
-    await db.query(
-      'UPDATE crafting_queue SET status = "complete", completed_at = NOW(), output_item_id = ? WHERE id = ?',
-      [inv.insertId, queueItem.id]
-    );
+    // ── ATOMIC: both the item grant AND the queue update happen together ──────
+    const conn = await db.getConnection();
+    await conn.beginTransaction();
+    let inv_id, instance_id;
+    try {
+      // uuid via crypto
+      instance_id = crypto.randomUUID();
+      const [inv] = await conn.query(
+        `INSERT INTO inventory (grudge_id, char_id, item_type, item_key, tier, instance_id)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [queueItem.grudge_id, queueItem.char_id, recipe.output_item_type,
+         recipe.output_item_key, recipe.output_tier, instance_id]
+      );
+      inv_id = inv.insertId;
+      await conn.query(
+        'UPDATE crafting_queue SET status = "complete", completed_at = NOW(), output_item_id = ? WHERE id = ?',
+        [inv_id, queueItem.id]
+      );
+      // Audit
+      await conn.query(
+        `INSERT INTO inventory_log (action, grudge_id, char_id, instance_id, item_key, meta)
+         VALUES ('crafted', ?, ?, ?, ?, ?)`,
+        [queueItem.grudge_id, queueItem.char_id, instance_id,
+         recipe.output_item_key, JSON.stringify({ recipe_key: queueItem.recipe_key, queue_id: queueItem.id })]
+      );
+      await conn.commit();
+    } catch (e) {
+      await conn.rollback();
+      conn.release();
+      throw e;
+    }
+    conn.release();
 
     res.json({
-      success:       true,
-      item_id:       inv.insertId,
-      item_key:      recipe.output_item_key,
-      item_type:     recipe.output_item_type,
-      tier:          recipe.output_tier,
+      success:    true,
+      item_id:    inv_id,
+      instance_id,
+      item_key:   recipe.output_item_key,
+      item_type:  recipe.output_item_type,
+      tier:       recipe.output_tier,
     });
   } catch (err) { next(err); }
+
 });
 
 // ── DELETE /crafting/:id — Cancel queued craft ───────────────

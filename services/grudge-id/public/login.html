@@ -219,6 +219,13 @@ body::before {
   var params = new URLSearchParams(location.search);
   var redirectUri = params.get('redirect_uri') || params.get('return') || null;
 
+  // ── OAuth callback token pickup ───────────────────────────────
+  // After Discord/Google/GitHub redirects back with ?token=&grudge_id=&provider=
+  var oauthToken = params.get('token');
+  var oauthGrudgeId = params.get('grudge_id');
+  var oauthProvider = params.get('provider');
+
+
   function showLoading(text) { var el = document.getElementById('loading'); el.classList.add('show'); document.getElementById('loading-text').textContent = text || 'Signing in…'; }
   function hideLoading() { document.getElementById('loading').classList.remove('show'); }
   function showMsg(t, ok) { var m = document.getElementById('msg'); m.textContent = t; m.className = 'msg ' + (ok ? 'ok' : 'err'); }
@@ -445,6 +452,29 @@ body::before {
     document.getElementById('login-pw').addEventListener('keydown', function(e) { if (e.key === 'Enter') loginWithCreds(); });
     document.getElementById('reg-pw').addEventListener('keydown', function(e) { if (e.key === 'Enter') registerAccount(); });
   });
+
+  // ── On load: pick up OAuth token from URL and auto-auth ──────
+  (function initOAuthPickup() {
+    if (!oauthToken) return;
+    // Store token from OAuth redirect
+    storeAuth({ token: oauthToken, grudgeId: oauthGrudgeId, username: '' });
+    // Fetch user profile to complete session
+    fetch(ID + '/auth/user', { headers: { Authorization: 'Bearer ' + oauthToken } })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(u) {
+        if (u) storeAuth({ token: oauthToken, grudgeId: u.grudgeId || oauthGrudgeId, username: u.username, user: u });
+        // Clean URL
+        var clean = location.pathname + (redirectUri ? '?redirect_uri=' + encodeURIComponent(redirectUri) : '');
+        history.replaceState(null, '', clean);
+        if (redirectUri) {
+          afterAuth();
+        } else {
+          renderState();
+        }
+      })
+      .catch(function() { renderState(); });
+  })();
+
 })();
 </script>
 </body>

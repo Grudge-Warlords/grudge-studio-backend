@@ -527,6 +527,7 @@ services:
     ports:
       - "7777:7777/tcp"
       - "7777:7777/udp"
+      - "7778:7778/tcp"
     volumes:
       - server-data:/opt/grudge-server/data
     environment:

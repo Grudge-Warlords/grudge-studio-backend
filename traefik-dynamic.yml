@@ -1,0 +1,44 @@
+http:
+  middlewares:
+    security-headers:
+      headers:
+        browserXssFilter: true
+        contentTypeNosniff: true
+        frameDeny: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        customResponseHeaders:
+          X-Powered-By: "Grudge Studio"
+          Server: "Grudge"
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 200
+        period: 1m
+    rate-limit-auth:
+      rateLimit:
+        average: 20
+        burst: 40
+        period: 1m
+    cors-grudge:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        accessControlAllowHeaders:
+          - Authorization
+          - Content-Type
+          - X-Requested-With
+        accessControlAllowOriginList:
+          - "https://grudgewarlords.com"
+          - "https://www.grudgewarlords.com"
+          - "https://grudachain.grudgestudio.com"
+          - "https://starwaygruda.vercel.app"
+          - "https://warlord-crafting-suite.vercel.app"
+        accessControlMaxAge: 86400
+        addVaryHeader: true
