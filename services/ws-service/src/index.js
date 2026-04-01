@@ -1,6 +1,7 @@
 require('dotenv').config();
 const http    = require('http');
 const express = require('express');
+const cors    = require('cors');
 const { Server } = require('socket.io');
 const jwt     = require('jsonwebtoken');
 const Redis   = require('ioredis');
@@ -13,8 +14,26 @@ const PORT   = process.env.PORT || 3007;
 
 const JWT_SECRET      = process.env.JWT_SECRET;
 const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY;
-// Redis ? direct IPv4 connection (avoids Docker IPv6 WRONGPASS)
-const REDIS_OPTS = { host: '10.0.3.3', port: 6379, password: process.env.REDIS_URL && process.env.REDIS_URL.match(/:([^:@]+)@/) ? process.env.REDIS_URL.match(/:([^:@]+)@/)[1] : '', retryStrategy: (t) => Math.min(t*500,5000) };
+
+// ── Redis — use hostname so it never breaks on container IP change ────────
+// Priority: REDIS_HOST env var → Docker DNS name 'grudge-redis' → fallback IP
+const REDIS_HOST = process.env.REDIS_HOST || 'grudge-redis';
+const REDIS_PORT = parseInt(process.env.REDIS_PORT || '6379', 10);
+// Extract password from REDIS_URL (redis://:password@host:port) or REDIS_PASSWORD env
+let REDIS_PASS = process.env.REDIS_PASSWORD || '';
+if (!REDIS_PASS && process.env.REDIS_URL) {
+  const m = process.env.REDIS_URL.match(/redis:\/\/[^:]*:([^@]+)@/);
+  if (m) REDIS_PASS = decodeURIComponent(m[1]);
+}
+const REDIS_OPTS = {
+  host: REDIS_HOST,
+  port: REDIS_PORT,
+  password: REDIS_PASS || undefined,
+  retryStrategy:       (t) => Math.min(t * 500, 10_000),  // max 10s between retries
+  maxRetriesPerRequest: 3,    // stop log-flooding after 3 attempts per command
+  connectTimeout:       5_000,
+  lazyConnect:          false,
+};
 
 // ── CORS — shared module ──────────────────────
 // Inline CORS config (shared/cors not available in container image)
@@ -238,13 +257,42 @@ redisSub.on('message', (channel, message) => {
 });
 
 // ── HTTP health endpoint ──────────────────────
-app.get('/health', (req, res) => {
-  const pvpNS = io.of('/pvp');
+// CORS enabled so browser clients (dash.grudge-studio.com, engine.grudge-studio.com)
+// can fetch this endpoint without being blocked by the browser.
+const HEALTH_CORS_ORIGINS = [
+  /^https?:\/\/([a-z0-9-]+\.)?grudge-studio\.com$/,
+  /^https?:\/\/([a-z0-9-]+\.)?grudgewarlords\.com$/,
+  /^https?:\/\/([a-z0-9-]+\.)?grudgeplatform\.io$/,
+  /^https:\/\/[a-z0-9-]+\.vercel\.app$/,
+  /^https:\/\/[a-z0-9-]+\.puter\.site$/,
+  /^http:\/\/localhost(:\d+)?$/,
+];
+
+app.get('/health', cors({
+  origin: (o, cb) => cb(null, !o || HEALTH_CORS_ORIGINS.some(p => p.test(o))),
+  methods: ['GET'],
+}), async (req, res) => {
+  const pvpNS    = io.of('/pvp');
   const engineNS = io.of('/engine');
-  res.json({
-    status:    'ok',
+
+  // Live Redis connectivity check
+  let redisStatus = 'unknown';
+  try {
+    await Promise.race([
+      redisPub.ping(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2000)),
+    ]);
+    redisStatus = 'ok';
+  } catch {
+    redisStatus = 'error';
+  }
+
+  const healthy = redisStatus === 'ok';
+  res.status(healthy ? 200 : 200).json({   // keep 200 for Coolify health check
+    status:    healthy ? 'ok' : 'degraded',
     service:   'ws-service',
     version:   '2.1.0',
+    redis:     redisStatus,
     connected: {
       game:   gameNS.sockets.size,
       crew:   crewNS.sockets.size,
