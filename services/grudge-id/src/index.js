@@ -1,4 +1,5 @@
 require('dotenv').config();
+require('../../../shared/validate-env')(['JWT_SECRET', 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS']);
 const express = require('express');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
@@ -131,16 +132,40 @@ app.use('/identity', identityRoutes);
 app.use('/device',   deviceRoutes);
 app.use('/admin',    adminRoutes);
 
+// ── Sentry (optional — only active when SENTRY_DSN is set) ────
+let Sentry;
+if (process.env.SENTRY_DSN) {
+  try {
+    Sentry = require('@sentry/node');
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.NODE_ENV || 'production',
+      tracesSampleRate: 0.05,
+    });
+    console.log('[grudge-id] Sentry enabled');
+  } catch (e) { console.warn('[grudge-id] Sentry init failed:', e.message); }
+}
+
 // ── Error handler ─────────────────────────────
 app.use((err, req, res, next) => {
+  if (Sentry) Sentry.captureException(err);
   console.error('[grudge-id]', err.message);
   res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 
-// ── Start ─────────────────────────────────────
+// ── Start + graceful shutdown ──────────────────
 (async () => {
   await initDB();
-  app.listen(PORT, () => {
-    console.log(`[grudge-id] Running on port ${PORT}`);
-  });
+  const server = app.listen(PORT, () => console.log(`[grudge-id] Running on port ${PORT}`));
+
+  function shutdown(signal) {
+    console.log(`[grudge-id] ${signal} — shutting down gracefully`);
+    server.close(async () => {
+      try { const { getPool } = require('./db'); await getPool()?.end(); } catch {}
+      process.exit(0);
+    });
+    setTimeout(() => { console.error('[grudge-id] Forced exit after timeout'); process.exit(1); }, 10_000).unref();
+  }
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT',  () => shutdown('SIGINT'));
 })();

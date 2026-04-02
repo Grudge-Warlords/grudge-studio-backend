@@ -605,8 +605,85 @@ router.post('/register', verifyTurnstile, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── POST /auth/guest ──────────────────────────
-router.post('/guest', async (req, res, next) => {
+// ── POST /auth/forgot-password ───────────────────────
+// Always returns 200 to prevent email enumeration.
+router.post('/forgot-password', async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email required' });
+
+    const db = getDB();
+    const [[user]] = await db.query(
+      'SELECT grudge_id, username, email FROM users WHERE email = ? AND email IS NOT NULL LIMIT 1',
+      [email.toLowerCase().trim()]
+    );
+
+    // Always respond the same way — never reveal whether email exists
+    const OK = { ok: true, message: 'If that email is registered, a reset link has been sent.' };
+    if (!user) return res.json(OK);
+
+    const token   = require('crypto').randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await db.query(
+      'UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE grudge_id = ?',
+      [token, expires, user.grudge_id]
+    );
+
+    const resetUrl = `https://id.grudge-studio.com/auth/reset-password?token=${token}`;
+    const { sendEmail } = require('../../../shared/email');
+    await sendEmail({
+      to: user.email,
+      subject: 'Reset your Grudge Studio password',
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:auto;">
+          <h2 style="color:#c8a84b;">&#9876;&#65039; Grudge Studio</h2>
+          <p>Hi <strong>${user.username}</strong>,</p>
+          <p>We received a request to reset your password. Click the link below — it expires in <strong>1 hour</strong>.</p>
+          <a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#c8a84b;color:#000;text-decoration:none;border-radius:6px;font-weight:bold;margin:16px 0;">Reset Password</a>
+          <p style="font-size:12px;color:#888;">If you didn&#39;t request this, ignore this email. Your password won&#39;t change.</p>
+          <hr style="border-color:#333;"/>
+          <p style="font-size:11px;color:#666;">Grudge Studio &mdash; grudge-studio.com</p>
+        </div>
+      `,
+    });
+
+    res.json(OK);
+  } catch (err) { next(err); }
+});
+
+// ── POST /auth/reset-password ──────────────────────
+router.post('/reset-password', async (req, res, next) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password)
+      return res.status(400).json({ error: 'token and password required' });
+    if (password.length < 4)
+      return res.status(400).json({ error: 'Password must be at least 4 characters' });
+
+    const db = getDB();
+    const [[user]] = await db.query(
+      'SELECT grudge_id, reset_token_expires FROM users WHERE reset_token = ? LIMIT 1',
+      [token]
+    );
+
+    if (!user)
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    if (new Date(user.reset_token_expires) < new Date())
+      return res.status(400).json({ error: 'Reset token has expired — please request a new one' });
+
+    const hash = await bcrypt.hash(password, 10);
+    await db.query(
+      'UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE grudge_id = ?',
+      [hash, user.grudge_id]
+    );
+
+    res.json({ ok: true, message: 'Password updated. You can now log in with your new password.' });
+  } catch (err) { next(err); }
+});
+
+// ── POST /auth/guest ───────────────────────────────
+router.post('/guest',
   try {
     const { deviceId } = req.body;
     if (!deviceId) return res.status(400).json({ error: 'Device ID required' });

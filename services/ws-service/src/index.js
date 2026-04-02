@@ -1,4 +1,11 @@
 require('dotenv').config();
+require('../../shared/validate-env')(['JWT_SECRET', 'INTERNAL_API_KEY']);
+
+let Sentry;
+if (process.env.SENTRY_DSN) {
+  try { Sentry = require('@sentry/node'); Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV || 'production', tracesSampleRate: 0.05 }); console.log('[ws-service] Sentry enabled'); } catch (e) { console.warn('[ws-service] Sentry init failed:', e.message); }
+}
+
 const http    = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
@@ -309,6 +316,17 @@ app.get('/health', async (req, res) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`[ws-service] Running on port ${PORT}`);
-});
+server.listen(PORT, () => console.log(`[ws-service] Running on port ${PORT}`));
+
+function shutdown(signal) {
+  console.log(`[ws-service] ${signal} — shutting down gracefully`);
+  io.close(() => {
+    server.close(() => {
+      try { redisSub.disconnect(); redisPub.disconnect(); } catch {}
+      process.exit(0);
+    });
+  });
+  setTimeout(() => { console.error('[ws-service] Forced exit after timeout'); process.exit(1); }, 10_000).unref();
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT',  () => shutdown('SIGINT'));

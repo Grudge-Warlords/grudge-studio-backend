@@ -63,6 +63,9 @@ services:
       CF_TURNSTILE_SITE_KEY: ${CF_TURNSTILE_SITE_KEY}
       # Auth redirect
       DEFAULT_AUTH_REDIRECT: ${DEFAULT_AUTH_REDIRECT:-https://grudgewarlords.com/auth}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      EMAIL_FROM: ${EMAIL_FROM:-Grudge Studio <noreply@grudge-studio.com>}
+      SENTRY_DSN: ${SENTRY_DSN}
       <<: *cors-origins
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]

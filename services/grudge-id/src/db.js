@@ -143,4 +143,6 @@ async function deepCheck() {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-module.exports = { initDB, getDB, isHealthy, deepCheck };
+function getPool() { return pool; }
+
+module.exports = { initDB, getDB, getPool, isHealthy, deepCheck };

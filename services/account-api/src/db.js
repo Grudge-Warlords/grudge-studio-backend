@@ -22,4 +22,19 @@ function getDB() {
   return pool;
 }
 
-module.exports = { initDB, getDB };
+function getPool() { return pool; }
+
+async function deepCheck() {
+  if (!pool) return { ok: false, error: 'pool_null', ms: 0 };
+  const t = Date.now();
+  try {
+    const conn = await pool.getConnection();
+    await conn.ping();
+    conn.release();
+    return { ok: true, ms: Date.now() - t };
+  } catch (err) {
+    return { ok: false, error: err.code || err.message, ms: Date.now() - t };
+  }
+}
+
+module.exports = { initDB, getDB, getPool, deepCheck };

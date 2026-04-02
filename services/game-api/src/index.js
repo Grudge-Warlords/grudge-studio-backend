@@ -1,4 +1,11 @@
 require('dotenv').config();
+require('../../shared/validate-env')(['JWT_SECRET', 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS', 'INTERNAL_API_KEY']);
+
+let Sentry;
+if (process.env.SENTRY_DSN) {
+  try { Sentry = require('@sentry/node'); Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV || 'production', tracesSampleRate: 0.05 }); console.log('[game-api] Sentry enabled'); } catch (e) { console.warn('[game-api] Sentry init failed:', e.message); }
+}
+
 const express    = require('express');
 const helmet     = require('helmet');
 const cors       = require('cors');
@@ -118,6 +125,7 @@ app.use('/pvp',         requireAuth, pvpLimiter, pvpRoutes);
 app.use('/admin',       requireAuth, adminRoutes);
 
 app.use((err, req, res, next) => {
+  if (Sentry) Sentry.captureException(err);
   console.error('[game-api]', err.message);
   res.status(err.status || 500).json({ error: err.message || 'Internal error' });
 });
@@ -125,5 +133,16 @@ app.use((err, req, res, next) => {
 (async () => {
   await initDB();
   await initRedis();
-  app.listen(PORT, () => console.log(`[game-api] Running on port ${PORT}`));
+  const server = app.listen(PORT, () => console.log(`[game-api] Running on port ${PORT}`));
+
+  function shutdown(signal) {
+    console.log(`[game-api] ${signal} — shutting down gracefully`);
+    server.close(async () => {
+      try { await getDB().pool?.end(); } catch {}
+      process.exit(0);
+    });
+    setTimeout(() => { console.error('[game-api] Forced exit after timeout'); process.exit(1); }, 10_000).unref();
+  }
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT',  () => shutdown('SIGINT'));
 })();
