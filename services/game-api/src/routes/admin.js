@@ -352,4 +352,54 @@ router.get('/economy/balance', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// ═════════════════════════════════════════════════════════════
+// PVP LOBBIES ADMIN (all statuses visible to admin)
+// ═════════════════════════════════════════════════════════════
+
+router.get('/pvp/lobbies', async (req, res, next) => {
+  try {
+    const db = getDB();
+    const { status, limit = 50 } = req.query;
+    let sql = `
+      SELECT pl.lobby_code, pl.mode, pl.island, pl.host_grudge_id, pl.status,
+             pl.max_players, pl.created_at, pl.started_at, pl.finished_at,
+             u.username AS host_username,
+             COUNT(plp.grudge_id) AS player_count
+      FROM pvp_lobbies pl
+      LEFT JOIN users u ON u.grudge_id = pl.host_grudge_id
+      LEFT JOIN pvp_lobby_players plp ON plp.lobby_id = pl.id
+    `;
+    const params = [];
+    if (status) { sql += ' WHERE pl.status = ?'; params.push(status); }
+    sql += ' GROUP BY pl.id ORDER BY pl.created_at DESC LIMIT ?';
+    params.push(Math.min(Number(limit) || 50, 200));
+    const [rows] = await db.query(sql, params);
+    res.json(rows);
+  } catch (e) { next(e); }
+});
+
+router.post('/pvp/lobbies/:code/cancel', async (req, res, next) => {
+  try {
+    const db = getDB();
+    const { getRedis } = require('../redis');
+    const [[lobby]] = await db.query(
+      `SELECT id, status FROM pvp_lobbies WHERE lobby_code = ? LIMIT 1`,
+      [req.params.code]
+    );
+    if (!lobby) return res.status(404).json({ error: 'Lobby not found' });
+    if (['finished','cancelled'].includes(lobby.status))
+      return res.status(409).json({ error: 'Lobby already ended' });
+    await db.query(
+      `UPDATE pvp_lobbies SET status = 'cancelled', finished_at = NOW() WHERE id = ?`,
+      [lobby.id]
+    );
+    try {
+      await getRedis().publish('grudge:event:pvp_lobby', JSON.stringify({
+        event: 'cancelled', lobby_code: req.params.code, by: 'admin',
+      }));
+    } catch {}
+    res.json({ ok: true, lobby_code: req.params.code });
+  } catch (e) { next(e); }
+});
+
 module.exports = router;

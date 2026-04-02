@@ -31,7 +31,19 @@ function decodeOAuthState(state) {
   return DEFAULT_AUTH_REDIRECT;
 }
 
-// ── SSO cookie helper ─────────────────────────
+// ── Discord webhook helper (fire-and-forget) ───────────────
+function fireDiscordWebhook(payload) {
+  const url = process.env.DISCORD_SYSTEM_WEBHOOK_TOKEN;
+  if (!url || !url.startsWith('https://discord.com')) return;
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => {}); // never throw
+}
+
+// ── SSO cookie helper ─────────────────
 const SSO_COOKIE_NAME = 'grudge_sso';
 const SSO_COOKIE_OPTS = {
   httpOnly: true,
@@ -152,7 +164,9 @@ async function getOrCreateUser(db, identityField, identityValue, extraFields = {
   );
 
   [rows] = await db.query('SELECT * FROM users WHERE grudge_id = ? LIMIT 1', [grudge_id]);
-  return rows[0];
+  const newUser = rows[0];
+  if (newUser) newUser._isNew = true;
+  return newUser;
 }
 
 // ── POST /auth/wallet ─────────────────────────
@@ -292,6 +306,22 @@ router.get('/discord/callback', async (req, res, next) => {
 
     const token = issueToken(user);
     setSsoCookie(res, token);
+
+    // Notify Discord on new OAuth account
+    if (user._isNew) {
+      fireDiscordWebhook({
+        embeds: [{
+          title: '\uD83C\uDD95 New Account via Discord OAuth',
+          color: 0x5865f2,
+          fields: [
+            { name: 'Username', value: user.username || discord_tag, inline: true },
+            { name: 'Discord', value: discord_tag, inline: true },
+            { name: 'Method', value: 'Discord', inline: true },
+          ],
+          timestamp: new Date().toISOString(),
+        }],
+      });
+    }
 
     // Redirect to the calling app (or default) with token
     const sep = appRedirect.includes('?') ? '&' : '?';
@@ -536,6 +566,20 @@ router.post('/register', verifyTurnstile, async (req, res, next) => {
     const user = rows[0];
     const token = issueToken(user);
     setSsoCookie(res, token);
+
+    // Notify Discord on new account
+    fireDiscordWebhook({
+      embeds: [{
+        title: '🆕 New Account Registered',
+        color: 0x00bfff,
+        fields: [
+          { name: 'Username', value: user.username, inline: true },
+          { name: 'Grudge ID', value: `\`${user.grudge_id}\``, inline: true },
+          { name: 'Method', value: 'Password', inline: true },
+        ],
+        timestamp: new Date().toISOString(),
+      }],
+    });
 
     res.status(201).json({
       success: true,
