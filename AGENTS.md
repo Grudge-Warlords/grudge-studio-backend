@@ -1,8 +1,11 @@
-# Grudge Studio Backend ? AGENTS.md
+# Grudge Studio Backend — VPS Infrastructure
+
+Created by **Racalvin The Pirate King**.
 
 ## SINGLE BACKEND SYSTEM
 
 All Grudge Studio apps connect to ONE backend. Never create parallel auth or storage systems.
+ObjectStore is the single source of truth for game data and assets.
 
 ### VPS Services (Docker / Coolify, `74.208.155.229`)
 | Service | Public URL | Internal Port |
@@ -63,8 +66,35 @@ URL: `{CDN_BASE}/{category}/{GRUDGE-UUID}.{ext}`
 All services: `NODE_ENV=production`
 Trust proxy: `app.set('trust proxy', 1)` (NOT true)
 
+### Game-API Routes (services/game-api/src/index.js)
+All require JWT auth via shared/auth.js:
+`/characters`, `/factions`, `/missions`, `/crews`, `/inventory`, `/professions`, `/gouldstones`, `/economy`, `/crafting`, `/combat`, `/islands`, `/arena`, `/player-islands`, `/pvp`, `/admin`
+
+### Frontend Apps Connecting to This Backend
+| App | URL | Rewrites to |
+|-----|-----|------------|
+| Grudge Warlords (Web Engine 1) | grudgewarlords.com | /api/game/* → api.grudge-studio.com |
+| GDevelop Assistant | gdevelop-assistant.vercel.app | Direct proxy in server/grudgeAuth.ts |
+| Grudge Engine Web (Web Engine 2) | grudge-engine-web.vercel.app | Direct fetch to api.grudge-studio.com |
+| Dashboard | dash.grudge-studio.com | Direct |
+
+### Cloudflare Workers
+| Worker | Domain | Purpose |
+|--------|--------|---------|
+| grudgeassets | objectstore.grudge-studio.com | R2 asset CRUD, 3D model API, conversion pipeline |
+| grudge-ai-hub | ai.grudge-studio.com | AI agents, Workers AI, R2 storage |
+| grudge-route-monitor | grudge-route-monitor.grudge.workers.dev | Health checks every 5 min |
+
+### Local Development Stack
+`docker-compose.local.yml` runs MySQL, Redis, grudge-id, account-api, wallet-service locally.
+Exposed via Cloudflare Tunnel. Start: `scripts/start-local.ps1`
+
 ### Code Standards
 - Node.js CommonJS in all VPS services
 - Shared modules referenced as `require('../../shared/module')`
 - Path from `src/routes/` = `../../../shared/` (3 hops to /app/shared/)
 - Path from `src/` = `../../shared/` (2 hops to /app/shared/)
+- NEVER bypass auth middleware. All routes go through requireAuth.
+- NEVER trust client-provided grudge_id or role — extract from JWT.
+- Use applyGold() from economy.js for ALL gold transactions (atomic).
+- Rate limiting: 200 req/min global, 30 req/min economy, 60 req/min PvP.
