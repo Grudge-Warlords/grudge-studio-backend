@@ -402,4 +402,37 @@ router.post('/pvp/lobbies/:code/cancel', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// ═════════════════════════════════════════════════════════════
+// DEPLOY HISTORY (from dash_events table)
+// ═════════════════════════════════════════════════════════════
+
+router.get('/deploy/history', async (req, res, next) => {
+  try {
+    const db = getDB();
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const service = req.query.service || null;
+    let sql = 'SELECT * FROM dash_events';
+    const params = [];
+    if (service) { sql += ' WHERE service = ?'; params.push(service); }
+    sql += ' ORDER BY created_at DESC LIMIT ?';
+    params.push(limit);
+    const [rows] = await db.query(sql, params);
+    res.json(rows);
+  } catch (e) { next(e); }
+});
+
+// Admin can log an event (used by deploy.sh / GitHub Actions webhook)
+router.post('/deploy/event', async (req, res, next) => {
+  try {
+    const { event_type = 'deploy', service, status = 'ok', actor, commit_sha, details } = req.body;
+    if (!service) return res.status(400).json({ error: 'service required' });
+    const db = getDB();
+    await db.query(
+      'INSERT INTO dash_events (event_type, service, status, actor, commit_sha, details) VALUES (?, ?, ?, ?, ?, ?)',
+      [event_type, service, status, actor || null, commit_sha || null, details || null]
+    );
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
 module.exports = router;

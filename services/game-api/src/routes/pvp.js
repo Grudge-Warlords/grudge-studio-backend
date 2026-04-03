@@ -414,24 +414,25 @@ router.get('/lobby/:code', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── GET /pvp/lobbies ─────────────────────────────────────────
-// List open lobbies. Query: ?mode=duel&island=spawn&limit=20
+// ── GET /pvp/lobbies ─────────────────────────────────────────────────────
+// List lobbies. Query: ?mode=duel&island=spawn&status=waiting&limit=20
+// Default status: 'waiting' (open to join). Pass ?status=in_progress etc.
 router.get('/lobbies', async (req, res, next) => {
   try {
-    const { mode, island, limit = 20 } = req.query;
+    const { mode, island, limit = 20, status = 'waiting' } = req.query;
     const db = getDB();
 
     let sql = `
-      SELECT pl.lobby_code, pl.mode, pl.island, pl.host_grudge_id,
-             pl.max_players, pl.settings, pl.created_at,
+      SELECT pl.lobby_code, pl.mode, pl.island, pl.host_grudge_id, pl.status,
+             pl.max_players, pl.settings, pl.created_at, pl.started_at,
              u.username AS host_username,
              COUNT(plp.grudge_id) AS player_count
       FROM pvp_lobbies pl
       JOIN users u ON u.grudge_id = pl.host_grudge_id
       LEFT JOIN pvp_lobby_players plp ON plp.lobby_id = pl.id
-      WHERE pl.status = 'waiting'
+      WHERE pl.status = ?
     `;
-    const params = [];
+    const params = [status];
     if (mode)   { sql += ' AND pl.mode = ?';   params.push(mode); }
     if (island) { sql += ' AND pl.island = ?'; params.push(island); }
     sql += ` GROUP BY pl.id ORDER BY pl.created_at DESC LIMIT ?`;

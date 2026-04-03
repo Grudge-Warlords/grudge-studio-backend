@@ -43,21 +43,17 @@ CREATE TABLE IF NOT EXISTS grudge_migrations (
   echo "[migrate] WARNING: Could not create migrations table (MySQL may still be starting)" >&2
 }
 
-# ── Run each file ──────────────────────────────────────────────────
-APPLIED=0
-SKIPPED=0
-FAILED=0
-
-for FILE in $(ls "$BASE/mysql/init/"*.sql 2>/dev/null | sort); do
+# ── Helper: run one SQL file, track in grudge_migrations ────────
+run_file() {
+  local FILE="$1"
+  local FNAME
   FNAME=$(basename "$FILE")
 
-  # Check if already applied
   COUNT=$($MYSQL -sN -e "SELECT COUNT(*) FROM grudge_migrations WHERE filename='$FNAME';" 2>/dev/null || echo "0")
-
   if [[ "$COUNT" =~ ^[0-9]+$ ]] && [[ "$COUNT" -gt 0 ]]; then
     echo "[migrate] SKIP  $FNAME (already applied)"
     SKIPPED=$((SKIPPED+1))
-    continue
+    return 0
   fi
 
   echo "[migrate] APPLY $FNAME ..."
@@ -69,6 +65,24 @@ for FILE in $(ls "$BASE/mysql/init/"*.sql 2>/dev/null | sort); do
     echo "[migrate] FAIL  $FNAME" >&2
     FAILED=$((FAILED+1))
   fi
+}
+
+# ── Run each file ──────────────────────────────────────────────
+APPLIED=0
+SKIPPED=0
+FAILED=0
+
+# 1. Base schema: mysql/init/*.sql (schema tables — always in order)
+echo ">>> Phase 1: mysql/init/*.sql (base schema)"
+for FILE in $(ls "$BASE/mysql/init/"*.sql 2>/dev/null | sort); do
+  run_file "$FILE"
+done
+
+# 2. Incremental migrations: migrations/*.sql (ALTER TABLE, data fixes)
+echo ""
+echo ">>> Phase 2: migrations/*.sql (incremental changes)"
+for FILE in $(ls "$BASE/migrations/"*.sql 2>/dev/null | sort); do
+  run_file "$FILE"
 done
 
 echo ""

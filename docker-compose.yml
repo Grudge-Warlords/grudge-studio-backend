@@ -28,6 +28,8 @@ services:
     build: ./services/grudge-id
     container_name: grudge-id
     restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 15s
     environment:
       NODE_ENV: production
       PORT: 3001
@@ -185,6 +187,8 @@ services:
       target: production
     container_name: game-api
     restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 15s
     environment:
       NODE_ENV: production
       PORT: 3003
@@ -266,6 +270,8 @@ services:
       target: production
     container_name: account-api
     restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 15s
     environment:
       NODE_ENV: production
       PORT: 3005
@@ -409,6 +415,8 @@ services:
       target: production
     container_name: ws-service
     restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 15s
     environment:
       NODE_ENV: production
       PORT: 3007
@@ -447,8 +455,10 @@ services:
     build: ./services/grudge-bridge
     container_name: grudge-bridge
     restart: unless-stopped
-    ports:
-      - "4000:4000"
+    stop_signal: SIGTERM
+    stop_grace_period: 15s
+    # NOTE: port 4000 is NOT mapped directly — access only via Traefik HTTPS
+    # Direct port exposure would bypass auth and expose the bridge publicly
     environment:
       NODE_ENV: production
       PORT: 4000
