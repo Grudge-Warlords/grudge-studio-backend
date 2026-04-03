@@ -478,6 +478,8 @@ services:
       PEER_NODES: ${BRIDGE_PEER_NODES:-}
       DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
       COMPOSE_DIR: /opt/grudge-studio-backend
+      GAME_API_URL: http://game-api:3003
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       # Validator — cross-node state verification
       VALIDATOR_ENABLED: ${VALIDATOR_ENABLED:-true}
       VALIDATOR_CRON: ${VALIDATOR_CRON:-*/5 * * * *}

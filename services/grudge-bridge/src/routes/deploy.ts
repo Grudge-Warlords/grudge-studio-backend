@@ -103,13 +103,15 @@ export function deployRoutes(config: BridgeConfig): Router {
           config.composeDir
         );
 
-        const duration = Date.now() - start;
+      const duration = Date.now() - start;
         results.push({ service: svc, status: "ok", duration });
         send("service", { service: svc, status: "ok", duration });
+        logDeployEvent(config, { service: svc, status: "ok",   event_type: "deploy", details: `${duration}ms` });
       } catch (err: any) {
         const duration = Date.now() - start;
         results.push({ service: svc, status: "failed", duration });
         send("service", { service: svc, status: "failed", error: err.message, duration });
+        logDeployEvent(config, { service: svc, status: "failed", event_type: "deploy", details: err.message.slice(0, 200) });
       }
 
       // Brief pause between services
@@ -173,6 +175,29 @@ export function deployRoutes(config: BridgeConfig): Router {
   });
 
   return router;
+}
+
+/** Fire-and-forget: write a deploy event to the game-api dash_events table */
+function logDeployEvent(
+  config: import("../bridge.config").BridgeConfig,
+  data: { service: string; status: string; event_type?: string; details?: string }
+): void {
+  if (!config.gameApiUrl || !config.internalApiKey) return;
+  fetch(`${config.gameApiUrl}/admin/deploy/event`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-internal-key": config.internalApiKey,
+    },
+    body: JSON.stringify({
+      event_type: data.event_type || "deploy",
+      service:    data.service,
+      status:     data.status,
+      actor:      `bridge:${config.nodeName}`,
+      details:    data.details,
+    }),
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => {}); // never throw
 }
 
 function execCommand(

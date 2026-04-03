@@ -90,6 +90,10 @@ export interface BridgeConfig {
 
   discordWebhookUrl: string;
   composeDir: string;
+  /** game-api internal URL for logging deploy events to dash_events table */
+  gameApiUrl: string;
+  /** Internal API key for service-to-service calls */
+  internalApiKey: string;
 }
 
 function env(key: string, fallback = ""): string {
@@ -201,5 +205,7 @@ export function loadConfig(): BridgeConfig {
 
     discordWebhookUrl: env("DISCORD_WEBHOOK_URL"),
     composeDir: env("COMPOSE_DIR", "/opt/grudge-studio-backend"),
+    gameApiUrl: env("GAME_API_URL", "http://game-api:3003"),
+    internalApiKey: env("INTERNAL_API_KEY"),
   };
 }

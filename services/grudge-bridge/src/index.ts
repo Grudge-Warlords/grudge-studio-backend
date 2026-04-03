@@ -35,11 +35,26 @@ const app = express();
 
 app.use(express.json({ limit: "50mb" }));
 
-// ── CORS ──────────────────────────────────────────────────
+// ── CORS ────────────────────────────────────────────
+// Restricted to trusted origins only. Server-to-server bridge calls
+// have no Origin header and pass through; browser callers must be on
+// a trusted Grudge domain.
+const BRIDGE_ALLOWED_ORIGINS = [
+  "https://dash.grudge-studio.com",
+  "https://bridge.grudge-studio.com",
+  "http://localhost:3000",
+  "http://localhost:5173",
+];
 app.use((_req: Request, res: Response, next: NextFunction) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  const origin = _req.headers.origin;
+  if (origin && BRIDGE_ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
+  // No wildcard — server-to-server calls have no origin, browser calls must match list
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
   if (_req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
