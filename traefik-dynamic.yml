@@ -35,10 +35,35 @@ http:
           - Content-Type
           - X-Requested-With
         accessControlAllowOriginList:
+          # Core Grudge Studio domains
           - "https://grudgewarlords.com"
           - "https://www.grudgewarlords.com"
-          - "https://grudachain.grudgestudio.com"
+          - "https://grudge-studio.com"
+          - "https://www.grudge-studio.com"
+          # Dashboard
+          - "https://dash.grudge-studio.com"
+          # GDevelop Assistant (primary hub)
+          - "https://gdevelop-assistant.vercel.app"
+          - "https://gdevelop-assistant-a785pw9e2-grudgenexus.vercel.app"
+          # Dungeon Crawler Quest
+          - "https://dungeon-crawler-quest.vercel.app"
+          # StarWay GRUDA
+          - "https://starwaygruda-webclient-as2n.vercel.app"
           - "https://starwaygruda.vercel.app"
+          # Grudge Wars / Warlords
+          - "https://gruda-wars.vercel.app"
+          - "https://grudge-warlords-game.vercel.app"
+          # Crafting suite
           - "https://warlord-crafting-suite.vercel.app"
+          # GrudaChain
+          - "https://grudachain.grudgestudio.com"
+          - "https://grudachain-rho.vercel.app"
+          # Grudge Angeler
+          - "https://grudge-angeler.vercel.app"
+          # Grudge Engine Web
+          - "https://grudge-engine-web.vercel.app"
+          # Platform
+          - "https://www.grudgeplatform.com"
+          - "https://grudgeplatform.com"
         accessControlMaxAge: 86400
         addVaryHeader: true
