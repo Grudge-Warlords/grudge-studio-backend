@@ -40,37 +40,39 @@ const authLimiter = rateLimit({
 
 // ── Routes ────────────────────────────────────
 app.get('/', (req, res) => {
-  // Browsers get the login page; API clients get JSON
+  // API clients requesting JSON explicitly get the service descriptor;
+  // everyone else (browsers, Cloudflare, curl without Accept) gets the styled login page.
   const accept = (req.headers.accept || '').toLowerCase();
-  if (accept.includes('text/html')) {
-    return sendHtmlPage(res, path.join(__dirname, '..', 'public', 'login.html'), 'https://grudge-studio.com');
+  if (accept.includes('application/json') && !accept.includes('text/html')) {
+    return res.json({
+      service: 'grudge-id',
+      version: '1.1.0',
+      description: 'Grudge Studio — Identity & Authentication',
+      login: 'https://id.grudge-studio.com',
+      endpoints: {
+        health: 'GET /health',
+        auth: {
+          wallet: 'POST /auth/wallet',
+          discord: 'GET /auth/discord',
+          discord_callback: 'GET /auth/discord/callback',
+          google: 'GET /auth/google',
+          github: 'GET /auth/github',
+          login: 'POST /auth/login',
+          register: 'POST /auth/register',
+          guest: 'POST /auth/guest',
+          verify: 'POST /auth/verify',
+          sso_check: 'GET /auth/sso-check?return=URL',
+        },
+        identity: {
+          me: 'GET /identity/me (Bearer JWT)',
+          update: 'PATCH /identity/me (Bearer JWT)',
+        },
+      },
+      docs: 'https://docs.grudge-studio.com',
+    });
   }
-  res.json({
-    service: 'grudge-id',
-    version: '1.1.0',
-    description: 'Grudge Studio — Identity & Authentication',
-    login: 'https://id.grudge-studio.com',
-    endpoints: {
-      health: 'GET /health',
-      auth: {
-        wallet: 'POST /auth/wallet',
-        discord: 'GET /auth/discord',
-        discord_callback: 'GET /auth/discord/callback',
-        google: 'GET /auth/google',
-        github: 'GET /auth/github',
-        login: 'POST /auth/login',
-        register: 'POST /auth/register',
-        guest: 'POST /auth/guest',
-        verify: 'POST /auth/verify',
-        sso_check: 'GET /auth/sso-check?return=URL',
-      },
-      identity: {
-        me: 'GET /identity/me (Bearer JWT)',
-        update: 'PATCH /identity/me (Bearer JWT)',
-      },
-    },
-    docs: 'https://docs.grudge-studio.com',
-  });
+  // Default: serve the styled WCS login page
+  sendHtmlPage(res, path.join(__dirname, '..', 'public', 'login.html'), 'https://grudge-studio.com');
 });
 
 // ── HTML page CSP (allows inline scripts + Google Fonts) ─────────────────────

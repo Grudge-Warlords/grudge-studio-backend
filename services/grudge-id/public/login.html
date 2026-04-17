@@ -199,10 +199,10 @@ a { color: var(--gold-light); text-decoration: none; } a:hover { color: var(--go
       <div class="user-meta" id="user-meta"></div>
       <div class="dest-title" id="dest-title">Where to next?</div>
       <div class="dest-grid" id="dest-grid">
-        <a class="dest-card" href="https://grudge-studio.com"><div class="dest-icon">🎮</div><div class="dest-name">The Engine</div><div class="dest-desc">1,300+ retro games & custom engines</div></a>
-        <a class="dest-card" href="https://grudge-arena.vercel.app"><div class="dest-icon">🏟️</div><div class="dest-name">Arena</div><div class="dest-desc">3D PvP combat · 6 races</div></a>
-        <a class="dest-card" href="https://gdevelop-assistant.vercel.app"><div class="dest-icon">🛠️</div><div class="dest-name">GDevelop</div><div class="dest-desc">Game builder & services</div></a>
-        <a class="dest-card" href="https://grudgewarlords.com"><div class="dest-icon">⚔️</div><div class="dest-name">Grudge Wars</div><div class="dest-desc">Souls-like MMO RPG</div></a>
+        <a class="dest-card" href="https://grudgewarlords.com/launcher"><div class="dest-icon">⚔️</div><div class="dest-name">Warlords</div><div class="dest-desc">Souls-like MMO RPG</div></a>
+        <a class="dest-card" href="https://grudgewarlords.com/editor"><div class="dest-icon">🛠️</div><div class="dest-name">Editor</div><div class="dest-desc">Scene & game editor</div></a>
+        <a class="dest-card" href="https://dash.grudge-studio.com"><div class="dest-icon">📊</div><div class="dest-name">Dashboard</div><div class="dest-desc">Studio admin panel</div></a>
+        <a class="dest-card" href="https://grudgewarlords.com/crafting"><div class="dest-icon">🔨</div><div class="dest-name">Crafting</div><div class="dest-desc">Profession suite</div></a>
       </div>
     </div>
     <div class="login-panel" id="login-panel">
@@ -283,8 +283,28 @@ function renderState(){
   }
   hideLoading();
 }
+window.loginWithWallet=async function(provider){
+  showLoading('Connecting '+provider+'…');
+  try{
+    var wallet=provider==='phantom'?window.solana:window.solflare;
+    if(!wallet){showMsg('Wallet not found',false);hideLoading();return;}
+    var resp=await wallet.connect();
+    var pubkey=resp.publicKey.toString();
+    var msg=new TextEncoder().encode('Grudge ID login '+Date.now());
+    var sig=await wallet.signMessage(msg,'utf8');
+    var sigHex=Array.from(sig.signature||sig).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+    var r=await fetch(ID+'/auth/wallet',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({publicKey:pubkey,signature:sigHex,message:new TextDecoder().decode(msg),provider:provider})});
+    var d=await r.json();
+    if(r.ok&&d.token){storeAuth(d);showMsg('Wallet connected!',true);afterAuth();}
+    else{showMsg(d.error||'Wallet login failed',false);hideLoading();}
+  }catch(e){if(e.message!=='User rejected the request.')showMsg('Error: '+e.message,false);hideLoading();}
+};
 window.loginWith=function(p){
-  if(p==='wallet'){showMsg('Wallet login — connect via grudgewarlords.com',false);return;}
+  if(p==='wallet'){
+    if(window.solana&&window.solana.isPhantom){loginWithWallet('phantom');return;}
+    if(window.solflare&&window.solflare.isSolflare){loginWithWallet('solflare');return;}
+    showMsg('No Solana wallet detected. Install Phantom or Solflare.',false);return;
+  }
   var ret=location.origin+location.pathname+(redirectUri?'?redirect_uri='+encodeURIComponent(redirectUri):'');
   location.href=ID+'/auth/'+p+'?redirect_uri='+encodeURIComponent(ret);
 };
