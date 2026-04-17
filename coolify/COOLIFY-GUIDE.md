@@ -48,7 +48,7 @@ ssh -i ~/.ssh/coolify_vps grudge_deploy@YOUR_VPS_IP 'sudo bash /tmp/setup-vps.sh
 ### 3. Deploy via Coolify (Option A — Recommended)
 
 1. In Coolify: **New Resource** → **Docker Compose**
-2. Connect GitHub repo: `MolochDaGod/grudge-studio-backend`
+2. Connect GitHub repo: `Grudge-Warlords/grudge-studio-backend`
 3. Set compose file to: `docker-compose.yml` 
 4. Add all `.env` variables in Coolify's Environment section
 5. Enable **Auto Deploy** on push to `main` branch
