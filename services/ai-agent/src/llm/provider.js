@@ -71,26 +71,82 @@ const PROVIDERS = [
     model: () => process.env.DEEPSEEK_MODEL || 'deepseek-chat',
     maxTokens: 4096,
     call: async (messages, opts) => {
-      // DeepSeek uses OpenAI-compatible API
       const OpenAI = require('openai');
       const client = new OpenAI({
         apiKey: process.env.DEEPSEEK_API_KEY,
         baseURL: 'https://api.deepseek.com/v1',
       });
-
       const resp = await client.chat.completions.create({
-        model: opts.model || PROVIDERS[2].model(),
+        model: opts.model || 'deepseek-chat',
         messages,
-        max_tokens: opts.maxTokens || PROVIDERS[2].maxTokens,
+        max_tokens: opts.maxTokens || 4096,
         temperature: opts.temperature ?? 0.7,
       });
-
-      const choice = resp.choices[0];
       return {
-        content: choice?.message?.content || '',
+        content: resp.choices[0]?.message?.content || '',
         provider: 'deepseek',
-        model: opts.model || PROVIDERS[2].model(),
+        model: opts.model || 'deepseek-chat',
         usage: { input: resp.usage?.prompt_tokens, output: resp.usage?.completion_tokens },
+      };
+    },
+  },
+  // ── Gemini (Google) — free tier: 15 RPM, 1M tokens/day ──────
+  {
+    name: 'gemini',
+    enabled: () => !!process.env.GEMINI_API_KEY,
+    model: () => process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+    maxTokens: 8192,
+    call: async (messages, opts) => {
+      const key = process.env.GEMINI_API_KEY;
+      const model = opts.model || 'gemini-2.0-flash';
+      // Convert OpenAI-style messages to Gemini format
+      const systemMsg = messages.find(m => m.role === 'system')?.content || '';
+      const contents = messages.filter(m => m.role !== 'system').map(m => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }],
+      }));
+      const resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            system_instruction: systemMsg ? { parts: [{ text: systemMsg }] } : undefined,
+            contents,
+            generationConfig: { temperature: opts.temperature ?? 0.7, maxOutputTokens: opts.maxTokens || 8192 },
+          }),
+        }
+      );
+      const data = await resp.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      return {
+        content: text,
+        provider: 'gemini',
+        model,
+        usage: { input: data?.usageMetadata?.promptTokenCount, output: data?.usageMetadata?.candidatesTokenCount },
+      };
+    },
+  },
+  // ── Ollama (free, self-hosted on VPS or local) ──────────────
+  {
+    name: 'ollama',
+    enabled: () => !!process.env.OLLAMA_URL,
+    model: () => process.env.OLLAMA_MODEL || 'llama3.2',
+    maxTokens: 4096,
+    call: async (messages, opts) => {
+      const baseUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
+      const model = opts.model || process.env.OLLAMA_MODEL || 'llama3.2';
+      const resp = await fetch(`${baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, messages, stream: false }),
+      });
+      const data = await resp.json();
+      return {
+        content: data?.message?.content || '',
+        provider: 'ollama',
+        model,
+        usage: { input: data?.prompt_eval_count, output: data?.eval_count },
       };
     },
   },
@@ -198,3 +254,4 @@ Hotbar: ${s.mechanics.hotbar}`;
 }
 
 module.exports = { chat, chatJSON, getProviderStatus, getGameContext, PROVIDERS };
+

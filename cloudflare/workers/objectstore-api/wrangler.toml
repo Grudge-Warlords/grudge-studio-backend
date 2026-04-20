@@ -1,0 +1,24 @@
+# ⚠️ DEPRECATED — DO NOT DEPLOY
+# This worker has been consolidated into the ObjectStore repo (D:\ObjectStore).
+# The canonical worker is "grudgeassets" deployed from D:\ObjectStore\wrangler.toml.
+# Both use the same R2 bucket (grudge-assets) and D1 database (grudge-objectstore).
+#
+# The ObjectStore repo version is more complete:
+#   - Conversion pipeline (Durable Objects for FBX→GLB)
+#   - 3D model routes (/v1/models)
+#   - Asset CRUD (/v1/assets)
+#   - Rate limiting, CORS, health check
+#
+# To remove this worker from Cloudflare:
+#   npx wrangler delete grudge-objectstore-api
+#
+# Route: objectstore.grudge-studio.com → handled by "grudgeassets" worker
+# CDN:   assets.grudge-studio.com → handled by "grudge-r2-cdn" worker
+
+name               = "grudge-objectstore-api-DEPRECATED"
+main               = "index.js"
+compatibility_date = "2025-03-01"
+account_id         = "ee475864561b02d4588180b8b9acf694"
+workers_dev        = true
+
+# Removed routes to avoid conflict with canonical worker

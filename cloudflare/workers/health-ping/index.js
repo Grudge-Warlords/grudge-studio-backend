@@ -17,6 +17,7 @@ const ENDPOINTS = {
   'account-api':  'https://account.grudge-studio.com/health',
   'launcher-api': 'https://launcher.grudge-studio.com/health',
   'ws-service':   'https://ws.grudge-studio.com/health',
+  'asset-api':    'https://assets-api.grudge-studio.com/health',
   'asset-cdn':    'https://assets.grudge-studio.com/health',
 };
 
@@ -111,7 +112,7 @@ async function recordResults(env, results) {
   // Write to D1
   if (env.DB) {
     try {
-      // Ensure table exists
+      // Ensure table exists (with source column to prevent ambiguity)
       await env.DB.prepare(`
         CREATE TABLE IF NOT EXISTS health_pings (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -120,16 +121,22 @@ async function recordResults(env, results) {
           code INTEGER,
           ms INTEGER,
           error TEXT,
+          source TEXT DEFAULT 'health-ping',
           ts INTEGER NOT NULL DEFAULT (unixepoch())
         )
       `).run();
 
+      // Add source column if missing (migration)
+      await env.DB.prepare(
+        `ALTER TABLE health_pings ADD COLUMN source TEXT DEFAULT 'health-ping'`
+      ).run().catch(() => {}); // ignore if already exists
+
       // Batch insert
       const stmt = env.DB.prepare(
-        'INSERT INTO health_pings (service, status, code, ms, error, ts) VALUES (?, ?, ?, ?, ?, ?)'
+        'INSERT INTO health_pings (service, status, code, ms, error, source, ts) VALUES (?, ?, ?, ?, ?, ?, ?)'
       );
       await env.DB.batch(
-        results.map(r => stmt.bind(r.name, r.status, r.code, r.ms, r.error || null, now))
+        results.map(r => stmt.bind(r.name, r.status, r.code, r.ms, r.error || null, 'health-ping', now))
       );
 
       // Also log to dash_events for dashboard visibility

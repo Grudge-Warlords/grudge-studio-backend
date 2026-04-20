@@ -18,7 +18,8 @@
     "uuid": "^9.0.0",
     "axios": "^1.6.2",
     "bcryptjs": "^2.4.3",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "@sentry/node": "^8.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

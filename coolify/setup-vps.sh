@@ -86,7 +86,7 @@ sleep 15
 echo ">>> Step 6: Grudge Studio backend..."
 BACKEND_DIR="/opt/grudge-studio-backend"
 if [ ! -d "$BACKEND_DIR" ]; then
-  git clone https://github.com/MolochDaGod/grudge-studio-backend.git "$BACKEND_DIR"
+  git clone https://github.com/Grudge-Warlords/grudge-studio-backend.git "$BACKEND_DIR"
   echo "  Cloned to $BACKEND_DIR"
 else
   cd "$BACKEND_DIR"

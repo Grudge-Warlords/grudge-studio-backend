@@ -10,6 +10,14 @@
 *.cert
 id_rsa*
 id_ed25519*
+.coolify-token
+*.token
+
+# ─── BACKUP / TEMP FILES ─────────────────────────────────
+*.bak
+*.bak.*
+*.yml.bak.*
+-w
 
 # ─── DEPENDENCIES ─────────────────────────────────────────
 node_modules/
@@ -25,7 +33,8 @@ dist/
 
 # ─── SERVER BINARIES ─────────────────────────────────────
 # Never commit the Linux server binary - deploy separately
-services/grudge-headless/bin/
+services/grudge-headless/bin/*
+!services/grudge-headless/bin/.gitkeep
 
 # ─── HEALTH REPORTS ──────────────────────────────────────
 scripts/health-report.json

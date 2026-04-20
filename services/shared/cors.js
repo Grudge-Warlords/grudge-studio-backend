@@ -18,6 +18,8 @@ const GRUDGE_DOMAIN_PATTERNS = [
   /^https?:\/\/([a-z0-9-]+\.)?grudge-studio\.com$/,
   /^https?:\/\/([a-z0-9-]+\.)?grudgestudio\.com$/,
   /^https?:\/\/([a-z0-9-]+\.)?grudgewarlords\.com$/,
+  /^https?:\/\/([a-z0-9-]+\.)?grudgeplatform\.io$/,
+  /^https?:\/\/([a-z0-9-]+\.)?grudgeplatform\.com$/,
 ];
 
 // Vercel preview/production deploys for known Grudge projects
@@ -37,6 +39,9 @@ const VERCEL_PATTERN = /^https:\/\/([a-z0-9-]+)\.vercel\.app$/;
 
 // Puter-hosted apps
 const PUTER_PATTERN = /^https:\/\/[a-z0-9-]+\.puter\.site$/;
+
+// Cloudflare Workers preview URLs — *.grudge.workers.dev and preview variants
+const CF_WORKERS_PATTERN = /^https:\/\/[a-z0-9-]+\.grudge\.workers\.dev$/;
 
 // Localhost (dev only)
 const LOCALHOST_PATTERN = /^https?:\/\/localhost(:\d+)?$/;
@@ -66,6 +71,9 @@ function isAllowedOrigin(origin) {
 
   // Puter apps
   if (PUTER_PATTERN.test(origin)) return true;
+
+  // Cloudflare Workers preview deployments (*.grudge.workers.dev)
+  if (CF_WORKERS_PATTERN.test(origin)) return true;
 
   // Vercel — only Grudge project deploys
   const vercelMatch = origin.match(VERCEL_PATTERN);
@@ -113,7 +121,7 @@ function isAllowedRedirect(uri) {
 }
 
 // ── Default fallback redirect ────────────────────────────────────────────────
-const DEFAULT_AUTH_REDIRECT = process.env.DEFAULT_AUTH_REDIRECT || 'https://grudgewarlords.com/auth';
+const DEFAULT_AUTH_REDIRECT = process.env.DEFAULT_AUTH_REDIRECT || 'https://grudgewarlords.com';
 
 // ── Express CORS middleware factory ──────────────────────────────────────────
 

@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
   grudge_id       VARCHAR(36) NOT NULL UNIQUE,   -- UUID v4
   username        VARCHAR(64) UNIQUE,
   email           VARCHAR(255) UNIQUE,
+  password_hash   VARCHAR(256),
+  display_name    VARCHAR(128),
   -- Auth providers
   discord_id      VARCHAR(32) UNIQUE,
   discord_tag     VARCHAR(64),
@@ -23,7 +25,11 @@ CREATE TABLE IF NOT EXISTS users (
   faction         VARCHAR(32) DEFAULT NULL,
   race            VARCHAR(32) DEFAULT NULL,
   class           VARCHAR(32) DEFAULT NULL,
+  -- Economy
+  gold            INT UNSIGNED DEFAULT 1000,
+  gbux_balance    INT UNSIGNED DEFAULT 0,
   -- Status
+  is_guest        BOOLEAN DEFAULT FALSE,
   is_active       BOOLEAN DEFAULT TRUE,
   is_banned       BOOLEAN DEFAULT FALSE,
   ban_reason      TEXT,

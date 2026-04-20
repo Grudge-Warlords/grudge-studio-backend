@@ -1,0 +1,55 @@
+name               = "grudge-ai-hub"
+main               = "index.js"
+compatibility_date = "2025-03-01"
+account_id         = "ee475864561b02d4588180b8b9acf694"
+workers_dev        = true
+
+# ── Workers AI binding (Cloudflare Workers AI — free tier) ───────────────────
+[ai]
+binding = "AI"
+
+# ── D1 database — usage logs, agent config, API key registry ─────────────────
+[[d1_databases]]
+binding       = "DB"
+database_name = "grudge-ai-hub"
+database_id   = "42ada55e-2095-46da-840b-6bb301a57253"
+
+# ── KV — rate limiting, operational flags, response cache ────────────────────
+[[kv_namespaces]]
+binding = "KV"
+id      = "486553dfacdc40b394e630b1cdfa97d6"
+
+# ── Environment variables (non-secret) ───────────────────────────────────────
+[vars]
+ENVIRONMENT              = "production"
+VPS_AI_AGENT_URL         = "https://api.grudge-studio.com"
+BABYLON_AI_WORKER_URL    = "https://babylon-ai-workers.grudge.workers.dev"
+RATE_LIMIT_RPM           = "60"
+RATE_LIMIT_RPM_ADMIN     = "300"
+MAX_PAYLOAD_BYTES        = "65536"
+# NOTE: VPS_INTERNAL_KEY is a wrangler SECRET — never put in vars.
+# Set it once with: npx wrangler secret put VPS_INTERNAL_KEY
+
+# ── Route: ai.grudge-studio.com (production) ─────────────────────────────────
+[[routes]]
+pattern = "ai.grudge-studio.com/*"
+zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
+
+# ── Observability ────────────────────────────────────────────────────────────
+[observability]
+enabled = true
+
+# ── Staging env ──────────────────────────────────────────────────────────────
+[env.staging]
+name = "grudge-ai-hub-staging"
+workers_dev = true
+
+[env.staging.vars]
+ENVIRONMENT     = "staging"
+VPS_AI_AGENT_URL = "https://api.grudge-studio.com"
+RATE_LIMIT_RPM   = "120"
+RATE_LIMIT_RPM_ADMIN = "600"
+
+# ── Local dev overrides ───────────────────────────────────────────────────────
+# Run: npx wrangler dev --local
+# Workers AI, D1, KV are all simulated locally via Miniflare.

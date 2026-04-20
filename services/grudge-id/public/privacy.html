@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — Grudge Studio</title>
+<link rel="icon" type="image/png" href="/grudge-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #07070f; color: #e8dcc8;
+    font-family: 'Inter', system-ui, sans-serif; font-size: 15px; line-height: 1.75;
+    padding: 40px 20px 80px;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background: radial-gradient(ellipse 120% 60% at 50% -10%, rgba(219,99,49,0.08) 0%, transparent 55%), #07070f;
+  }
+  .container { max-width: 780px; margin: 0 auto; position: relative; z-index: 1; }
+  .header { text-align: center; margin-bottom: 48px; padding-bottom: 32px; border-bottom: 1px solid rgba(201,168,76,.2); }
+  .header-logo { width: 56px; height: 56px; border-radius: 50%; border: 2px solid rgba(201,168,76,0.3); overflow: hidden; margin: 0 auto 12px; box-shadow: 0 0 30px rgba(201,168,76,0.1); }
+  .header-logo img { width: 100%; height: 100%; object-fit: cover; }
+  .logo { font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 4px; color: #DB6331; text-transform: uppercase; margin-bottom: 12px; }
+  h1 { font-family: 'Cinzel Decorative', 'Cinzel', serif; font-size: 28px; background: linear-gradient(135deg, #f0c060, #c9a84c, #DB6331); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 2px; margin-bottom: 8px; }
+  .date { font-size: 12px; color: rgba(255,255,255,.3); letter-spacing: 1px; }
+  h2 { font-family: 'Cinzel', serif; font-size: 16px; color: #f0c060; letter-spacing: 1px; margin: 36px 0 12px; }
+  p { margin-bottom: 14px; color: rgba(232,220,200,0.75); }
+  ul { margin: 10px 0 14px 24px; } ul li { margin-bottom: 6px; color: rgba(232,220,200,0.7); }
+  a { color: #DB6331; text-decoration: none; } a:hover { color: #f0c060; }
+  .section { border-left: 2px solid rgba(201,168,76,.2); padding-left: 18px; margin-bottom: 4px; }
+  .footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(201,168,76,.15); text-align: center; font-size: 12px; color: rgba(255,255,255,.3); letter-spacing: 1px; }
+  strong { color: #e8dcc8; }
+  code { background: rgba(0,0,0,.3); padding: 2px 6px; border-radius: 4px; font-size: 13px; color: #c9a84c; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  th { text-align: left; padding: 8px 12px; background: rgba(201,168,76,.06); color: #f0c060; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 1px; border-bottom: 1px solid rgba(201,168,76,.15); }
+  td { padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,.04); color: rgba(232,220,200,0.7); }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="header-logo"><img src="/grudge-logo.png" alt="Grudge Studio"></div>
+    <div class="logo">Grudge Studio</div>
+    <h1>Privacy Policy</h1>
+    <div class="date">Last updated: March 28, 2026 &nbsp;·&nbsp; Effective: March 28, 2026</div>
+  </div>
+
+  <div class="section">
+    <h2>1. Who We Are</h2>
+    <p><strong>Grudge Studio</strong>, created by Racalvin The Pirate King, operates the Grudge Warlords game universe including GrudgeWars, GrudaPlatform, the GRD-17 node network, and associated web services. References to "we," "us," or "our" mean Grudge Studio.</p>
+    <p>Our primary domain is <a href="https://grudge-studio.com">grudge-studio.com</a> and identity services are hosted at <a href="https://id.grudge-studio.com">id.grudge-studio.com</a>.</p>
+  </div>
+
+  <div class="section">
+    <h2>2. What Data We Collect</h2>
+    <table>
+      <tr><th>Category</th><th>Examples</th><th>Why</th></tr>
+      <tr><td>Identity</td><td>Grudge ID (UUID), username, display name</td><td>Account creation and identification</td></tr>
+      <tr><td>Authentication</td><td>Password hash (bcrypt), OAuth tokens (Discord, Google, GitHub), Puter UUID</td><td>Secure login</td></tr>
+      <tr><td>Contact</td><td>Email address (optional), phone number (optional, for 2FA)</td><td>Account recovery, security alerts</td></tr>
+      <tr><td>Wallet</td><td>Solana wallet public key, server-side wallet address, wallet index</td><td>In-game economy and NFT operations</td></tr>
+      <tr><td>Game data</td><td>Characters, inventory, XP, profession levels, island state, PvP record</td><td>Game progression and features</td></tr>
+      <tr><td>Discord</td><td>Discord user ID, username, server membership</td><td>Discord integration, community features</td></tr>
+      <tr><td>Device</td><td>GRD-17 device ID, public key, firmware version, heartbeat data</td><td>Hardware node management</td></tr>
+      <tr><td>Technical</td><td>IP address (rate limiting only), browser type (CORS enforcement)</td><td>Security and service delivery</td></tr>
+    </table>
+    <p>We do <strong>not</strong> collect private keys, mnemonics, payment card data, or unnecessary personal information.</p>
+  </div>
+
+  <div class="section">
+    <h2>3. How We Use Your Data</h2>
+    <ul>
+      <li><strong>Account management</strong> — creating and maintaining your Grudge ID</li>
+      <li><strong>Game operation</strong> — running game logic, storing progress, matchmaking</li>
+      <li><strong>Wallet services</strong> — auto-creating server-side Solana wallets, tracking GBUX balances, minting NFTs</li>
+      <li><strong>Security</strong> — rate limiting, ban enforcement, fraud prevention</li>
+      <li><strong>Discord bot</strong> — responding to slash commands with your game data</li>
+      <li><strong>Analytics</strong> — anonymous aggregate metrics (player counts, feature usage) — not sold to third parties</li>
+      <li><strong>Communications</strong> — critical security notices (we don't send marketing email without consent)</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>4. Data Sharing</h2>
+    <p>We share your data only in these limited circumstances:</p>
+    <ul>
+      <li><strong>Puter.com</strong> — our identity infrastructure. Puter stores your Puter UUID and username as part of Grudge ID authentication.</li>
+      <li><strong>Discord</strong> — when you use Discord OAuth or our Discord bot, Discord's own privacy policy applies to data on their platform.</li>
+      <li><strong>Crossmint</strong> — for compressed NFT minting. We share your wallet address and character metadata.</li>
+      <li><strong>Helius / Solana RPC</strong> — blockchain data queries. These are public blockchain interactions.</li>
+      <li><strong>Cloudflare</strong> — all traffic passes through Cloudflare's network for DDoS protection and CDN.</li>
+      <li><strong>Legal requirements</strong> — we may disclose data if required by valid law enforcement requests.</li>
+    </ul>
+    <p>We <strong>never sell your personal data</strong> to advertisers or data brokers.</p>
+  </div>
+
+  <div class="section">
+    <h2>5. Blockchain Data</h2>
+    <p>On-chain transactions (GBUX transfers, NFT mints, wallet activity) are <strong>public by nature</strong> of the Solana blockchain. Once written on-chain, this data cannot be deleted. Your wallet public key is visible to anyone who queries the blockchain.</p>
+    <p>We store your wallet public key in our database to link it to your Grudge ID, but we never store private keys — those are derived on our secure server using your account's HD wallet index and are only accessible through the wallet service.</p>
+  </div>
+
+  <div class="section">
+    <h2>6. Data Retention</h2>
+    <ul>
+      <li><strong>Active accounts</strong> — data retained while your account is active</li>
+      <li><strong>Deleted accounts</strong> — most personal data deleted within 30 days. Anonymous game stats may be retained.</li>
+      <li><strong>Log data</strong> — server logs retained for up to 30 days for security purposes</li>
+      <li><strong>Blockchain data</strong> — permanent (blockchain transactions cannot be deleted)</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>7. Your Rights</h2>
+    <p>Depending on your jurisdiction, you may have rights to:</p>
+    <ul>
+      <li><strong>Access</strong> — request a copy of your personal data</li>
+      <li><strong>Correction</strong> — update inaccurate data</li>
+      <li><strong>Deletion</strong> — request deletion of your account and associated data</li>
+      <li><strong>Portability</strong> — receive your game data in a portable format</li>
+      <li><strong>Objection</strong> — object to certain processing</li>
+    </ul>
+    <p>To exercise these rights, contact us via Discord or at <a href="https://grudge-studio.com">grudge-studio.com</a>. We will respond within 30 days.</p>
+  </div>
+
+  <div class="section">
+    <h2>8. Security</h2>
+    <p>We implement industry-standard security measures:</p>
+    <ul>
+      <li>All passwords are hashed with bcrypt (never stored in plaintext)</li>
+      <li>All services run behind Cloudflare's DDoS protection and TLS 1.3</li>
+      <li>JWTs are signed with HS256 and expire after 7 days</li>
+      <li>Server-side wallets use HD derivation — private keys are never stored, only indices</li>
+      <li>Internal service communication uses shared secret keys, never exposed to clients</li>
+      <li>Rate limiting is enforced on all auth endpoints</li>
+    </ul>
+    <p>No system is 100% secure. If you discover a security vulnerability, please contact us immediately via Discord.</p>
+  </div>
+
+  <div class="section">
+    <h2>9. Cookies and Local Storage</h2>
+    <p>We use:</p>
+    <ul>
+      <li><strong>grudge_sso</strong> — httpOnly cookie for cross-game single sign-on (7 day expiry)</li>
+      <li><strong>grudge_auth_token</strong> — localStorage for your session JWT (managed by you)</li>
+      <li><strong>Cloudflare cookies</strong> — standard Cloudflare security cookies (_cf_bm, cf_clearance)</li>
+    </ul>
+    <p>We do not use advertising cookies or third-party tracking pixels.</p>
+  </div>
+
+  <div class="section">
+    <h2>10. Children's Privacy</h2>
+    <p>Our services are not directed at children under 13. We do not knowingly collect personal information from children under 13. If you believe a child under 13 has provided us with personal information, please contact us and we will delete it promptly.</p>
+  </div>
+
+  <div class="section">
+    <h2>11. Changes</h2>
+    <p>We may update this Privacy Policy. We will notify you of significant changes via Discord announcement or a notice on our website. The "Last updated" date at the top of this page reflects the most recent revision.</p>
+  </div>
+
+  <div class="section">
+    <h2>12. Contact</h2>
+    <p>Privacy questions and data requests:</p>
+    <ul>
+      <li>Discord: <a href="https://discord.gg/KmAC5aXs84">discord.gg/KmAC5aXs84</a></li>
+      <li>Website: <a href="https://grudge-studio.com">grudge-studio.com</a></li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    © 2026 Grudge Studio · By Racalvin The Pirate King ·
+    <a href="/privacy">Privacy Policy</a> ·
+    <a href="/tos">Terms of Service</a>
+  </div>
+</div>
+</body>
+</html>

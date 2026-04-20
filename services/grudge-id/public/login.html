@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GRUDGE ID — Sign In</title>
+<meta name="description" content="Sign in to your Grudge Studio account. Access all GRUDGE games and services with one identity.">
+<link rel="icon" type="image/png" href="/grudge-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;600;700;900&family=Spectral+SC:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://js.puter.com/v2/"></script>
+<style>
+:root {
+  --void: #07070f;
+  --iron: #111120;
+  --steel: #1a1a2e;
+  --forge: #222238;
+  --gold: #c9a84c;
+  --gold-light: #f0c060;
+  --gold-dark: #8b6914;
+  --gold-dim: rgba(201,168,76,0.15);
+  --blood: #8B0000;
+  --ember: #DB6331;
+  --ember-light: #FAAC47;
+  --text: #e8dcc8;
+  --text-muted: hsl(45,15%,60%);
+  --text-dim: hsl(45,10%,40%);
+  --border: rgba(201,168,76,0.25);
+  --border-dim: rgba(255,255,255,0.08);
+  --green: #22c55e;
+  --red: #ef4444;
+  --discord: #5865F2;
+  --font-heading: 'Cinzel Decorative', 'Cinzel', serif;
+  --font-title: 'Cinzel', serif;
+  --font-body: 'Spectral SC', serif;
+  --font-ui: 'Inter', system-ui, sans-serif;
+  --glow-gold: 0 0 30px rgba(201,168,76,0.2);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: 1.5rem; font-family: var(--font-body); color: var(--text);
+  background: var(--void); -webkit-font-smoothing: antialiased; overflow-x: hidden;
+}
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(219,99,49,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 60% at 20% 80%, rgba(139,0,0,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 50% at 80% 70%, rgba(201,168,76,0.06) 0%, transparent 50%),
+    var(--void);
+}
+body::after {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.04;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 60px, rgba(201,168,76,0.03) 60px, rgba(201,168,76,0.03) 61px),
+    repeating-linear-gradient(90deg, transparent, transparent 60px, rgba(201,168,76,0.03) 60px, rgba(201,168,76,0.03) 61px);
+}
+@keyframes float-up { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-20vh) scale(1); opacity: 0; } }
+.ember { position: fixed; width: 3px; height: 3px; background: var(--ember); border-radius: 50%; pointer-events: none; z-index: 0; filter: blur(1px); }
+.ember:nth-child(1) { left: 10%; animation: float-up 8s 0s infinite; }
+.ember:nth-child(2) { left: 25%; animation: float-up 10s 2s infinite; }
+.ember:nth-child(3) { left: 45%; animation: float-up 7s 1s infinite; }
+.ember:nth-child(4) { left: 65%; animation: float-up 9s 3s infinite; }
+.ember:nth-child(5) { left: 80%; animation: float-up 11s .5s infinite; }
+.ember:nth-child(6) { left: 92%; animation: float-up 8s 4s infinite; }
+a { color: var(--gold-light); text-decoration: none; } a:hover { color: var(--gold); }
+.auth-container { width: 100%; max-width: 460px; position: relative; z-index: 1; }
+.brand-header { text-align: center; margin-bottom: 1.5rem; }
+.brand-logo {
+  width: 88px; height: 88px; border-radius: 50%; margin: 0 auto 1rem;
+  border: 2px solid rgba(201,168,76,0.3);
+  box-shadow: 0 0 40px rgba(201,168,76,0.15), 0 0 80px rgba(219,99,49,0.08);
+  overflow: hidden; background: var(--iron);
+}
+.brand-logo img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.brand-title {
+  font-family: var(--font-heading); font-size: 2rem; font-weight: 900;
+  background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--ember));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  letter-spacing: 0.08em; filter: drop-shadow(0 0 20px rgba(201,168,76,0.3));
+}
+.brand-sub { font-family: var(--font-ui); font-size: .65rem; color: var(--text-dim); letter-spacing: .25em; text-transform: uppercase; margin-top: .25rem; }
+.auth-card {
+  background: linear-gradient(160deg, rgba(17,17,32,0.95), rgba(10,10,20,0.98));
+  border: 1px solid var(--border); border-radius: 16px; padding: 2rem;
+  position: relative; overflow: hidden;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.6), var(--glow-gold); backdrop-filter: blur(12px);
+}
+.gold-bar { position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--gold-light), var(--ember), var(--gold-light), transparent); }
+.co { position: absolute; width: 20px; height: 20px; border-color: rgba(201,168,76,0.2); }
+.co.tl { top: 8px; left: 8px; border-top: 1px solid; border-left: 1px solid; }
+.co.tr { top: 8px; right: 8px; border-top: 1px solid; border-right: 1px solid; }
+.co.bl { bottom: 8px; left: 8px; border-bottom: 1px solid; border-left: 1px solid; }
+.co.br { bottom: 8px; right: 8px; border-bottom: 1px solid; border-right: 1px solid; }
+.user-panel { display: none; } .user-panel.show { display: block; }
+.user-row { display: flex; align-items: center; gap: 12px; }
+.user-avatar {
+  width: 52px; height: 52px; border-radius: 50%; background: var(--steel);
+  border: 2px solid var(--gold-dark); display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-heading); font-size: 1.2rem; color: var(--gold); flex-shrink: 0;
+  overflow: hidden; box-shadow: 0 0 16px rgba(201,168,76,0.15);
+}
+.user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.user-name { font-family: var(--font-title); font-size: 1rem; font-weight: 700; color: var(--gold-light); }
+.user-id { font-family: var(--font-ui); font-size: .68rem; color: var(--text-dim); letter-spacing: .04em; margin-top: 2px; }
+.user-meta { display: flex; gap: 6px; margin-top: .75rem; flex-wrap: wrap; }
+.user-badge { font-family: var(--font-ui); font-size: .6rem; padding: 3px 10px; border-radius: 20px; background: rgba(201,168,76,0.06); border: 1px solid rgba(201,168,76,0.15); color: var(--text-muted); }
+.btn-logout { margin-left: auto; font-family: var(--font-ui); font-size: .7rem; color: var(--text-dim); background: none; border: 1px solid var(--border-dim); border-radius: 6px; padding: 5px 14px; cursor: pointer; transition: .2s; }
+.btn-logout:hover { color: var(--red); border-color: rgba(239,68,68,0.4); }
+.dest-title { font-family: var(--font-title); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); text-align: center; margin: 1.25rem 0 .75rem; }
+.dest-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
+.dest-card {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 16px 10px; border-radius: 12px; cursor: pointer; transition: all .2s;
+  background: rgba(0,0,0,0.3); border: 1px solid var(--border-dim); text-decoration: none; color: var(--text);
+}
+.dest-card:hover { border-color: var(--gold); background: rgba(201,168,76,0.04); transform: translateY(-2px); box-shadow: 0 4px 20px rgba(201,168,76,0.1); }
+.dest-icon { font-size: 1.6rem; line-height: 1; }
+.dest-name { font-family: var(--font-title); font-size: .7rem; font-weight: 700; color: var(--gold-light); letter-spacing: .04em; text-align: center; }
+.dest-desc { font-family: var(--font-ui); font-size: .58rem; color: var(--text-dim); text-align: center; line-height: 1.3; }
+@media(max-width:420px) { .dest-grid { grid-template-columns: 1fr; } }
+.login-panel {} .login-panel.hide { display: none; }
+.gilded-button {
+  width: 100%; padding: .8rem 1.25rem; font-family: var(--font-title); font-size: .85rem;
+  font-weight: 700; letter-spacing: .06em; color: var(--void);
+  background: linear-gradient(135deg, var(--ember-light), var(--ember), var(--gold-dark));
+  border: none; border-radius: 10px; cursor: pointer; transition: all .2s;
+  box-shadow: 0 4px 20px rgba(219,99,49,0.3);
+}
+.gilded-button:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(219,99,49,0.4); }
+.gilded-button:active { transform: scale(0.98); } .gilded-button:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+.provider-btn-full {
+  width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: .75rem; font-family: var(--font-ui); font-size: .85rem; font-weight: 600;
+  color: #fff; background: var(--discord); border: none; border-radius: 10px; cursor: pointer; transition: .2s; margin-bottom: .75rem;
+}
+.provider-btn-full:hover { background: #4752c4; transform: translateY(-1px); }
+.provider-btn-full svg { flex-shrink: 0; }
+.provider-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: .75rem; }
+.provider-btn {
+  display: flex; align-items: center; gap: 8px; padding: .65rem .85rem;
+  font-family: var(--font-ui); font-size: .78rem; font-weight: 500; color: var(--text);
+  background: rgba(0,0,0,0.3); border: 1px solid var(--border-dim); border-radius: 10px; cursor: pointer; transition: .2s;
+}
+.provider-btn:hover { background: rgba(201,168,76,0.04); border-color: var(--border); }
+.provider-btn .icon { font-size: 1.1rem; line-height: 1; width: 20px; text-align: center; }
+.auth-divider { display: flex; align-items: center; gap: .75rem; margin: 1rem 0; font-family: var(--font-ui); font-size: .65rem; color: var(--text-dim); letter-spacing: .15em; text-transform: uppercase; }
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(201,168,76,0.15), transparent); }
+.login-tabs { display: flex; margin-bottom: 1rem; }
+.login-tab { flex: 1; padding: .6rem; text-align: center; font-family: var(--font-title); font-size: .7rem; letter-spacing: .06em; color: var(--text-dim); background: rgba(0,0,0,0.25); border: 1px solid var(--border-dim); cursor: pointer; transition: .2s; }
+.login-tab:first-child { border-radius: 8px 0 0 8px; } .login-tab:last-child { border-radius: 0 8px 8px 0; }
+.login-tab.active { color: var(--gold); border-color: rgba(201,168,76,0.25); background: rgba(201,168,76,0.04); }
+.tab-panel { display: none; } .tab-panel.active { display: block; }
+.input-group { margin-bottom: .75rem; }
+.input-group label { display: block; font-family: var(--font-ui); font-size: .68rem; font-weight: 500; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .08em; }
+.input-group input { width: 100%; padding: .65rem .85rem; font-family: var(--font-ui); font-size: .88rem; color: var(--text); background: rgba(0,0,0,0.4); border: 1px solid var(--border-dim); border-left: 2px solid rgba(201,168,76,0.2); border-radius: 8px; outline: none; transition: .2s; }
+.input-group input:focus { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(201,168,76,0.08); border-left-color: var(--gold); }
+.input-group input::placeholder { color: var(--text-dim); }
+.inline-row { display: flex; gap: 8px; } .inline-row > * { flex: 1; }
+.dark-button { width: 100%; padding: .7rem 1rem; font-family: var(--font-ui); font-size: .82rem; font-weight: 500; color: var(--text); background: rgba(0,0,0,0.3); border: 1px solid var(--border-dim); border-radius: 8px; cursor: pointer; transition: .2s; }
+.dark-button:hover { background: rgba(201,168,76,0.04); border-color: var(--border); }
+.msg { display: none; margin-top: .75rem; padding: .6rem .85rem; border-radius: 8px; font-family: var(--font-ui); font-size: .8rem; text-align: center; }
+.msg.ok { display: block; color: var(--green); background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.2); }
+.msg.err { display: block; color: hsl(0,80%,70%); background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2); }
+.guest-link { display: block; text-align: center; margin-top: .75rem; font-family: var(--font-ui); font-size: .72rem; color: var(--text-dim); cursor: pointer; transition: .2s; border: none; background: none; width: 100%; }
+.guest-link:hover { color: var(--text-muted); }
+.auth-footer { text-align: center; margin-top: 1rem; font-family: var(--font-ui); font-size: .68rem; color: var(--text-dim); line-height: 1.6; }
+.auth-footer a { color: var(--text-muted); } .auth-footer a:hover { color: var(--gold); }
+.device-link { display: block; text-align: center; margin-top: .5rem; font-family: var(--font-ui); font-size: .7rem; color: var(--text-dim); transition: .2s; }
+.device-link:hover { color: var(--gold); }
+.loading-overlay { display: none; position: absolute; inset: 0; background: rgba(7,7,15,0.9); z-index: 10; align-items: center; justify-content: center; flex-direction: column; gap: .75rem; border-radius: 16px; }
+.loading-overlay.show { display: flex; }
+.spinner { width: 32px; height: 32px; border: 2px solid rgba(201,168,76,0.15); border-top-color: var(--gold); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-family: var(--font-ui); font-size: .82rem; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="ember"></div><div class="ember"></div><div class="ember"></div>
+<div class="ember"></div><div class="ember"></div><div class="ember"></div>
+<div class="auth-container">
+  <div class="brand-header">
+    <div class="brand-logo"><img src="/grudge-logo.png" alt="Grudge Studio"></div>
+    <div class="brand-title">GRUDGE ID</div>
+    <div class="brand-sub">Identity & Authentication</div>
+  </div>
+  <div class="auth-card">
+    <div class="gold-bar"></div>
+    <div class="co tl"></div><div class="co tr"></div><div class="co bl"></div><div class="co br"></div>
+    <div class="loading-overlay" id="loading"><div class="spinner"></div><div class="loading-text" id="loading-text">Signing in…</div></div>
+    <div class="user-panel" id="user-panel">
+      <div class="user-row">
+        <div class="user-avatar" id="user-avatar">⚔</div>
+        <div><div class="user-name" id="user-name"></div><div class="user-id" id="user-gid"></div></div>
+        <button class="btn-logout" onclick="logout()">Sign out</button>
+      </div>
+      <div class="user-meta" id="user-meta"></div>
+      <div class="dest-title" id="dest-title">Where to next?</div>
+      <div class="dest-grid" id="dest-grid">
+        <a class="dest-card" href="https://grudgewarlords.com/launcher"><div class="dest-icon">⚔️</div><div class="dest-name">Warlords</div><div class="dest-desc">Souls-like MMO RPG</div></a>
+        <a class="dest-card" href="https://grudgewarlords.com/editor"><div class="dest-icon">🛠️</div><div class="dest-name">Editor</div><div class="dest-desc">Scene & game editor</div></a>
+        <a class="dest-card" href="https://dash.grudge-studio.com"><div class="dest-icon">📊</div><div class="dest-name">Dashboard</div><div class="dest-desc">Studio admin panel</div></a>
+        <a class="dest-card" href="https://grudgewarlords.com/crafting"><div class="dest-icon">🔨</div><div class="dest-name">Crafting</div><div class="dest-desc">Profession suite</div></a>
+      </div>
+    </div>
+    <div class="login-panel" id="login-panel">
+      <button class="provider-btn-full" onclick="loginWith('discord')">
+        <svg width="20" height="15" viewBox="0 0 71 55" fill="white"><path d="M60.1 4.9A58.5 58.5 0 0 0 45.4.2a.2.2 0 0 0-.2.1 40.8 40.8 0 0 0-1.8 3.7 54 54 0 0 0-16.2 0A37.4 37.4 0 0 0 25.4.3a.2.2 0 0 0-.2-.1A58.4 58.4 0 0 0 10.5 5a.2.2 0 0 0-.1.1C1.5 18.7-.9 32 .3 45.1v.1a58.8 58.8 0 0 0 17.9 9 .2.2 0 0 0 .3-.1 42 42 0 0 0 3.6-5.9.2.2 0 0 0-.1-.3 38.8 38.8 0 0 1-5.5-2.6.2.2 0 0 1 0-.4l1.1-.9a.2.2 0 0 1 .2 0 42 42 0 0 0 35.6 0 .2.2 0 0 1 .2 0l1.1.9a.2.2 0 0 1 0 .3 36.4 36.4 0 0 1-5.5 2.7.2.2 0 0 0-.1.3 47.2 47.2 0 0 0 3.6 5.8.2.2 0 0 0 .3.1A58.6 58.6 0 0 0 71 45.2v-.1C72.4 30.1 68.4 17 60.2 5a.2.2 0 0 0-.1 0zM23.7 37a6.8 6.8 0 0 1-6.3-7 6.7 6.7 0 0 1 6.3-7c3.4 0 6.3 3.1 6.2 7a6.7 6.7 0 0 1-6.2 7zm23.2 0a6.8 6.8 0 0 1-6.3-7 6.7 6.7 0 0 1 6.3-7c3.4 0 6.4 3.1 6.3 7a6.8 6.8 0 0 1-6.3 7z"/></svg>
+        Sign in with Discord
+      </button>
+      <div class="provider-grid">
+        <button class="provider-btn" onclick="loginWith('google')"><span class="icon">G</span>Google</button>
+        <button class="provider-btn" onclick="loginWith('github')"><span class="icon">⬡</span>GitHub</button>
+        <button class="provider-btn" onclick="loginWithPuter()"><span class="icon">☁</span>Puter Cloud</button>
+        <button class="provider-btn" onclick="loginWith('wallet')"><span class="icon">◎</span>Wallet</button>
+      </div>
+      <div class="auth-divider"><span>or sign in with credentials</span></div>
+      <div class="login-tabs">
+        <div class="login-tab active" onclick="showTab(this,'creds')">Sign In</div>
+        <div class="login-tab" onclick="showTab(this,'register')">Create Account</div>
+      </div>
+      <div class="tab-panel active" id="tab-creds">
+        <div class="input-group"><label for="login-id">Username / Email / Grudge ID</label><input type="text" id="login-id" placeholder="warlord123" autocomplete="username"></div>
+        <div class="input-group"><label for="login-pw">Password</label><input type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password"></div>
+        <button class="gilded-button" onclick="loginWithCreds()" id="creds-btn">SIGN IN</button>
+      </div>
+      <div class="tab-panel" id="tab-register">
+        <div class="input-group"><label for="reg-user">Username</label><input type="text" id="reg-user" placeholder="WarriorKing" autocomplete="off"></div>
+        <div class="inline-row">
+          <div class="input-group"><label for="reg-email">Email <span style="text-transform:none;font-weight:400;color:var(--text-dim)">(optional)</span></label><input type="email" id="reg-email" placeholder="you@mail.com" autocomplete="email"></div>
+          <div class="input-group"><label for="reg-pw">Password</label><input type="password" id="reg-pw" placeholder="••••••" autocomplete="new-password"></div>
+        </div>
+        <button class="dark-button" onclick="registerAccount()" id="reg-btn" style="color:var(--gold);border-color:rgba(201,168,76,0.25)">CREATE ACCOUNT</button>
+      </div>
+      <button class="guest-link" onclick="loginAsGuest()">⚡ Continue as Guest</button>
+    </div>
+    <div class="msg" id="msg"></div>
+  </div>
+  <a class="device-link" href="/device">Pair a GRUDA Node device →</a>
+  <div class="auth-footer">Your GRUDGE ID works across all games and services.<br><a href="/privacy">Privacy</a> · <a href="/tos">Terms</a> · <a href="https://grudge-studio.com">grudge-studio.com</a></div>
+</div>
+<script>
+(function(){
+'use strict';
+var ID=location.origin,params=new URLSearchParams(location.search),redirectUri=params.get('redirect_uri')||params.get('return')||null;
+function showLoading(t){document.getElementById('loading').classList.add('show');document.getElementById('loading-text').textContent=t||'Signing in…';}
+function hideLoading(){document.getElementById('loading').classList.remove('show');}
+function showMsg(t,ok){var m=document.getElementById('msg');m.textContent=t;m.className='msg '+(ok?'ok':'err');}
+function getToken(){return localStorage.getItem('grudge_auth_token');}
+function getUser(){try{return JSON.parse(localStorage.getItem('grudge_user')||'null');}catch{return null;}}
+function storeAuth(d){
+  if(d.token)localStorage.setItem('grudge_auth_token',d.token);
+  if(d.user)localStorage.setItem('grudge_user',JSON.stringify(d.user));
+  if(d.grudgeId||d.grudge_id)localStorage.setItem('grudge_id',d.grudgeId||d.grudge_id);
+  if(d.username)localStorage.setItem('grudge_username',d.username);
+  if(d.token)localStorage.setItem('grudge_session_token',d.token);
+}
+function afterAuth(){
+  renderState();
+  if(redirectUri){
+    var sep=redirectUri.indexOf('?')>-1?'&':'?',token=getToken(),gid=localStorage.getItem('grudge_id')||'';
+    setTimeout(function(){location.href=redirectUri+sep+'token='+encodeURIComponent(token)+'&grudge_id='+encodeURIComponent(gid);},800);
+  }
+}
+function renderState(){
+  var t=getToken(),u=getUser(),loggedIn=!!(t&&u);
+  document.getElementById('login-panel').className=loggedIn?'login-panel hide':'login-panel';
+  document.getElementById('user-panel').className=loggedIn?'user-panel show':'user-panel';
+  if(loggedIn){
+    document.getElementById('user-name').textContent=u.displayName||u.username||'Warlord';
+    var gid=(u.grudgeId||localStorage.getItem('grudge_id')||'').slice(0,8).toUpperCase();
+    document.getElementById('user-gid').textContent=gid?'GRUDGE-'+gid:'';
+    var av=document.getElementById('user-avatar');
+    if(u.avatarUrl){av.innerHTML='<img src="'+u.avatarUrl+'" alt="">';}else{av.textContent=(u.username||'W')[0].toUpperCase();}
+    var meta=document.getElementById('user-meta');meta.innerHTML='';
+    if(u.isGuest)meta.innerHTML+='<span class="user-badge">Guest</span>';
+    if(u.discordId)meta.innerHTML+='<span class="user-badge">Discord</span>';
+    if(u.walletAddress)meta.innerHTML+='<span class="user-badge">Wallet</span>';
+    if(u.faction)meta.innerHTML+='<span class="user-badge">'+u.faction+'</span>';
+    if(redirectUri){document.getElementById('dest-title').textContent='Redirecting…';document.getElementById('dest-grid').style.display='none';}
+  }
+  hideLoading();
+}
+window.loginWithWallet=async function(provider){
+  showLoading('Connecting '+provider+'…');
+  try{
+    var wallet=provider==='phantom'?window.solana:window.solflare;
+    if(!wallet){showMsg('Wallet not found',false);hideLoading();return;}
+    var resp=await wallet.connect();
+    var pubkey=resp.publicKey.toString();
+    var msg=new TextEncoder().encode('Grudge ID login '+Date.now());
+    var sig=await wallet.signMessage(msg,'utf8');
+    var sigHex=Array.from(sig.signature||sig).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+    var r=await fetch(ID+'/auth/wallet',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({publicKey:pubkey,signature:sigHex,message:new TextDecoder().decode(msg),provider:provider})});
+    var d=await r.json();
+    if(r.ok&&d.token){storeAuth(d);showMsg('Wallet connected!',true);afterAuth();}
+    else{showMsg(d.error||'Wallet login failed',false);hideLoading();}
+  }catch(e){if(e.message!=='User rejected the request.')showMsg('Error: '+e.message,false);hideLoading();}
+};
+window.loginWith=function(p){
+  if(p==='wallet'){
+    if(window.solana&&window.solana.isPhantom){loginWithWallet('phantom');return;}
+    if(window.solflare&&window.solflare.isSolflare){loginWithWallet('solflare');return;}
+    showMsg('No Solana wallet detected. Install Phantom or Solflare.',false);return;
+  }
+  var ret=location.origin+location.pathname+(redirectUri?'?redirect_uri='+encodeURIComponent(redirectUri):'');
+  location.href=ID+'/auth/'+p+'?redirect_uri='+encodeURIComponent(ret);
+};
+window.loginWithPuter=async function(){
+  showLoading('Connecting Puter Cloud…');
+  try{
+    var u=await puter.auth.signIn();if(!u){hideLoading();return;}
+    var r=await fetch(ID+'/auth/puter',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({puterUuid:u.uuid,puterUsername:u.username})});
+    var d=await r.json();
+    if(r.ok&&d.token){storeAuth(d);showMsg('Signed in!',true);afterAuth();}
+    else{showMsg(d.error||'Login failed',false);hideLoading();}
+  }catch(e){if(e.message!=='Cancelled')showMsg('Error: '+e.message,false);hideLoading();}
+};
+window.loginWithCreds=async function(){
+  var id=document.getElementById('login-id').value.trim(),pw=document.getElementById('login-pw').value;
+  if(!id||!pw){showMsg('Enter username and password.',false);return;}
+  var btn=document.getElementById('creds-btn');btn.disabled=true;btn.textContent='SIGNING IN…';
+  try{
+    var r=await fetch(ID+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identifier:id,password:pw})});
+    var d=await r.json();
+    if(r.ok&&d.token){storeAuth(d);showMsg('Signed in!',true);afterAuth();}
+    else showMsg(d.error||'Login failed',false);
+  }catch{showMsg('Connection error',false);}
+  btn.disabled=false;btn.textContent='SIGN IN';
+};
+window.registerAccount=async function(){
+  var u=document.getElementById('reg-user').value.trim(),e=document.getElementById('reg-email').value.trim(),p=document.getElementById('reg-pw').value;
+  if(!u||!p){showMsg('Username and password required.',false);return;}
+  var btn=document.getElementById('reg-btn');btn.disabled=true;btn.textContent='CREATING…';
+  try{
+    var r=await fetch(ID+'/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,email:e||undefined,password:p})});
+    var d=await r.json();
+    if(r.ok&&d.token){storeAuth(d);showMsg('Account created!',true);afterAuth();}
+    else showMsg(d.error||'Registration failed',false);
+  }catch{showMsg('Connection error',false);}
+  btn.disabled=false;btn.textContent='CREATE ACCOUNT';
+};
+window.loginAsGuest=async function(){
+  showLoading('Creating guest account…');
+  var did=(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2));
+  try{
+    var r=await fetch(ID+'/auth/guest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceId:did})});
+    var d=await r.json();
+    if(r.ok&&d.token){storeAuth(d);showMsg('Guest account ready!',true);afterAuth();}
+    else{showMsg(d.error||'Guest login failed',false);hideLoading();}
+  }catch{showMsg('Connection error',false);hideLoading();}
+};
+window.logout=function(){
+  fetch(ID+'/auth/logout',{method:'POST',headers:{Authorization:'Bearer '+getToken()}}).catch(function(){});
+  ['grudge_auth_token','grudge_user','grudge_id','grudge_username','grudge_session_token','grudge-session'].forEach(function(k){localStorage.removeItem(k);});
+  location.reload();
+};
+window.showTab=function(el,name){
+  document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.login-tab').forEach(function(t){t.classList.remove('active');});
+  document.getElementById('tab-'+name).classList.add('active');el.classList.add('active');
+};
+document.addEventListener('DOMContentLoaded',function(){
+  var p=new URLSearchParams(location.search),incomingToken=p.get('token')||p.get('sso_token');
+  if(incomingToken){
+    showLoading('Verifying session…');localStorage.setItem('grudge_auth_token',incomingToken);
+    fetch(ID+'/auth/user',{headers:{Authorization:'Bearer '+incomingToken}})
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(u){
+        if(u){localStorage.setItem('grudge_user',JSON.stringify(u));localStorage.setItem('grudge_id',u.grudgeId||'');localStorage.setItem('grudge_username',u.username||'');}
+        var clean=location.pathname;if(redirectUri)clean+='?redirect_uri='+encodeURIComponent(redirectUri);
+        history.replaceState({},'',clean);afterAuth();
+      }).catch(function(){hideLoading();renderState();});
+    return;
+  }
+  if(p.get('sso_required')==='true')history.replaceState({},'',location.pathname+(redirectUri?'?redirect_uri='+encodeURIComponent(redirectUri):''));
+  var token=getToken();
+  if(token){
+    showLoading('Checking session…');
+    fetch(ID+'/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:token})})
+      .then(function(r){return r.json();})
+      .then(function(d){if(!d.valid){localStorage.removeItem('grudge_auth_token');localStorage.removeItem('grudge_user');}renderState();})
+      .catch(function(){renderState();});
+  }else{renderState();}
+  document.getElementById('login-pw').addEventListener('keydown',function(e){if(e.key==='Enter')loginWithCreds();});
+  document.getElementById('reg-pw').addEventListener('keydown',function(e){if(e.key==='Enter')registerAccount();});
+});
+})();
+</script>
+</body>
+</html>

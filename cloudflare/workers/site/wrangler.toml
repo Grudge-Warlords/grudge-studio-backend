@@ -6,9 +6,11 @@ account_id         = "ee475864561b02d4588180b8b9acf694"
 [observability]
 enabled = true
 
-# ── Custom domain ──────────────────────────────────────────────────────────────
+# ── Custom domains ─────────────────────────────────────────────────────────────
+# REMOVED: grudge-studio.com/* — Vercel project `the-engine` owns this domain.
+# REMOVED: client.grudge-studio.com/* — redundant with play.grudge-studio.com.
 [[routes]]
-pattern = "grudge-studio.com/*"
+pattern = "wallet.grudge-studio.com/*"
 zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
 
 # ── KV namespace for status caching ────────────────────────────────────────────
@@ -20,9 +22,15 @@ id      = "4831aa73571e4078a648e109bcaaf440"
 
 # ── Cron trigger — refresh health checks every minute ──────────────────────────
 [triggers]
-crons = ["* * * * *"]
+crons = ["*/5 * * * *"]
 
 # ── Environment variables ──────────────────────────────────────────────────────
+# ── Text module imports for page HTML files ─────────────────────────────────
+[[rules]]
+type = "Text"
+globs = ["pages/*.html"]
+fallthrough = true
+
 [vars]
 ENVIRONMENT  = "production"
 # App Public Key from: Developer Portal → General Information → Public Key

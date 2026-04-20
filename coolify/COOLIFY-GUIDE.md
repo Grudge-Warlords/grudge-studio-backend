@@ -48,7 +48,7 @@ ssh -i ~/.ssh/coolify_vps grudge_deploy@YOUR_VPS_IP 'sudo bash /tmp/setup-vps.sh
 ### 3. Deploy via Coolify (Option A — Recommended)
 
 1. In Coolify: **New Resource** → **Docker Compose**
-2. Connect GitHub repo: `MolochDaGod/grudge-studio-backend`
+2. Connect GitHub repo: `Grudge-Warlords/grudge-studio-backend`
 3. Set compose file to: `docker-compose.yml` 
 4. Add all `.env` variables in Coolify's Environment section
 5. Enable **Auto Deploy** on push to `main` branch
@@ -112,6 +112,16 @@ Accessible at `status.grudge-studio.com` — add monitors for:
 - MySQL (TCP 3306)
 - Redis (TCP 6379)
 
+## Deploy Safety
+
+All deploy paths include built-in safety:
+
+- **Orphan stack detection** — kills duplicate compose projects before deploying
+- **`:previous` image tagging** — tags the running image before rebuild so you can roll back
+- **Per-service health gate** — polls `/health` after each service restart (30s timeout)
+- **Auto-rollback** — reverts to `:previous` if health check fails; continues deploying remaining services
+- **Pinned project name** — `docker compose -p grudge-studio-backend` prevents accidental duplicates
+
 ## Daily Maintenance
 
 ```bash
@@ -121,11 +131,23 @@ docker compose logs -f --tail=50 game-api
 # Restart a single service
 docker compose restart grudge-id
 
-# Full redeploy
+# Full safe deploy (health gate + auto-rollback)
 ./coolify/deploy.sh
+
+# Deploy a single service only
+./coolify/deploy.sh --service grudge-id
 
 # Force rebuild (after Dockerfile changes)
 ./coolify/deploy.sh --rebuild
+
+# Rollback one service to its previous image
+bash scripts/rollback.sh grudge-id
+
+# Rollback ALL services
+bash scripts/rollback.sh --all
+
+# List available :previous images
+bash scripts/rollback.sh --list
 
 # Emergency recovery
 sudo bash coolify/recover-vps.sh

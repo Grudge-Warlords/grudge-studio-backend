@@ -3,11 +3,22 @@ name: Deploy to Grudge Studio VPS
 on:
   push:
     branches: [main]
+    paths:
+      - 'services/**'
+      - 'shared/**'
+      - 'docker-compose*.yml'
+      - 'migrations/**'
+      - 'scripts/**'
   workflow_dispatch:
     inputs:
       services:
         description: "Comma-separated services to rebuild (or 'all')"
         default: "all"
+        required: false
+      deploy_headless:
+        description: "Also deploy the Unity headless game server"
+        type: boolean
+        default: false
         required: false
 
 concurrency:
@@ -27,12 +38,12 @@ jobs:
       - name: Install & lint ai-agent
         working-directory: services/ai-agent
         run: |
-          npm ci --ignore-scripts
+          npm install --ignore-scripts
           node -e "require('./src/index.js')" 2>&1 | head -5 && echo 'Syntax OK' || exit 1
       - name: Syntax-check all services
         run: |
           FAIL=0
-          for svc in grudge-id wallet-service game-api ai-agent account-api launcher-api asset-service ws-service; do
+          for svc in grudge-id wallet-service game-api ai-agent account-api launcher-api asset-service ws-service grudge-bridge; do
             DIR="services/$svc"
             if [ -f "$DIR/package.json" ]; then
               MAIN=$(node -e "console.log(require('./$DIR/package.json').main || 'src/index.js')")
@@ -131,11 +142,33 @@ jobs:
               'bash /opt/grudge-studio-backend/scripts/migrate.sh'
           fi
 
-      # ── 5. Rolling service rebuild ────────────
-      #   Order: infrastructure-free → data → api → realtime
-      #   Each service is built and restarted independently so
-      #   other services stay up during the rolling update.
-      - name: Rolling deploy
+      # ── 5. Kill orphan compose stacks ─────────
+      - name: Enforce single stack
+        run: |
+          if [ "${{ steps.setup_ssh.outputs.auth_mode }}" = "password" ]; then
+            export SSHPASS="${{ secrets.VPS_PASSWORD }}"
+            SSH="sshpass -e ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          else
+            SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          fi
+          echo "Checking for duplicate compose projects..."
+          $SSH 'for proj in $(docker compose ls --format json 2>/dev/null | grep -o "\"Name\":\"[^\"]*\"" | sed "s/\"Name\":\"//;s/\"//" || true); do
+            if [ "$proj" != "grudge-studio-backend" ]; then
+              if docker compose -p "$proj" ps --format json 2>/dev/null | grep -q "grudge\|game-api\|account-api"; then
+                echo "  ⚠  Removing orphan stack: $proj"
+                docker compose -p "$proj" down --remove-orphans 2>/dev/null || true
+              fi
+            fi
+          done
+          echo "  ✓ Single stack enforced"'
+
+      # ── 6. Rolling deploy with per-service health gate ──
+      #   For each service:
+      #     a) Tag current image as :previous
+      #     b) Build + start new container
+      #     c) Poll /health — if it fails, rollback to :previous
+      - name: Rolling deploy with health gate
+        id: deploy
         run: |
           if [ "${{ steps.setup_ssh.outputs.auth_mode }}" = "password" ]; then
             export SSHPASS="${{ secrets.VPS_PASSWORD }}"
@@ -144,83 +177,125 @@ jobs:
             SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
           fi
           BASE="/opt/grudge-studio-backend"
+          PROJECT="grudge-studio-backend"
+          COMPOSE="docker compose -p $PROJECT -f docker-compose.yml -f docker-compose.prod.yml"
           SERVICES="${{ github.event.inputs.services || 'all' }}"
 
-          # Decide which services to rebuild
           if [ "$SERVICES" = "all" ]; then
-            REBUILD="ai-agent wallet-service account-api launcher-api asset-service game-api grudge-id ws-service"
+            REBUILD="ai-agent wallet-service account-api launcher-api asset-service game-api grudge-id ws-service grudge-bridge"
           else
             REBUILD=$(echo $SERVICES | tr ',' ' ')
           fi
 
+          FAILED_SVCS=""
+
           for SVC in $REBUILD; do
-            echo "▶ Building $SVC ..."
+            echo "▶ Deploying $SVC"
+
+            # a) Tag current image as :previous for rollback
+            $SSH "IMG=\$(docker inspect --format='{{.Config.Image}}' \"$SVC\" 2>/dev/null || true); \
+              if [ -n \"\$IMG\" ] && [ \"\$IMG\" != '<no value>' ]; then \
+                docker tag \"\$IMG\" \"\${IMG%%:*}:previous\" 2>/dev/null || true; \
+                echo '    tagged :previous'; \
+              fi"
+
+            # b) Build and start
             $SSH "cd $BASE && \
-              DOCKER_BUILDKIT=1 docker compose build \
-                --build-arg BUILDKIT_INLINE_CACHE=1 \
-                $SVC && \
-              docker compose up -d --no-deps $SVC"
-            echo "✓ $SVC restarted"
-            sleep 3
+              DOCKER_BUILDKIT=1 $COMPOSE build --build-arg BUILDKIT_INLINE_CACHE=1 $SVC && \
+              $COMPOSE up -d --no-deps $SVC"
+
+            # c) Health gate (6 attempts × 5s = 30s max)
+            SVC_HEALTHY=false
+            for ATTEMPT in 1 2 3 4 5 6; do
+              sleep 5
+              if $SSH "curl -sf --max-time 5 http://localhost:\$(docker inspect --format='{{range \$p, \$conf := .NetworkSettings.Ports}}{{(index \$conf 0).HostPort}}{{end}}' $SVC 2>/dev/null || echo 0)/health" > /dev/null 2>&1; then
+                SVC_HEALTHY=true
+                break
+              fi
+              # Fallback: check by known port map
+              case $SVC in
+                grudge-id) PORT=3001;; game-api) PORT=3003;; ai-agent) PORT=3004;;
+                account-api) PORT=3005;; launcher-api) PORT=3006;; ws-service) PORT=3007;;
+                asset-service) PORT=3008;; grudge-bridge) PORT=4000;; *) PORT="";;  esac
+              if [ -n "$PORT" ]; then
+                if $SSH "curl -sf --max-time 5 http://localhost:$PORT/health" > /dev/null 2>&1; then
+                  SVC_HEALTHY=true
+                  break
+                fi
+              fi
+              echo "  ⏳ $SVC attempt $ATTEMPT/6 — not healthy yet"
+            done
+
+            if [ "$SVC_HEALTHY" = true ]; then
+              echo "  ✅ $SVC healthy"
+            else
+              echo "  ❌ $SVC FAILED — rolling back to :previous"
+              $SSH "PREV=\$(docker images --format '{{.Repository}}:{{.Tag}}' | grep \"${SVC}.*:previous\" | head -1); \
+                if [ -n \"\$PREV\" ]; then \
+                  docker stop $SVC 2>/dev/null || true; \
+                  docker rm $SVC 2>/dev/null || true; \
+                  docker tag \"\$PREV\" \"\${PREV%%:*}:latest\" 2>/dev/null || true; \
+                  cd $BASE && $COMPOSE up -d --no-deps --no-build $SVC; \
+                  echo '  ↩ rolled back'; \
+                else \
+                  cd $BASE && $COMPOSE restart $SVC || true; \
+                  echo '  ⚠ no :previous image, restarted current'; \
+                fi"
+              FAILED_SVCS="$FAILED_SVCS $SVC"
+            fi
+            echo ""
           done
 
-      # ── 6. Remove dangling images/containers ──
-      - name: Prune docker
-        run: |
-          if [ "${{ steps.setup_ssh.outputs.auth_mode }}" = "password" ]; then
-            export SSHPASS="${{ secrets.VPS_PASSWORD }}"
-            sshpass -e ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no \
-              ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-              'docker image prune -f && docker container prune -f'
+          # Summary
+          if [ -n "$FAILED_SVCS" ]; then
+            echo "health_ok=false" >> $GITHUB_OUTPUT
+            echo "failed_services=$FAILED_SVCS" >> $GITHUB_OUTPUT
+            echo "::error::Services rolled back:$FAILED_SVCS"
           else
-            ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-              ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-              'docker image prune -f && docker container prune -f'
+            echo "health_ok=true" >> $GITHUB_OUTPUT
+            echo "All services deployed and healthy!"
           fi
 
-      # ── 7. Health checks with retry ───────────
-      - name: Health check
-        id: health
+      # ── 6b. Deploy headless game server (optional) ──
+      - name: Deploy headless game server
+        if: github.event.inputs.deploy_headless == 'true'
         run: |
-          sleep 12
           if [ "${{ steps.setup_ssh.outputs.auth_mode }}" = "password" ]; then
             export SSHPASS="${{ secrets.VPS_PASSWORD }}"
             SSH="sshpass -e ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
           else
             SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
           fi
-          FAIL=0
-          declare -A ENDPOINTS=(
-            [grudge-id]=3001
-            [game-api]=3003
-            [ai-agent]=3004
-            [account-api]=3005
-            [launcher-api]=3006
-            [ws-service]=3007
-            [asset-service]=3008
-          )
-          for SVC in "${!ENDPOINTS[@]}"; do
-            PORT=${ENDPOINTS[$SVC]}
-            for ATTEMPT in 1 2 3; do
-              if $SSH "curl -sf http://localhost:$PORT/health" > /dev/null 2>&1; then
-                echo "  ✅ $SVC (port $PORT)"
-                break
-              fi
-              if [ $ATTEMPT -eq 3 ]; then
-                echo "  ❌ $SVC FAILED after 3 attempts"
-                FAIL=$((FAIL+1))
-              else
-                echo "  ⏳ $SVC attempt $ATTEMPT failed, retrying..."
-                sleep 5
-              fi
-            done
-          done
-          if [ $FAIL -gt 0 ]; then
-            echo "health_ok=false" >> $GITHUB_OUTPUT
-            exit 1
+          echo "▶ Deploying grudge-headless (Unity game server)"
+          # Check if binary exists on VPS
+          if $SSH "test -f /opt/grudge-studio-backend/services/grudge-headless/bin/GrudgeLinuxServer.x86_64"; then
+            $SSH "bash /opt/grudge-studio-backend/scripts/deploy-headless.sh"
+          else
+            echo "⚠ Skipping headless deploy — binary not uploaded to VPS"
+            echo "  Upload first: bash scripts/upload-headless-binary.sh /path/to/build --deploy"
           fi
-          echo "health_ok=true" >> $GITHUB_OUTPUT
-          echo "All services healthy!"
+
+      # ── 7. Prune and remove orphans ─────────────
+      - name: Prune docker
+        run: |
+          if [ "${{ steps.setup_ssh.outputs.auth_mode }}" = "password" ]; then
+            export SSHPASS="${{ secrets.VPS_PASSWORD }}"
+            sshpass -e ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no \
+              ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+              'docker compose -p grudge-studio-backend up -d --remove-orphans 2>/dev/null; docker image prune -f; docker container prune -f'
+          else
+            ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+              ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+              'docker compose -p grudge-studio-backend up -d --remove-orphans 2>/dev/null; docker image prune -f; docker container prune -f'
+          fi
+
+      # ── 8. Fail the build if any service was rolled back ──
+      - name: Check deploy result
+        if: steps.deploy.outputs.health_ok == 'false'
+        run: |
+          echo "Deploy completed with rollbacks for:${{ steps.deploy.outputs.failed_services }}"
+          echo "These services are running their PREVIOUS version."
+          exit 1
 
       # ── 8. Discord deploy notification ────────
       - name: Notify Discord (success)

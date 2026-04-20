@@ -1,6 +1,14 @@
-# Grudge Studio Backend
+# ⚠️ FROZEN — Grudge Studio Backend (Legacy)
 
-Full-stack microservices backend for **grudgewarlords.com** and **grudgestudio.com**.
+> **This repository is frozen as of `freeze-v1.0`.** All active development has moved to
+> [**grudge-backend**](https://github.com/MolochDaGod/grudge-backend) — the unified Node.js/TypeScript
+> backend with PostgreSQL + Drizzle ORM.
+>
+> This repo is kept as a read-only reference for migration. Do not commit new features here.
+
+---
+
+Full-stack microservices backend for **grudgewarlords.com** and **grudge-studio.com**.
 
 Built with Node.js · Docker · MySQL 8 · Redis 7 · nginx · Solana · Cloudflare · Puter
 
@@ -10,15 +18,15 @@ Built with Node.js · Docker · MySQL 8 · Redis 7 · nginx · Solana · Cloudfl
 
 | Service | Port | Domain | Description |
 |---|---|---|---|
-| **grudge-id** | 3001 | `id.grudgestudio.com` | Unified identity — Discord OAuth, Web3Auth, JWT, Puter bridge |
+| **grudge-id** | 3001 | `id.grudge-studio.com` | Unified identity — Discord OAuth, Web3Auth, JWT, Puter bridge |
 | **wallet-service** | 3002 | *(internal only)* | Server-side Solana HD wallets (BIP44) |
-| **game-api** | 3003 | `api.grudgestudio.com` | GAME_API_GRUDA — characters, missions, crews, inventory, professions, gouldstones |
-| **ai-agent** | 3004 | `api.grudgestudio.com/ai/*` | LLM-powered AI pipeline — code review, balance analysis, lore gen, art prompts, dynamic missions, companion dialogue (Anthropic → OpenAI → DeepSeek → template fallback) |
-| **account-api** | 3005 | `account.grudgestudio.com` | User profiles, social, achievements, R2 asset storage |
-| **launcher-api** | 3006 | `launcher.grudgestudio.com` | Version manifest (60s TTL cache), computer registration, launch tokens |
-| **asset-service** | 3008 | `assets-api.grudgestudio.com` | Asset upload, metadata, conversions, export bundles, ObjectStore sync |
-| **ws-service** | 3007 | `ws.grudgestudio.com` | Real-time WebSocket (Socket.IO) — island rooms, crew chat, PvP, global events |
-| **grudge-headless** | 7777 | `ws.grudgestudio.com:7777` | Unity game server (Mirror) |
+| **game-api** | 3003 | `api.grudge-studio.com` | GAME_API_GRUDA — characters, missions, crews, inventory, professions, gouldstones |
+| **ai-agent** | 3004 | `api.grudge-studio.com/ai/*` | LLM-powered AI pipeline — code review, balance analysis, lore gen, art prompts, dynamic missions, companion dialogue (Anthropic → OpenAI → DeepSeek → template fallback) |
+| **account-api** | 3005 | `account.grudge-studio.com` | User profiles, social, achievements, R2 asset storage |
+| **launcher-api** | 3006 | `launcher.grudge-studio.com` | Version manifest (60s TTL cache), computer registration, launch tokens |
+| **asset-service** | 3008 | `assets-api.grudge-studio.com` | Asset upload, metadata, conversions, export bundles, ObjectStore sync |
+| **ws-service** | 3007 | `ws.grudge-studio.com` | Real-time WebSocket (Socket.IO) — island rooms, crew chat, PvP, global events |
+| **grudge-headless** | 7777 | `ws.grudge-studio.com:7777` | Unity game server (Mirror) |
 | **AI Lab** | — | `lab.grudge-studio.com` | Browser-based dev tool — 8-panel AI workbench (Puter.js + Grudge backend) |
 
 ---
@@ -36,7 +44,7 @@ Built with Node.js · Docker · MySQL 8 · Redis 7 · nginx · Solana · Cloudfl
 ### Workers CDN
 - Source: `cloudflare/workers/r2-cdn/`
 - R2 native binding (zero egress cost), KV-backed rate limiting, 30-day edge cache
-- Custom domain: `assets.grudgestudio.com` → CNAME the Worker
+- Custom domain: `assets.grudge-studio.com` → CNAME the Worker
 - Deploy: `cd cloudflare/workers/r2-cdn && npx wrangler deploy`
 
 ### Turnstile
@@ -58,7 +66,7 @@ Called by `grudge-server-worker.js` at `POST /api/auth/grudge-bridge`, allowing 
 ```json
 {
   "auth": {
-    "authUrl": "https://id.grudgestudio.com",
+    "authUrl": "https://id.grudge-studio.com",
     "discordEndpoint": "/auth/discord",
     "logoutEndpoint": "/auth/logout",
     "verifyEndpoint": "/auth/verify",
@@ -138,7 +146,7 @@ npm run docker:dev
 | Doc | Description |
 |---|---|
 | [docs/SETUP.md](docs/SETUP.md) | Complete local + first-time setup walkthrough |
-| [docs/VPS.md](docs/VPS.md) | VPS deployment guide (Ubuntu, Docker, SSL, DNS) |
+| [docs/VPS.md](docs/VPS.md) | VPS deployment guide (Ubuntu, Docker, SSL, DNS, rollback) |
 | [docs/API.md](docs/API.md) | Full API reference for all services |
 | [docs/LAUNCHER.md](docs/LAUNCHER.md) | Game launcher integration guide |
 | [docs/PUTER.md](docs/PUTER.md) | Puter cloud integration guide |
@@ -210,12 +218,12 @@ Internet
   │
   ▼
 nginx (80/443) + Cloudflare WAF
-  ├── id.grudgestudio.com       → grudge-id:3001
-  ├── api.grudgestudio.com      → game-api:3003
-  ├── account.grudgestudio.com  → account-api:3005
-  ├── launcher.grudgestudio.com → launcher-api:3006
-  ├── ws.grudgestudio.com       → grudge-headless:7777
-  └── assets.grudgestudio.com   → Cloudflare Worker (R2 CDN)
+  ├── id.grudge-studio.com       → grudge-id:3001
+  ├── api.grudge-studio.com      → game-api:3003
+  ├── account.grudge-studio.com  → account-api:3005
+  ├── launcher.grudge-studio.com → launcher-api:3006
+  ├── ws.grudge-studio.com       → grudge-headless:7777
+  └── assets.grudge-studio.com   → Cloudflare Worker (R2 CDN)
 
 External integrations:
   app.puter.com / *.puter.site  → grudge-id:3001 (/auth/puter-bridge)
@@ -238,9 +246,53 @@ Data:
 
 ## Deployment
 
-Pushes to `main` automatically deploy via GitHub Actions (`.github/workflows/deploy.yml`).
+Manual dispatch via GitHub Actions (`.github/workflows/deploy.yml`).
 
-Required GitHub Secrets:
+### Safety features
+
+All deploy paths (CI, `coolify/deploy.sh`, `deploy-migrate.sh`) include:
+
+- **Orphan stack detection** — scans for duplicate compose projects and removes them before deploying to prevent Traefik routing collisions
+- **Pinned project name** — all compose commands use `-p grudge-studio-backend` so only one stack is ever active
+- **`:previous` image tagging** — before rebuilding each service, the running image is tagged as `:previous`
+- **Per-service health gate** — after restarting each service, polls `/health` (6 retries × 5s = 30s max)
+- **Auto-rollback** — if a service fails its health check, it is automatically reverted to the `:previous` image
+- **Rolling deploy** — services are deployed one at a time so the rest stay up during updates
+
+### Deploy commands
+
+```bash
+# On VPS — standard safe deploy
+bash /opt/grudge-studio-backend/coolify/deploy.sh
+
+# On VPS — deploy + run SQL migrations
+bash /opt/grudge-studio-backend/deploy-migrate.sh
+
+# On VPS — force rebuild all images
+bash /opt/grudge-studio-backend/coolify/deploy.sh --rebuild
+
+# On VPS — deploy a single service
+bash /opt/grudge-studio-backend/coolify/deploy.sh --service grudge-id
+```
+
+### Rollback
+
+```bash
+# Rollback one service to its previous image
+bash scripts/rollback.sh grudge-id
+
+# Rollback multiple services
+bash scripts/rollback.sh grudge-id game-api account-api
+
+# Rollback ALL services
+bash scripts/rollback.sh --all
+
+# List available :previous images
+bash scripts/rollback.sh --list
+```
+
+### Required GitHub Secrets
+
 - `DEPLOY_SSH_KEY` — private key for VPS SSH
 - `VPS_HOST` — `74.208.155.229`
 - `VPS_USER` — your VPS user (e.g. `root`)

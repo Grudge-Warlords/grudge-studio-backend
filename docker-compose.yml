@@ -1,24 +1,23 @@
+# version removed (obsolete)
+
 networks:
   grudge-net:
     driver: bridge
   coolify:
     external: true
-    name: coolify
-    # NOTE: Uses Coolify's existing 'coolify' Docker network so coolify-proxy
-    # (Traefik) picks up our service labels automatically. On a plain VPS without
-    # Coolify, create this network first: docker network create coolify
 
 volumes:
   mysql-data:
   redis-data:
   server-data:
   kuma-data:
+  portal-db-data:
 
 # ── Shared CORS origins (DRY) ──────────────────────────────────
 # All externally-exposed services share this default.
 # Override per-env by setting CORS_ORIGINS in .env
 x-cors-origins: &cors-origins
-  CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://www.grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudgeplatform.com,https://www.grudgeplatform.com,https://grudachain.grudgestudio.com,https://grudachain.grudge-studio.com,https://grudachain-rho.vercel.app,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://grudge-builder.vercel.app,https://gruda-wars.vercel.app,https://grudge-engine-web.vercel.app,https://starwaygruda-webclient-as2n.vercel.app,https://app.puter.com,https://molochdagod.github.io}
+  CORS_ORIGINS: ${CORS_ORIGINS:-https://grudgewarlords.com,https://www.grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://client.grudge-studio.com,https://wallet.grudge-studio.com,https://play.grudge-studio.com,https://grudge-platform.vercel.app,https://grudgeplatform.com,https://www.grudgeplatform.com,https://grudgeplatform.io,https://www.grudgeplatform.io,https://play.grudgeplatform.io,https://grudachain.grudgestudio.com,https://grudachain-rho.vercel.app,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://gruda-wars.vercel.app,https://grudge-engine-web.vercel.app,https://starwaygruda-webclient-as2n.vercel.app,https://grim-armada-web.vercel.app,https://grudge-angeler.vercel.app,https://grudge-rts.vercel.app,https://grudge-space-rts.vercel.app,https://grudge-rts.grudge-studio.com,https://grudge-studio-dash.vercel.app,https://grudge-studio-dash.pages.dev,https://nexus-nemesis-game.vercel.app,https://grudge-pvp-server.vercel.app,https://grudge-origins.vercel.app,https://the-engine-grudgenexus.vercel.app,https://nemesis.grudge-studio.com,https://app.puter.com,https://molochdagod.github.io}
 
 services:
 
@@ -26,11 +25,11 @@ services:
   # GRUDGE ID — Unified Identity Service
   # ─────────────────────────────────────────
   grudge-id:
-    build:
-      context: ./services
-      dockerfile: grudge-id/Dockerfile
+    build: ./services/grudge-id
     container_name: grudge-id
     restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 15s
     environment:
       NODE_ENV: production
       PORT: 3001
@@ -44,18 +43,38 @@ services:
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
       DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI}
+      # Google OAuth
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-https://id.grudge-studio.com/auth/google/callback}
+      # GitHub OAuth
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-https://id.grudge-studio.com/auth/github/callback}
+      # Twilio SMS / Phone Auth
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER}
+      TWILIO_VERIFY_SID: ${TWILIO_VERIFY_SID}
+      # Web3Auth + Wallet
       WEB3AUTH_CLIENT_ID: ${WEB3AUTH_CLIENT_ID}
       WALLET_SERVICE_URL: http://wallet-service:3002
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      # Turnstile bot protection
       CF_TURNSTILE_SECRET_KEY: ${CF_TURNSTILE_SECRET_KEY}
       CF_TURNSTILE_SITE_KEY: ${CF_TURNSTILE_SITE_KEY}
+      # Auth redirect
+      DEFAULT_AUTH_REDIRECT: ${DEFAULT_AUTH_REDIRECT:-https://grudgewarlords.com/auth}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      EMAIL_FROM: ${EMAIL_FROM:-Grudge Studio <noreply@grudge-studio.com>}
+      SENTRY_DSN: ${SENTRY_DSN}
       <<: *cors-origins
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       mysql:
         condition: service_healthy
@@ -77,6 +96,7 @@ services:
     build:
       context: ./services
       dockerfile: wallet-service/Dockerfile
+      target: production
     container_name: wallet-service
     restart: unless-stopped
     environment:
@@ -90,12 +110,72 @@ services:
       WALLET_MASTER_SEED: ${WALLET_MASTER_SEED}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       SOLANA_RPC_URL: ${SOLANA_RPC_URL}
+      # Phantom Connect Server SDK
+      PHANTOM_ORGANIZATION_ID: ${PHANTOM_ORGANIZATION_ID}
+      PHANTOM_APP_ID: ${PHANTOM_APP_ID:-656b4ef2-7acc-44fe-bec7-4b288cfdd2e9}
+      PHANTOM_API_PRIVATE_KEY: ${PHANTOM_API_PRIVATE_KEY}
     depends_on:
       mysql:
         condition: service_healthy
     networks:
       - grudge-net
     # NOTE: wallet-service is NOT exposed externally - internal network only
+
+  # ─────────────────────────────────────────────────────
+  # PORTAL POSTGRES — PostgreSQL for rec0ded88 gaming portal
+  # ─────────────────────────────────────────────────────
+  portal-postgres:
+    image: postgres:16-alpine
+    container_name: portal-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rec0ded88
+      POSTGRES_USER: ${PORTAL_DB_USER:-rec0ded_user}
+      POSTGRES_PASSWORD: ${PORTAL_DB_PASSWORD}
+    volumes:
+      - portal-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PORTAL_DB_USER:-rec0ded_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - grudge-net
+
+  # ─────────────────────────────────────────────────────
+  # PORTAL API — rec0ded88 / grudge-studio.com game portal
+  # Image built from github.com/MolochDaGod/The-ENGINE
+  # ─────────────────────────────────────────────────────
+  portal-api:
+    image: ghcr.io/molochdagod/the-engine-backend:latest
+    container_name: portal-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DATABASE_URL: postgresql://${PORTAL_DB_USER:-rec0ded_user}:${PORTAL_DB_PASSWORD}@portal-postgres:5432/rec0ded88
+      ADMIN_PASSCODE: ${PORTAL_ADMIN_PASSCODE}
+      ADMIN_SESSION_SECRET: ${PORTAL_SESSION_SECRET}
+      CORS_ORIGINS: https://grudge-studio.com,https://the-engine-grudgenexus.vercel.app,http://localhost:5173
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5000/api/platforms').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      portal-postgres:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portal-api.rule=Host(`portal-api.grudge-studio.com`)"
+      - "traefik.http.routers.portal-api.entrypoints=https"
+      - "traefik.http.routers.portal-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.portal-api.loadbalancer.server.port=5000"
+      - "traefik.docker.network=coolify"
+    networks:
+      - grudge-net
+      - coolify
 
   # ─────────────────────────────────────────
   # GAME API — GAME_API_GRUDA
@@ -104,8 +184,11 @@ services:
     build:
       context: ./services
       dockerfile: game-api/Dockerfile
+      target: production
     container_name: game-api
     restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 15s
     environment:
       NODE_ENV: production
       PORT: 3003
@@ -118,7 +201,20 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       AI_AGENT_URL: http://ai-agent:3004
+      # Discord webhooks for game events
+      DISCORD_GAME_EVENTS_WEBHOOK: ${DISCORD_GAME_EVENTS_WEBHOOK}
+      DISCORD_GBUX_WEBHOOK: ${DISCORD_GBUX_WEBHOOK}
+      DISCORD_NFT_WEBHOOK: ${DISCORD_NFT_WEBHOOK}
+      DISCORD_SYSTEM_WEBHOOK: ${DISCORD_SYSTEM_WEBHOOK}
+      # Colyseus
+      COLYSEUS_CLOUD_TOKEN: ${COLYSEUS_CLOUD_TOKEN}
       <<: *cors-origins
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3003/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       mysql:
         condition: service_healthy
@@ -142,6 +238,7 @@ services:
     build:
       context: ./services
       dockerfile: ai-agent/Dockerfile
+      target: production
     container_name: ai-agent
     restart: unless-stopped
     environment:
@@ -155,8 +252,7 @@ services:
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
-      REDIS_URL: redis://:${REDIS_PASSWORD}@grudge-redis:6379
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
     depends_on:
       mysql:
         condition: service_healthy
@@ -171,8 +267,11 @@ services:
     build:
       context: ./services
       dockerfile: account-api/Dockerfile
+      target: production
     container_name: account-api
     restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 15s
     environment:
       NODE_ENV: production
       PORT: 3005
@@ -190,6 +289,12 @@ services:
       OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-auto}
       OBJECT_STORAGE_PUBLIC_URL: ${OBJECT_STORAGE_PUBLIC_URL}
       <<: *cors-origins
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3005/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       mysql:
         condition: service_healthy
@@ -211,6 +316,7 @@ services:
     build:
       context: ./services
       dockerfile: launcher-api/Dockerfile
+      target: production
     container_name: launcher-api
     restart: unless-stopped
     environment:
@@ -231,6 +337,12 @@ services:
       OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-auto}
       OBJECT_STORAGE_PUBLIC_URL: ${OBJECT_STORAGE_PUBLIC_URL}
       <<: *cors-origins
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3006/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       mysql:
         condition: service_healthy
@@ -252,6 +364,7 @@ services:
     build:
       context: ./services
       dockerfile: asset-service/Dockerfile
+      target: production
     container_name: asset-service
     restart: unless-stopped
     environment:
@@ -271,6 +384,12 @@ services:
       OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-auto}
       OBJECT_STORAGE_PUBLIC_URL: ${OBJECT_STORAGE_PUBLIC_URL}
       <<: *cors-origins
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3008/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       mysql:
         condition: service_healthy
@@ -293,8 +412,11 @@ services:
     build:
       context: ./services
       dockerfile: ws-service/Dockerfile
+      target: production
     container_name: ws-service
     restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 15s
     environment:
       NODE_ENV: production
       PORT: 3007
@@ -302,6 +424,12 @@ services:
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       REDIS_URL: redis://:${REDIS_PASSWORD}@grudge-redis:6379
       <<: *cors-origins
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3007/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       redis:
         condition: service_healthy
@@ -313,6 +441,66 @@ services:
       - "traefik.http.services.ws-service.loadbalancer.server.port=3007"
       - "traefik.http.services.ws-service.loadbalancer.sticky.cookie=true"
       - "traefik.http.services.ws-service.loadbalancer.sticky.cookie.name=grudge_ws"
+      - "traefik.docker.network=coolify"
+    networks:
+      - grudge-net
+      - coolify
+
+  # ─────────────────────────────────────────────
+  # GRUDGE BRIDGE — 3-Node VPS Operations Manager
+  # Backups, dumps, SHA verification, deploy orchestration
+  # Peers: Windows VPS (Radmin), GrudgeYonko (Radmin)
+  # ─────────────────────────────────────────────
+  grudge-bridge:
+    build: ./services/grudge-bridge
+    container_name: grudge-bridge
+    restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 15s
+    # NOTE: port 4000 is NOT mapped directly — access only via Traefik HTTPS
+    # Direct port exposure would bypass auth and expose the bridge publicly
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      NODE_ROLE: primary
+      NODE_NAME: linux-vps
+      BRIDGE_API_KEY: ${BRIDGE_API_KEY}
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_CONTAINER: grudge-mysql
+      R2_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT}
+      R2_BUCKET: grudge-assets
+      R2_KEY: ${OBJECT_STORAGE_KEY}
+      R2_SECRET: ${OBJECT_STORAGE_SECRET}
+      PEER_NODES: ${BRIDGE_PEER_NODES:-}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      COMPOSE_DIR: /opt/grudge-studio-backend
+      GAME_API_URL: http://game-api:3003
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      # Validator — cross-node state verification
+      VALIDATOR_ENABLED: ${VALIDATOR_ENABLED:-true}
+      VALIDATOR_CRON: ${VALIDATOR_CRON:-*/5 * * * *}
+      VALIDATOR_TABLES: ${VALIDATOR_TABLES:-users,characters,gold_transactions,island_state}
+      # Legion AI — GRD-17 inter-node communication
+      LEGION_ENABLED: ${LEGION_ENABLED:-true}
+      GRD17_HMAC_SECRET: ${GRD17_HMAC_SECRET}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      AI_AGENT_URL: http://ai-agent:3004
+      LEGION_MAX_INBOX: ${LEGION_MAX_INBOX:-1000}
+      LEGION_MSG_TTL: ${LEGION_MSG_TTL:-3600}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grudge-bridge.rule=Host(`bridge.grudge-studio.com`)"
+      - "traefik.http.routers.grudge-bridge.entrypoints=https"
+      - "traefik.http.routers.grudge-bridge.tls.certresolver=letsencrypt"
+      - "traefik.http.services.grudge-bridge.loadbalancer.server.port=4000"
       - "traefik.docker.network=coolify"
     networks:
       - grudge-net
@@ -347,15 +535,14 @@ services:
   # Start with: docker compose --profile gameserver up -d grudge-headless
   # ─────────────────────────────────────────────
   grudge-headless:
-    build:
-      context: ./services
-      dockerfile: grudge-headless/Dockerfile
+    build: ./services/grudge-headless
     container_name: grudge-headless
     profiles: ["gameserver"]
     restart: unless-stopped
     ports:
       - "7777:7777/tcp"
       - "7777:7777/udp"
+      - "7778:7778/tcp"
     volumes:
       - server-data:/opt/grudge-server/data
     environment:
@@ -365,15 +552,17 @@ services:
       DB_NAME: ${MYSQL_DATABASE}
       DB_USER: ${MYSQL_USER}
       DB_PASS: ${MYSQL_PASSWORD}
+    healthcheck:
+      test: ["CMD", "bash", "-c", "pgrep -f GrudgeLinuxServer || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     depends_on:
       mysql:
         condition: service_healthy
     networks:
       - grudge-net
-
-  # NOTE: Traefik reverse proxy is managed by Coolify (coolify-proxy container).
-  # It owns ports 80/443 and handles TLS + routing for all services via Docker labels.
-  # Do NOT add a separate traefik service here — it will conflict with coolify-proxy.
 
   # ─────────────────────────────────────────
   # MYSQL — Primary Database

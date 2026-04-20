@@ -1,0 +1,32 @@
+name               = "grudge-vercel-proxy"
+main               = "index.js"
+compatibility_date = "2025-02-04"
+account_id         = "ee475864561b02d4588180b8b9acf694"
+
+[observability]
+enabled = true
+
+[[routes]]
+pattern = "wcs.grudge-studio.com"
+custom_domain = true
+override_existing_dns_record = true
+
+[[routes]]
+pattern = "dev.grudge-studio.com"
+custom_domain = true
+override_existing_dns_record = true
+
+[[routes]]
+pattern = "apps.grudge-studio.com"
+custom_domain = true
+override_existing_dns_record = true
+
+[[routes]]
+pattern = "dcq.grudge-studio.com"
+custom_domain = true
+override_existing_dns_record = true
+
+[[routes]]
+pattern = "armada.grudge-studio.com"
+custom_domain = true
+override_existing_dns_record = true

@@ -1,11 +1,20 @@
 require('dotenv').config();
-const path       = require('path');
+require('../../shared/validate-env')(['JWT_SECRET', 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS', 'INTERNAL_API_KEY']);
+
+let Sentry;
+if (process.env.SENTRY_DSN) {
+  try { Sentry = require('@sentry/node'); Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV || 'production', tracesSampleRate: 0.05 }); console.log('[game-api] Sentry enabled'); } catch (e) { console.warn('[game-api] Sentry init failed:', e.message); }
+}
+
 const express    = require('express');
 const helmet     = require('helmet');
-const jwt        = require('jsonwebtoken');
+const cors       = require('cors');
+const { grudgeCors }     = require('../../shared/cors');
+const { makeRequireAuth } = require('../../shared/auth');
+const discordRoutes  = require('./routes/discord');
 const rateLimit  = require('express-rate-limit');
-const { initDB } = require('./db');
-const { initRedis } = require('./redis');
+const { initDB, getDB, isHealthy: isDBHealthy, deepCheck: dbDeepCheck } = require('./db');
+const { initRedis, isRedisReady } = require('./redis');
 
 const characterRoutes  = require('./routes/characters');
 const factionRoutes    = require('./routes/factions');
@@ -18,35 +27,23 @@ const economyRoutes    = require('./routes/economy');
 const craftingRoutes   = require('./routes/crafting');
 const combatRoutes     = require('./routes/combat');
 const islandRoutes     = require('./routes/islands');
+const arenaRoutes      = require('./routes/arena');
+const playerIslandRoutes = require('./routes/player-islands');
 const pvpRoutes        = require('./routes/pvp');
-const gameDataRoutes   = require('./routes/game-data');
-const dungeonRoutes    = require('./routes/dungeon');
-const aiProxyRoutes    = require('./routes/ai-proxy');
+const adminRoutes      = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
 app.set('trust proxy', 1); // Trust one proxy hop (Traefik/Coolify) — required by express-rate-limit v7
 
-const { grudgeCors } = require('../../shared/cors');
-
-app.use(helmet({
-  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc:  ["'self'", "https://static.cloudflareinsights.com"],
-      connectSrc: ["'self'", "https://cloudflareinsights.com"],
-      styleSrc:   ["'self'", "'unsafe-inline'"],
-      imgSrc:     ["'self'", 'data:'],
-      fontSrc:    ["'self'"],
-    },
-  },
-}));
+app.use(helmet({ hsts: { maxAge: 31536000, includeSubDomains: true, preload: true } }));
 app.use(grudgeCors());
-app.use(express.json({ limit: '2mb' }));
 
-// ── Static assets (favicon, etc.) ──────────────────────────────
-app.use(express.static(path.join(__dirname, '..', 'public'), { maxAge: '7d' }));
+// Discord interactions MUST use raw body for signature verification
+// Register BEFORE express.json() so the raw body is accessible
+app.use('/api/discord', discordRoutes);
+
+app.use(express.json({ limit: '2mb' }));
 
 // ── Rate limiting ──────────────────────────────────────────────
 // Skip for internal service calls (x-internal-key header)
@@ -82,70 +79,35 @@ const pvpLimiter = rateLimit({
   message: { error: 'PvP rate limit exceeded' },
 });
 
-// ── Auth middleware — accepts Grudge JWT or internal API key ───
-// Ban check: if JWT payload has is_banned, reject. Full DB check via getDB() is available
-// but we rely on token re-issue on login to propagate bans quickly (7d token TTL).
-// For instant ban enforcement, internal services should call grudge-id /auth/verify.
-async function requireAuth(req, res, next) {
-  // Game server / internal services use x-internal-key
-  if (req.headers['x-internal-key'] === process.env.INTERNAL_API_KEY) {
-    req.isInternal = true;
-    return next();
-  }
-  const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  try {
-    req.user = jwt.verify(header.slice(7), process.env.JWT_SECRET);
-    // ── Instant ban check against DB ────────────────────────────
-    const { getDB } = require('./db');
-    const db = getDB();
-    const [[row]] = await db.query(
-      'SELECT is_banned, ban_reason FROM users WHERE grudge_id = ? LIMIT 1',
-      [req.user.grudge_id]
-    );
-    if (row?.is_banned) {
-      return res.status(403).json({ error: row.ban_reason || 'Account banned' });
-    }
-    next();
-  } catch (err) {
-    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
-    next(err);
-  }
-}
+// ── Auth middleware — shared implementation with live DB ban check ─────────
+// Sourced from shared/auth.js. Accepts Grudge JWT or x-internal-key.
+// req.user = { grudge_id, username, role, puter_id, is_guest }
+const requireAuth = makeRequireAuth(getDB);
 
 // ── Routes ────────────────────────────
-app.get('/', (req, res) => {
-  res.send(`<!DOCTYPE html>
-<html lang="en"><head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Grudge Studio — Game API</title>
-  <link rel="icon" type="image/png" href="/favicon.png">
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{min-height:100vh;display:flex;align-items:center;justify-content:center;
-         background:#0a0e17;color:#c9a44a;font-family:system-ui,sans-serif}
-    .card{text-align:center;padding:2rem}
-    img{width:96px;height:96px;margin-bottom:1rem}
-    h1{font-size:1.5rem;margin-bottom:.5rem;color:#e2c563}
-    p{color:#8892a4;font-size:.9rem}
-    a{color:#c9a44a;text-decoration:none}
-    a:hover{text-decoration:underline}
-  </style>
-</head><body>
-  <div class="card">
-    <img src="/favicon.png" alt="Grudge Studio">
-    <h1>Grudge Studio — Game API</h1>
-    <p>v2.0.0 &bull; <a href="/health">/health</a></p>
-  </div>
-</body></html>`);
+app.get('/health', async (req, res) => {
+  const dbResult = await dbDeepCheck();
+  const redisUp = isRedisReady();
+
+  // Determine overall status
+  let status = 'ok';
+  if (!dbResult.ok) status = 'down';
+  else if (!redisUp) status = 'degraded'; // Redis optional but noted
+
+  const code = status === 'down' ? 503 : 200;
+  res.status(code).json({
+    status,
+    service: 'game-api',
+    version: '2.0.0',
+    uptime: Math.floor(process.uptime()),
+    db:    { ok: dbResult.ok, ms: dbResult.ms, error: dbResult.error || undefined },
+    redis: { ok: redisUp },
+    mem:   {
+      rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      heap: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+    },
+  });
 });
-app.get('/health', (req, res) => res.json({ status: 'ok', service: 'game-api', version: '2.0.0' }));
-app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.use('/characters',  requireAuth, characterRoutes);
 app.use('/factions',    requireAuth, factionRoutes);
 app.use('/missions',    requireAuth, missionRoutes);
@@ -157,12 +119,13 @@ app.use('/economy',     requireAuth, economyLimiter, economyRoutes);
 app.use('/crafting',    requireAuth, craftingRoutes);
 app.use('/combat',      requireAuth, combatRoutes);
 app.use('/islands',     requireAuth, islandRoutes);
+app.use('/arena',       requireAuth, arenaRoutes);
+app.use('/player-islands', requireAuth, playerIslandRoutes);
 app.use('/pvp',         requireAuth, pvpLimiter, pvpRoutes);
-app.use('/game-data',   gameDataRoutes);  // Public — no auth required (read-only game definitions)
-app.use('/dungeon',     requireAuth, dungeonRoutes);
-app.use('/ai',          requireAuth, aiProxyRoutes);
+app.use('/admin',       requireAuth, adminRoutes);
 
 app.use((err, req, res, next) => {
+  if (Sentry) Sentry.captureException(err);
   console.error('[game-api]', err.message);
   res.status(err.status || 500).json({ error: err.message || 'Internal error' });
 });
@@ -170,5 +133,16 @@ app.use((err, req, res, next) => {
 (async () => {
   await initDB();
   await initRedis();
-  app.listen(PORT, () => console.log(`[game-api] Running on port ${PORT}`));
+  const server = app.listen(PORT, () => console.log(`[game-api] Running on port ${PORT}`));
+
+  function shutdown(signal) {
+    console.log(`[game-api] ${signal} — shutting down gracefully`);
+    server.close(async () => {
+      try { await getDB().pool?.end(); } catch {}
+      process.exit(0);
+    });
+    setTimeout(() => { console.error('[game-api] Forced exit after timeout'); process.exit(1); }, 10_000).unref();
+  }
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT',  () => shutdown('SIGINT'));
 })();

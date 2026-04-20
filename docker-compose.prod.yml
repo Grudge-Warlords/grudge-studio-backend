@@ -56,20 +56,20 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 20s
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 768M
         reservations:
-          memory: 256M
+          memory: 384M
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
 
-  ai-agent-service:
+  ai-agent:
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
@@ -173,6 +173,12 @@ services:
   # ── Game Server ───────────────────────────────────────────
   grudge-headless:
     restart: always
+    healthcheck:
+      test: ["CMD", "bash", "-c", "pgrep -f GrudgeLinuxServer || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
     deploy:
       resources:
         limits:
@@ -255,3 +261,5 @@ services:
       options:
         max-size: "5m"
         max-file: "2"
+    # Traefik labels and coolify network already defined in base docker-compose.yml
+    # (router name: kuma, host: status.grudge-studio.com, port: 3001)

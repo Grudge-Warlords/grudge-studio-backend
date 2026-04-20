@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS moba_match_results (
 -- ═══════════════════════════════════════════════════════════════
 -- SEED DATA — Heroes
 -- ═══════════════════════════════════════════════════════════════
-INSERT INTO moba_heroes (id, name, title, race, hero_class, faction, rarity, hp, atk, def, spd, rng, mp, quote, is_secret) VALUES
+INSERT IGNORE INTO moba_heroes (id, name, title, race, hero_class, faction, rarity, hp, atk, def, spd, rng, mp, quote, is_secret) VALUES
 (0,  'Sir Aldric Valorheart',       'The Iron Bastion',            'Human',     'Warrior', 'Crusade', 'Rare',      245, 23, 19, 57, 1.5, 95,  'The shield breaks before the will does.', FALSE),
 (1,  'Gareth Moonshadow',           'The Twilight Stalker',        'Human',     'Worg',    'Crusade', 'Rare',      235, 22, 16, 67, 1.5, 100, 'The beast within is not my curse. It is my salvation.', FALSE),
 (2,  'Archmage Elara Brightspire',  'The Storm Caller',            'Human',     'Mage',    'Crusade', 'Epic',      175, 21, 9,  62, 5.5, 155, 'Knowledge is the flame. I am merely the torch.', FALSE),
@@ -139,7 +139,7 @@ INSERT INTO moba_heroes (id, name, title, race, hero_class, faction, rarity, hp,
 -- ═══════════════════════════════════════════════════════════════
 -- SEED DATA — Abilities
 -- ═══════════════════════════════════════════════════════════════
-INSERT INTO moba_abilities (ability_class, name, hotkey, cooldown, mana_cost, damage, ability_range, radius, duration, ability_type, cast_type, description, max_charges, charge_recharge) VALUES
+INSERT IGNORE INTO moba_abilities (ability_class, name, hotkey, cooldown, mana_cost, damage, ability_range, radius, duration, ability_type, cast_type, description, max_charges, charge_recharge) VALUES
 -- Warrior
 ('Warrior', 'Shield Bash',    'Q', 6,  20, 30,  80,  0,   1.5,  'damage',  'targeted',   'Bash target, dealing damage and stunning for 1.5s', NULL, NULL),
 ('Warrior', 'Rally',          'W', 15, 30, 0,   0,   200, 5,    'buff',    'self_cast',  'Rally allies, boosting ATK by 25% for 5s', NULL, NULL),
@@ -175,7 +175,7 @@ INSERT INTO moba_abilities (ability_class, name, hotkey, cooldown, mana_cost, da
 -- ═══════════════════════════════════════════════════════════════
 -- SEED DATA — Items
 -- ═══════════════════════════════════════════════════════════════
-INSERT INTO moba_items (id, name, cost, hp, atk, def, spd, mp, description, tier) VALUES
+INSERT IGNORE INTO moba_items (id, name, cost, hp, atk, def, spd, mp, description, tier) VALUES
 (0,  'Short Sword',    300,  0,   10, 0,  0,  0,  '+10 Attack', 1),
 (1,  'Iron Shield',    300,  0,   0,  10, 0,  0,  '+10 Defense', 1),
 (2,  'Swift Boots',    350,  0,   0,  0,  12, 0,  '+12 Speed', 1),

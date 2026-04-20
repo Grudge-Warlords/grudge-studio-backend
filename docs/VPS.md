@@ -202,25 +202,83 @@ cat ~/.ssh/grudge_deploy   # copy this — paste into GitHub secret DEPLOY_SSH_K
 
 ---
 
-## 10. Updating the server manually
+## 10. Safe deploy (recommended)
 
-If GitHub Actions fails or you need to force a redeploy:
+Use the safe deploy script which includes per-service health gating and auto-rollback:
+
+```bash
+cd /opt/grudge-studio-backend
+
+# Standard deploy — pulls latest, builds, health-checks each service
+bash coolify/deploy.sh
+
+# Deploy with SQL migrations
+bash deploy-migrate.sh
+
+# Deploy a single service only
+bash coolify/deploy.sh --service grudge-id
+
+# Force rebuild all images
+bash coolify/deploy.sh --rebuild
+```
+
+### What the safe deploy does
+
+1. **Orphan detection** — finds and removes duplicate compose stacks that cause Traefik routing collisions
+2. **Pulls latest code** from `origin/main`
+3. For each service (in dependency order):
+   - Tags the current running image as `:previous`
+   - Builds the new image
+   - Starts the new container
+   - Polls `/health` (6 retries × 5s = 30s max)
+   - If unhealthy → auto-rolls back to `:previous` image
+4. Prunes orphan containers and dangling images
+
+---
+
+## 11. Rollback
+
+If a deploy goes wrong or you need to revert:
+
+```bash
+# Rollback a single service
+bash scripts/rollback.sh grudge-id
+
+# Rollback multiple services
+bash scripts/rollback.sh grudge-id game-api account-api
+
+# Rollback ALL services to previous images
+bash scripts/rollback.sh --all
+
+# List available :previous images
+bash scripts/rollback.sh --list
+```
+
+The `:previous` tag is created automatically every time you deploy.
+
+---
+
+## 12. Manual update (fallback)
+
+If the safe deploy script is unavailable:
 
 ```bash
 cd /opt/grudge-studio-backend
 git pull origin main
-docker compose build --no-cache
-docker compose up -d --remove-orphans
+docker compose -p grudge-studio-backend build --no-cache
+docker compose -p grudge-studio-backend up -d --remove-orphans
 docker system prune -f
 ```
 
+**Important**: Always use `-p grudge-studio-backend` to pin the project name and avoid duplicate stacks.
+
 ---
 
-## 11. Useful maintenance commands
+## 13. Useful maintenance commands
 
 ```bash
 # View all container status
-docker compose ps
+docker compose -p grudge-studio-backend ps
 
 # Tail logs for a specific service
 docker compose logs -f account-api
@@ -245,7 +303,7 @@ docker system prune -f
 
 ---
 
-## 12. Backup MySQL data
+## 14. Backup MySQL data
 
 ```bash
 # Dump to file
@@ -257,12 +315,13 @@ docker exec -i grudge-mysql mysql -u grudge_admin -p"$MYSQL_PASSWORD" grudge_gam
 
 ---
 
-## 13. Monitoring / health check cron
+## 15. Monitoring / health check cron
 
-Add this to crontab (`crontab -e`) to auto-restart dead services:
+Use the health check script with auto-restart:
 
 ```bash
-*/5 * * * * cd /opt/grudge-studio-backend && docker compose up -d 2>/dev/null
+# Add to crontab (crontab -e):
+*/5 * * * * AUTO_RESTART=true /opt/grudge-studio-backend/coolify/health-check.sh >> /var/log/grudge-health.log 2>&1
 ```
 
 ---

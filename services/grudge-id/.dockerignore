@@ -1,0 +1,22 @@
+# Secrets — NEVER bake into image
+.env
+.env.*
+*.pem
+*.key
+
+# VCS
+.git
+.gitignore
+
+# Dev artifacts
+node_modules
+npm-debug.log*
+.npm
+.nyc_output
+coverage
+.vscode
+.idea
+*.md
+Dockerfile
+docker-compose*.yml
+.dockerignore

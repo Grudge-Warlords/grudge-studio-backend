@@ -1,7 +1,7 @@
 # Ubuntu 22.04 matches the build target for the Unity Linux server
 FROM ubuntu:22.04
 
-# Unity Linux dependencies
+# Unity Linux dependencies + Node.js for sidecar
 RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     libglib2.0-dev \
@@ -17,25 +17,37 @@ RUN apt-get update && apt-get install -y \
     libglu1-mesa \
     ca-certificates \
     curl \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 22 LTS for sidecar process
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/grudge-server
 
 # Copy the Linux server binary and data
-# The bin/ directory is excluded from git - upload separately
-COPY grudge-headless/bin/ ./bin/
-COPY grudge-headless/config/ ./config/
-COPY grudge-headless/scripts/ ./scripts/
+# The bin/ directory is excluded from git — upload separately via:
+#   bash scripts/upload-headless-binary.sh /path/to/LinuxBuild
+COPY bin/ ./bin/
+COPY config/ ./config/
+COPY scripts/ ./scripts/
 
-RUN chmod +x ./bin/GrudgeLinuxServer.x86_64 \
-    && chmod +x ./scripts/*.sh
+# Install sidecar dependencies
+COPY sidecar/ ./sidecar/
+RUN cd sidecar && npm install --omit=dev
+
+# Make server binary and scripts executable (ignore errors if bin is empty placeholder)
+RUN chmod +x ./bin/GrudgeLinuxServer.x86_64 2>/dev/null || true \
+    && chmod +x ./scripts/*.sh 2>/dev/null || true
 
 EXPOSE 7777/tcp
 EXPOSE 7777/udp
 
 VOLUME ["/opt/grudge-server/data", "/opt/grudge-server/logs"]
 
-COPY grudge-headless/entrypoint.sh /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

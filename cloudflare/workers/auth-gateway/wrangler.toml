@@ -1,0 +1,36 @@
+name               = "grudge-auth-gateway"
+main               = "index.js"
+compatibility_date = "2025-02-04"
+account_id         = "ee475864561b02d4588180b8b9acf694"
+
+[observability]
+enabled = true
+
+# ── Custom domains ─────────────────────────────────────────────────────────
+# REMOVED: auth.grudge-studio.com/* — DEAD. Auth is at id.grudge-studio.com (Vercel auth-gateway → VPS grudge-id).
+# This worker is deprecated. Auth gateway lives on Vercel project `auth-gateway`.
+
+# ── KV (shared namespace — sessions, rate limiting, bans) ─────────────────────
+[[kv_namespaces]]
+binding = "KV"
+id      = "35be1828b2124f82abdc770293177165"
+
+# ── Environment variables (non-secret) ─────────────────────────────────────────
+[vars]
+ENVIRONMENT  = "production"
+IDENTITY_API = "https://id.grudge-studio.com"
+
+# ── Secrets (set via wrangler secret put) ──────────────────────────────────────
+# wrangler secret put AUTH_INTERNAL_KEY
+# → paste your INTERNAL_API_KEY value (same key used by other services)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STAGING ENVIRONMENT
+# Deploy: npx wrangler deploy --env staging
+# ══════════════════════════════════════════════════════════════════════════════
+[env.staging]
+name = "grudge-auth-gateway-staging"
+
+[env.staging.vars]
+ENVIRONMENT  = "staging"
+IDENTITY_API = "http://74.208.155.229:3001"

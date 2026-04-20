@@ -39,9 +39,9 @@ The provider layer (`src/llm/provider.js`) tries each LLM in order:
 Each provider is only attempted if its API key is set in the environment:
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
-DEEPSEEK_API_KEY=sk-...
+ANTHROPIC_API_KEY=s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
+OPENAI_API_KEY=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
+DEEPSEEK_API_KEY=ssk-e12c4031db32476096d7772191adbf1d
 ```
 
 ### Key Functions
@@ -177,3 +177,121 @@ app.use('/ai/my-role', myRoutes);
 | `ANTHROPIC_API_KEY` | No | — | Claude API key |
 | `OPENAI_API_KEY` | No | — | GPT-4o API key |
 | `DEEPSEEK_API_KEY` | No | — | DeepSeek API key |
+
+---
+
+## GRUDA Legion AI Hub (Edge Gateway)
+
+The VPS ai-agent is now fronted by a Cloudflare Worker at `ai.grudge-studio.com` that provides:
+- **Workers AI** (Llama 3.1, SDXL, BGE embeddings) as the primary inference layer
+- **Automatic escalation** to the VPS ai-agent for roles that need heavier models (dev, balance, art, faction)
+- **D1 usage logging**, **KV rate limiting**, and **admin APIs**
+- **API key auth** (SHA-256 hashed keys stored in D1)
+
+Clients should use the **GRUDA Legion SDK** instead of calling the VPS directly:
+- **Hub repo**: https://github.com/MolochDaGod/grudge-ai-hub
+- **SDK repo**: https://github.com/MolochDaGod/gruda-legion-sdk
+- **Worker config**: `cloudflare/workers/ai-hub/`
+
+### SDK Usage (Browser + Puter.js)
+
+```html
+<script src="https://js.puter.com/v2/"></script>
+<script src="https://cdn.jsdelivr.net/gh/MolochDaGod/gruda-legion-sdk@main/src/legion.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/MolochDaGod/gruda-legion-sdk@main/src/puter-legion.js"></script>
+<script>
+  const ai = new PuterLegion({ apiKey: 'YOUR_KEY', puterFallback: true });
+  ai.lore('Write a quest about a cursed island').then(r => console.log(r.response));
+</script>
+```
+
+### SDK Usage (Node.js / GDevelop Assistant)
+
+```js
+const { GrudaLegionNode } = require('gruda-legion-sdk');
+const legion = new GrudaLegionNode({ apiKey: process.env.LEGION_HUB_API_KEY });
+const reply = await legion.dev('Review this combat formula for bugs');
+```
+
+---
+
+## Babylon AI Workers (BabylonJS 9 + Havok Specialists)
+
+**Cloudflare Worker:** `babylon-ai-workers.grudge.workers.dev`  
+**Source:** `D:\GrudgeStudio\babylon-ai-workers`  
+**Integrated via:** AI Hub at `ai.grudge-studio.com/v1/agents/havok/chat` and `sage/chat`
+
+Two domain-specialist workers with Vectorize RAG over BabylonJS 9 API documentation. Unlike the general ai-agent (which uses Anthropic/OpenAI/DeepSeek), these use Workers AI + Vectorize for fast, domain-specific answers.
+
+### Architecture
+
+```
+Client (editor, game page, SDK)
+    │
+    ├── Direct: babylon-ai-workers.grudge.workers.dev/havok
+    │
+    ├── Via AI Hub: ai.grudge-studio.com/v1/agents/havok/chat  (auth required)
+    │
+    └── Via GDevelop: /api/gruda-legion/babylon/havok  (proxied)
+            │
+            ▼
+        babylon-ai-workers (Cloudflare Worker)
+            │
+            ├── Vectorize (bge-base-en-v1.5 embeddings → semantic search)
+            ├── KV (cached responses + learned patterns)
+            ├── R2 (full API doc pages)
+            └── Workers AI (llama-3.1-70b-instruct)
+```
+
+### Workers
+
+| Worker | Role | Endpoint | Domain |
+|---|---|---|---|
+| Havok Scholar | Physics specialist | `/havok` | PhysicsCharacterController, HavokPlugin, collision, constraints, rigid bodies |
+| Babylon Sage | Rendering specialist | `/sage` | PBRMaterial, AnimationGroup, SceneLoader, terrain, post-processing, VFX |
+
+### Endpoints
+
+```
+POST /havok    — Ask Havok Scholar { question, context?, code? }
+POST /sage     — Ask Babylon Sage { question, context?, code? }
+POST /learn    — Ingest new API docs { title, content, domain, url?, category? }
+GET  /search   — Semantic search ?q=query&domain=physics|rendering|all
+GET  /health   — Health check
+```
+
+Response format:
+```json
+{
+  "answer": "Working BabylonJS 9 code and explanation...",
+  "worker": "havok-scholar",
+  "source": "rag+llm",
+  "model": "llama-3.1-70b-instruct"
+}
+```
+
+### Knowledge Base
+
+8 ingested BabylonJS 9 API docs (vectorized via bge-base-en-v1.5):
+- PhysicsCharacterController, HavokPlugin, Character Controller State Machine
+- DefaultRenderingPipeline, Animation Retargeting, TerrainMaterial
+- SSAO2 Rendering Pipeline, SceneLoader.ImportMeshAsync
+
+To ingest more docs: `npm run ingest` (set `WORKER_URL` to the deployed worker URL)
+
+### Client SDK
+
+Drop-in `grudge-babylon-sdk.js` for any editor or game page:
+
+```html
+<script src="/grudge-babylon-sdk.js"></script>
+<script>
+  // Auto-routes physics vs rendering
+  const { answer } = await BabylonAI.ask('How do I set up character jump with Havok?');
+  // Or target a specific worker
+  const physics = await BabylonAI.askHavok('Explain checkSupport vs calculateMovement');
+  const render  = await BabylonAI.askSage('Best post-processing for outdoor terrain?');
+  // Semantic search
+  const results = await BabylonAI.search('animation retargeting', 'rendering');
+</script>
+```

@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hero Codex | Grudge Studio</title>
+  <meta name="description" content="Browse the complete Hero Codex of Grudge Studio. 25 heroes across 3 factions, 6 races, and 4 classes with full lore, stats, abilities, and skill trees." />
+  <meta property="og:title" content="Hero Codex | Grudge Studio" />
+  <meta property="og:description" content="Explore 25 unique heroes across Crusade, Fabled, and Legion factions. View abilities, stats, lore, and skill trees." />
+  <meta property="og:type" content="website" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0e1a;
+      color: #ccc;
+      font-family: 'Jost', 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0e1a; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    .serif { font-family: 'Cinzel', serif; }
+
+    .header {
+      position: sticky; top: 0; z-index: 40;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+      padding: 12px 16px;
+      background: rgba(10,14,26,0.95);
+      border-bottom: 1px solid rgba(255,215,0,0.15);
+      backdrop-filter: blur(8px);
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header h1 { font-family: 'Cinzel', serif; color: #ffd700; font-size: 1.15rem; }
+    .header .sub { font-size: 10px; color: #888; }
+    .filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .filter-select {
+      font-size: 11px; padding: 6px 8px; border-radius: 6px; appearance: none; cursor: pointer;
+      background: rgba(255,255,255,0.06); color: #ccc; border: 1px solid rgba(255,255,255,0.1); outline: none;
+      font-family: 'Jost', sans-serif;
+    }
+    .filter-select option { background: #1a1e2e; color: #ccc; }
+
+    .grid {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;
+      padding: 24px;
+    }
+
+    .card {
+      position: relative; cursor: pointer; width: 220px;
+      border-radius: 12px; overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .card:hover { transform: translateY(-4px); }
+    .card .top-line { position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+    .card .bottom-line { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; }
+
+    .card-portrait { position: relative; height: 200px; overflow: hidden; }
+    .card-portrait img { width: 100%; height: 100%; object-fit: cover; }
+    .card-portrait .overlay { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.4) 35%, transparent 65%); }
+    .card-faction-tag {
+      position: absolute; top: 8px; right: 8px; padding: 2px 6px; border-radius: 4px;
+      font-size: 9px; font-weight: 700; background: rgba(0,0,0,0.7);
+    }
+    .card-name-area { position: absolute; bottom: 0; left: 0; right: 0; padding: 12px; }
+    .card-name { font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+    .card-title { font-size: 10px; font-style: italic; }
+
+    .card-body { padding: 10px 12px; background: rgba(0,0,0,0.3); }
+    .card-body .stars { display: flex; justify-content: center; gap: 2px; margin-bottom: 6px; }
+
+    .stat-bar {
+      display: flex; align-items: center; justify-content: space-between; gap: 4px;
+      padding: 5px 6px; border-radius: 6px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+    }
+    .stat { display: flex; align-items: center; gap: 3px; }
+    .stat span { font-size: 10px; font-weight: 700; }
+
+    .card-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+    .card-meta { font-size: 9px; color: #888; }
+    .card-abilities { display: flex; gap: 4px; }
+    .wallet-strip {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      margin-top: 8px; padding: 6px 8px; border-radius: 8px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    }
+    .wallet-pill { min-width: 0; }
+    .wallet-label { font-size: 8px; text-transform: uppercase; letter-spacing: 1px; color: #777; }
+    .wallet-code {
+      font-size: 10px; font-weight: 700; color: #ddd; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 104px;
+    }
+    .gbux-chip {
+      flex-shrink: 0; padding: 4px 7px; border-radius: 999px;
+      background: rgba(255,215,0,0.08); border: 1px solid rgba(255,215,0,0.22);
+      color: #ffd700; font-size: 10px; font-weight: 700;
+    }
+    .gbux-loading {
+      opacity: 0.5;
+      animation: gbux-pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes gbux-pulse { 0%,100%{opacity:0.3} 50%{opacity:0.7} }
+    .ability-icon-box {
+      width: 24px; height: 24px; border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ability-icon-box img { width: 13px; height: 13px; image-rendering: pixelated; }
+
+    .star-icon {
+      display: inline-block; width: 12px; height: 12px;
+      clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+    }
+
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 50;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+    }
+    .modal-overlay.hidden { display: none; }
+
+    .modal-nav {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      padding: 8px; border-radius: 50%; background: rgba(255,255,255,0.1); color: #fff;
+      border: none; cursor: pointer; font-size: 20px; line-height: 1;
+    }
+    .modal-nav.prev { left: 16px; }
+    .modal-nav.next { right: 16px; }
+
+    .modal-card {
+      position: relative; display: flex; flex-direction: row; gap: 0;
+      max-width: 900px; width: 95vw; max-height: 90vh;
+      border-radius: 16px; overflow: hidden;
+    }
+    @media (max-width: 768px) { .modal-card { flex-direction: column; } }
+
+    .modal-portrait { position: relative; width: 340px; flex-shrink: 0; min-height: 300px; }
+    @media (max-width: 768px) { .modal-portrait { width: 100%; min-height: 200px; max-height: 280px; } }
+    .modal-portrait img { width: 100%; height: 100%; object-fit: cover; min-height: 300px; max-height: 500px; }
+    .modal-portrait .gradient-bottom { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.3) 30%, transparent 60%); }
+    .modal-portrait .gradient-right { position: absolute; inset: 0; background: linear-gradient(90deg, transparent 60%, rgba(0,0,0,0.8) 100%); }
+    @media (max-width: 768px) { .modal-portrait .gradient-right { display: none; } }
+
+    .modal-tags { position: absolute; top: 12px; left: 12px; display: flex; align-items: center; gap: 8px; }
+    .modal-tag { padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.75); font-size: 10px; font-weight: 700; }
+    .modal-name-area { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px; }
+    .modal-name { font-family: 'Cinzel', serif; font-size: 1.25rem; font-weight: 700; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.9); }
+    .modal-title-text { font-size: 14px; font-style: italic; }
+    .modal-race-info { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+    .modal-race-info span { font-size: 11px; }
+
+    .modal-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .modal-tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .modal-tab {
+      flex: 1; padding: 10px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; background: transparent; border: none; cursor: pointer;
+      border-bottom: 2px solid transparent; transition: all 0.2s;
+      font-family: 'Jost', sans-serif; color: #888;
+    }
+    .modal-tab.active { background: rgba(255,255,255,0.03); }
+
+    .modal-content { flex: 1; overflow-y: auto; padding: 16px; max-height: 400px; }
+    .modal-content > * + * { margin-top: 16px; }
+
+    .panel {
+      padding: 12px; border-radius: 8px;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+    }
+    .panel-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; color: #888; margin-bottom: 6px; }
+
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .stat-box { display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); }
+    .stat-box .stat-val { font-size: 18px; font-weight: 700; margin-top: 4px; }
+    .stat-box .stat-label { font-size: 9px; text-transform: uppercase; color: #888; }
+
+    .ability-row {
+      display: flex; align-items: flex-start; gap: 12px; padding: 10px; border-radius: 8px;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+    }
+    .ability-icon-lg {
+      width: 36px; height: 36px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .ability-icon-lg img { width: 20px; height: 20px; image-rendering: pixelated; }
+    .ability-info { flex: 1; min-width: 0; }
+    .ability-header { display: flex; align-items: center; justify-content: space-between; }
+    .ability-name { font-size: 12px; font-weight: 700; color: #ddd; }
+    .ability-cost { font-size: 10px; padding: 2px 6px; border-radius: 4px; }
+    .ability-desc { font-size: 10px; color: #999; margin-top: 2px; }
+
+    .combat-row { display: flex; align-items: center; justify-content: space-between; font-size: 12px; padding: 2px 0; }
+    .combat-row .label { color: #aaa; }
+    .combat-row .value { color: #ddd; }
+
+    .sw-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .sw-list { list-style: none; }
+    .sw-list li { font-size: 10px; color: #aaa; display: flex; align-items: flex-start; gap: 4px; padding: 2px 0; }
+
+    .trait-row { display: flex; align-items: center; justify-content: space-between; padding: 2px 0; }
+    .trait-name { font-size: 12px; font-weight: 600; color: #ddd; }
+    .trait-effect { font-size: 10px; font-weight: 600; }
+
+    .no-results { text-align: center; padding: 80px 20px; color: #666; font-size: 14px; }
+
+    .svg-icon { display: inline-block; vertical-align: middle; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div>
+      <h1>Hero Codex</h1>
+      <p class="sub"><span id="count">25</span> of <span id="total">25</span> Heroes</p>
+    </div>
+  </div>
+  <div class="filters">
+    <select id="filter-race" class="filter-select" onchange="applyFilters()">
+      <option value="All">Race: All</option>
+      <option value="Human">Race: Human</option>
+      <option value="Barbarian">Race: Barbarian</option>
+      <option value="Dwarf">Race: Dwarf</option>
+      <option value="Elf">Race: Elf</option>
+      <option value="Orc">Race: Orc</option>
+      <option value="Undead">Race: Undead</option>
+    </select>
+    <select id="filter-class" class="filter-select" onchange="applyFilters()">
+      <option value="All">Class: All</option>
+      <option value="Warrior">Class: Warrior</option>
+      <option value="Worg">Class: Worg</option>
+      <option value="Mage">Class: Mage</option>
+      <option value="Ranger">Class: Ranger</option>
+    </select>
+    <select id="filter-faction" class="filter-select" onchange="applyFilters()">
+      <option value="All">Faction: All</option>
+      <option value="Crusade">Faction: Crusade</option>
+      <option value="Fabled">Faction: Fabled</option>
+      <option value="Legion">Faction: Legion</option>
+    </select>
+  </div>
+</div>
+
+<div id="grid" class="grid"></div>
+<div id="no-results" class="no-results" style="display:none">No heroes match the selected filters</div>
+
+<div id="modal" class="modal-overlay hidden" onclick="closeModal()">
+  <button class="modal-nav prev" onclick="event.stopPropagation(); navHero(-1)">&lsaquo;</button>
+  <button class="modal-nav next" onclick="event.stopPropagation(); navHero(1)">&rsaquo;</button>
+  <div id="modal-inner" onclick="event.stopPropagation()"></div>
+</div>
+
+<script>
+const ASSET_BASE = 'https://grudge-warlords-game.vercel.app/heroes-standalone/heroes-standalone/';
+
+const SKILL_SPRITE_MAP = {
+  shield: 'sprites/effects/Icon_07.png',
+  zap: 'sprites/effects/Icon_02.png',
+  heart: 'sprites/effects/Icon_05.png',
+  flame: 'sprites/effects/Icon_01.png',
+  crosshair: 'sprites/effects/Icon_09.png',
+  target: 'sprites/effects/Icon_04.png',
+  split: 'sprites/effects/Icon_03.png',
+  'cloud-rain': 'sprites/effects/Icon_03.png',
+  crown: 'sprites/effects/Icon_06.png',
+  'shield-check': 'sprites/effects/Icon_08.png',
+  star: 'sprites/effects/Icon_06.png',
+  skull: 'sprites/effects/Icon_09.png',
+  sparkles: 'sprites/effects/Icon_10.png',
+  megaphone: 'sprites/effects/Icon_06.png',
+  swords: 'sprites/effects/Icon_04.png',
+  paw: 'sprites/effects/Icon_01.png',
+  bow: 'sprites/effects/Icon_03.png',
+};
+
+function skillSrc(icon) {
+  return ASSET_BASE + (SKILL_SPRITE_MAP[icon] || 'sprites/effects/Icon_06.png');
+}
+
+// ── cNFT Collection Metadata ──────────────────────────────────────────────────
+const CNFT_COLLECTION = {
+  collectionId: '5061318d-ff65-4893-ac4b-9b28efb18ace',
+  mintId:       'a9bb2c8d-1350-4413-aec7-5ba1f6888511',
+  templateMint: '98jzgFFkPhrw9sfr5YyttTpCBiJyid6tzxxJjXrj7xXK',
+  name:         'Grudge Heroes',
+  symbol:       'GHERO',
+  network:      'mainnet-beta',
+  xrayBase:     'https://xray.helius.xyz/token/',
+};
+
+const HERO_WALLET_DATA = [
+  { wallet:'9ipn1LP7GZ84vnUoaSMyhRBGH3cuX52yFgGUbsaDs6Vz', gbuxTarget:0.72, gbuxAta:'GGsjWDRNg6W7ARngovVbXtkKiFfWryzCivR63L8eiqTY' },
+  { wallet:'3BFkQvUtrqyqZKC6K3TG1VG96DgCErTc8ZCgd3NuwCf1', gbuxTarget:0.65, gbuxAta:'67yuz7gK7Xhir8wH9oKMZr7AypXwFowkRJQfb6FRLf8J' },
+  { wallet:'EUxnRmAZySdHrgBzDge3pPc9fusCH3fBTTu8ZTamLPyy', gbuxTarget:0.88, gbuxAta:'D1KxMgjgmnHU43htYP7LMQkfUE7EJTM6txSznE6EHcJY' },
+  { wallet:'BBAygJFRQwiPLi2B1xZWn3JaGZiQCgYs2XDuHAQuoeGD', gbuxTarget:0.61, gbuxAta:'BF8UR8mVqhiR1vCgj2bEULLcaXs4zX3RUPaQqmNB2x6Y' },
+  { wallet:'ErdEPCQqA8WdxxqBiKeW3NAwcJw4chh2heAVptLTe7Qg', gbuxTarget:0.75, gbuxAta:'8qmmQhC8t3kFBbeUkoSqxytWTH74UeWbTGBBz7tfA9aG' },
+  { wallet:'Cyc354HZ4cjiqDwfgymYpY98uhekF14rsaSbwytxqBKS', gbuxTarget:0.82, gbuxAta:'HRr8TA779U9n45NSMzpRPFFdzDFBQ7RqALa1hZ4pLMC5' },
+  { wallet:'4cfSq6XSEEVmJ55eeba5TrFvJCkdirRhPqrPLWaAVYwj', gbuxTarget:0.69, gbuxAta:'32WzTUfTGYoUxwY7gRFiyvrBonknHQXndfVYfmwe4M15' },
+  { wallet:'DFsFTBwE6Q9CMkzK8GUtSkapZ18voVthR2j5oZUqEgMX', gbuxTarget:0.91, gbuxAta:'9r5fhoBtMc46crvvejyTmsbZKWrhnfMD6u7AFHkDNQR4' },
+  { wallet:'7F7EXoJqgv88xGt3rQQvFQr4X92R8BbgSSwoGpEMteYA', gbuxTarget:0.78, gbuxAta:'7KLF9Cs8fr8MjXj7RA9azGCwbScPQvcQj48R2jUwZy58' },
+  { wallet:'ChAgHPTuV3y6AESdFEjsFyxHQn1sfEL6yCCVya2gSpko', gbuxTarget:0.85, gbuxAta:'DvbvG1PUBaEb4pqD1sAwXyteCtAfxLgXJuBTZxRGXNh1' },
+  { wallet:'943T1V5D92wA1WfTg9YJp6NAcDdnQXnVM325qNhH4JHv', gbuxTarget:0.66, gbuxAta:'Dp4Piv5H66EY6LKe2zYmmfHbJ96d3Vvr1CyXKsSaLabn' },
+  { wallet:'FCztZonNiGUPLdfbco1q5qRGz919ahNRcsvucnW3jtLv', gbuxTarget:0.73, gbuxAta:'8ZDXuHdAZc1f8qsjTshdDBJ4JXtqAinJBmqVak8FTXBf' },
+  { wallet:'MBPqqAntDNhsgXKj2uU3heMov1gNCWdvDE5HBeutcQ6', gbuxTarget:0.92, gbuxAta:'3pmNm2ioahEXgGrF23fnUCvXUdA6bLvMcNNcGWaJ8aaU' },
+  { wallet:'CJT9RDuF9jrHBZWPANpV7ts2gPRttD6JZUnaCCDEniU4', gbuxTarget:0.81, gbuxAta:'5LPwRJFFha81cFVvxqkZQsJ9MqFgRVgacoBZ1uYT1V1P' },
+  { wallet:'DF44qUQwojuGgioC3nGrHK72EfpgeLWw9Nw76YPJRq5L', gbuxTarget:0.77, gbuxAta:'2NAkHm7HHDyBLGed1ypZckrEX6Tc8AqZnnauJXXh1c4Z' },
+  { wallet:'HwHdzpE5rV8p1aiwYCHHQY5hT2QMMJPM7V1kbtKXMLN7', gbuxTarget:0.64, gbuxAta:'48pk5U9Yd18Cf37BV4XgYHSHWvq2wviN8LRPTj7XZNJC' },
+  { wallet:'CGRYqFeFA2mKW4iPsgi7bVjSzM8p3yzw8XMT9HAqfm7h', gbuxTarget:0.89, gbuxAta:'5LxhbmYtJ4dyNYT4X8bxEMPhbWxeqFWPSNLykPMhPE8s' },
+  { wallet:'9apzTxaT19EZjkNb7cMcUkE798vn5YsFbm2ssxVp2bpe', gbuxTarget:0.71, gbuxAta:'Hk3wfvXuDrVQfxREbnAeyeM1w9h1TyLNyueeegYVJ1Fp' },
+  { wallet:'AQATY2YWenTPAS3Pvi9VDSD6LQPXQhxuVrmcSWf2oDdT', gbuxTarget:0.68, gbuxAta:'BNs87yGC7umofGCuk7nww7S9HiVeeovsmEY52eB33c5g' },
+  { wallet:'HDcksafGMTwnhF5RhRNqUiASiF7ywTvbFpTqa42SENCH', gbuxTarget:0.83, gbuxAta:'ECATTuLcCJwJYr8PTe79deAeFfNZqJhqEhESDMFUe3rN' },
+  { wallet:'MwF3a5hC14bk93ac74e7pByi7GCmixCguDQEgJGBohf', gbuxTarget:0.76, gbuxAta:'FfCwfW3RHvcevbNU6ko3wgNL7B26nGtiftiQQcfiX8Eh' },
+  { wallet:'CgeSvrue3ipHbjCjZW4Xb2MmvBSGJdctrPfWqnVbRksG', gbuxTarget:0.62, gbuxAta:'9W1B7BVFzfRyFBmFE5CGKAjjcMBi7u3a8YYHSg11bnNQ' },
+  { wallet:'52hCzLtDxqTRXZeUdYLjv6rFR3HFG6he7HWaxGkzi8U', gbuxTarget:0.87, gbuxAta:'9SGVgvFnXU9CRTFLdKFnVNBPt12kU1VcLx27DeTHsbei' },
+  { wallet:'8xCQkeWeDb3mmvDB9TDjq4Sfyevry73HZFxJbcs6CpHX', gbuxTarget:0.79, gbuxAta:'FVKJq5cpMukDfJdo9EuAgo3ie3iCDxRsMNBAxR6MgybS' },
+  { wallet:'EaMw6sfaWqUJ3y1vNP2dLfT7WmzqnsmAQrtdcozX5adJ', gbuxTarget:0.90, gbuxAta:'Ghn7ELYAummz3PwmXUJ398znP2aXzYZho7oc52wnypED' },
+];
+
+// Known cNFT mint addresses (map hero id → on-chain mint pubkey)
+const HERO_CNFT_MINTS = {
+  pirate_king: 'H7jv82AKbCfcvBK3h4QgmX7rdnjoHGCyPE7iax7gGXEA',
+};
+
+const FACTION_COLORS = {
+  Crusade: { bg: '#0c1a3a', border: '#3b82f6', glow: 'rgba(59,130,246,0.3)', gradient: 'linear-gradient(135deg, #0c1a3a 0%, #1a2d5a 50%, #0c1a3a 100%)' },
+  Fabled: { bg: '#0c1e14', border: '#16a34a', glow: 'rgba(22,163,74,0.3)', gradient: 'linear-gradient(135deg, #0c1e14 0%, #14332a 50%, #0c1e14 100%)' },
+  Legion: { bg: '#2a0c0c', border: '#ef4444', glow: 'rgba(239,68,68,0.3)', gradient: 'linear-gradient(135deg, #2a0c0c 0%, #3a1a1a 50%, #2a0c0c 100%)' },
+};
+
+const RARITY_CONFIG = {
+  Common: { color: '#9ca3af', stars: 1 },
+  Uncommon: { color: '#22c55e', stars: 2 },
+  Rare: { color: '#3b82f6', stars: 3 },
+  Epic: { color: '#a855f7', stars: 4 },
+  Legendary: { color: '#f59e0b', stars: 5 },
+};
+
+const BASE = { health: 200, attack: 18, defense: 12, speed: 60, range: 1.5, mana: 100 };
+const CLASS_MOD = {
+  Warrior: { health: 40, attack: 4, defense: 6, speed: -5, range: 0, mana: -10 },
+  Worg: { health: 30, attack: 3, defense: 3, speed: 5, range: 0, mana: -5 },
+  Mage: { health: -30, attack: 2, defense: -4, speed: 0, range: 4, mana: 50 },
+  Ranger: { health: -20, attack: 3, defense: -2, speed: 10, range: 5, mana: 10 },
+};
+const RACE_MOD = {
+  Human: { health: 5, attack: 1, defense: 1, speed: 2, mana: 5 },
+  Barbarian: { health: 15, attack: 4, defense: -1, speed: 3, mana: -5 },
+  Dwarf: { health: 20, attack: 2, defense: 5, speed: -8, mana: 0 },
+  Elf: { health: -10, attack: 0, defense: -2, speed: 5, mana: 20 },
+  Orc: { health: 10, attack: 5, defense: 1, speed: 2, mana: -10 },
+  Undead: { health: 25, attack: 1, defense: 2, speed: -3, mana: 5 },
+};
+
+function ds(race, cls) {
+  const cm = CLASS_MOD[cls] || CLASS_MOD.Warrior;
+  const rm = RACE_MOD[race] || RACE_MOD.Human;
+  return {
+    health: BASE.health + cm.health + rm.health,
+    attack: BASE.attack + cm.attack + rm.attack,
+    defense: BASE.defense + cm.defense + rm.defense,
+    speed: BASE.speed + cm.speed + rm.speed,
+    range: BASE.range + cm.range,
+    mana: BASE.mana + cm.mana + rm.mana,
+  };
+}
+
+const HEROES = [
+  { id:'human_warrior', name:'Sir Aldric Valorheart', title:'The Iron Bastion', race:'Human', className:'Warrior', faction:'Crusade', factionColor:'#3b82f6', rarity:'Common', portrait:'sprites/entities/units/human/human_warrior.png', lore:'Born in the fortified city of Valorheim, Aldric rose through the ranks of the Crusade militia to become its most decorated champion. His unbreakable will and mastery of sword and shield have turned the tide of countless battles against the Legion.', backstory:'Orphaned during the First Grudge War, young Aldric was raised by the Temple Knights. He forged his first blade at age twelve and took his oath at sixteen. Now he leads the vanguard of every Crusade offensive, his golden armor a beacon of hope.', quote:'"The shield breaks before the will does."', primaryAttribute:'STR', stats: ds('Human','Warrior'), abilities:[{name:'Invincibility',icon:'shield',description:'Become immune to all damage for a short duration',manaCost:40},{name:'Damage Surge',icon:'zap',description:'+25% attack power temporary boost',manaCost:25},{name:"Guardian's Aura",icon:'shield-check',description:'+15% defense to all nearby allies',manaCost:30},{name:'Avatar Form',icon:'crown',description:'+40% all stats, increased size',manaCost:80}], racialTraits:[{name:'Adaptable',effect:'+5% XP gain'},{name:'Diplomatic',effect:'+10% gold from quests'}], strengths:['Highest armor and block chance','Invincibility ultimate','Flexible tank or DPS builds'], weaknesses:['No ranged attacks','No magic or healing','Slow movement speed'], combatStyle:'Melee Physical Combat', weapons:'Swords, Axes, Shields, Heavy Armor', alignment:'Lawful Good', difficulty:'Beginner', flavorText:'Where Aldric stands, the line holds.' },
+  { id:'human_worg', name:'Gareth Moonshadow', title:'The Twilight Stalker', race:'Human', className:'Worg', faction:'Crusade', factionColor:'#3b82f6', rarity:'Rare', portrait:'sprites/entities/units/human/human_paladin.png', lore:'Gareth was a simple huntsman until a dire wolf spirit bonded with his soul during a blood moon ritual. Now he walks between the worlds of man and beast, his primal fury tempered by human discipline.', backstory:'Once captain of the Crusade rangers, Gareth ventured too deep into the Darkwood seeking a cure for a plague. There, the ancient Wolf Spirit Fenrath chose him as vessel. He returned changed, his eyes gleaming amber in the dark.', quote:'"The beast within is not my curse. It is my salvation."', primaryAttribute:'STR', stats: ds('Human','Worg'), abilities:[{name:'Bear Form',icon:'shield',description:'+50% defense, +30% max HP, reduced speed',manaCost:30},{name:'Feral Rage',icon:'flame',description:'+30% attack speed and damage',manaCost:25},{name:'Raptor Form',icon:'zap',description:'+20% attack, +40% speed, +15% crit',manaCost:30},{name:'Worg Lord',icon:'crown',description:'+40% all stats, +50% max HP, summon pack',manaCost:80}], racialTraits:[{name:'Adaptable',effect:'+5% XP gain'},{name:'Diplomatic',effect:'+10% gold from quests'}], strengths:['Multiple combat forms','Pack summons for numbers advantage','Strong self-buffs and frenzy'], weaknesses:['No ranged attacks','No healing spells','Form-dependent abilities'], combatStyle:'Melee Shapeshifting Combat', weapons:'Claws, Fangs, Natural Weapons', alignment:'Chaotic Neutral', difficulty:'Advanced', flavorText:'In the space between howl and silence, death waits.' },
+  { id:'human_mage', name:'Archmage Elara Brightspire', title:'The Storm Caller', race:'Human', className:'Mage', faction:'Crusade', factionColor:'#3b82f6', rarity:'Epic', portrait:'sprites/entities/units/human/human_mage.png', lore:'Elara was the youngest scholar ever admitted to the Arcane Consortium. Her mastery of elemental magic and divine healing makes her invaluable on the battlefield, though her fragile form demands protection.', backstory:'Raised in the Brightspire Academy, Elara discovered she could channel both arcane destruction and divine healing, a gift unseen in centuries. The Consortium fears her power; the Crusade depends on it.', quote:'"Knowledge is the flame. I am merely the torch."', primaryAttribute:'INT', stats: ds('Human','Mage'), abilities:[{name:'Mana Shield',icon:'shield',description:'Passive shield based on remaining mana percentage',manaCost:0},{name:'Fireball',icon:'flame',description:'AoE fire damage to enemies in target area',manaCost:30},{name:'Heal',icon:'heart',description:'Restore HP to target ally',manaCost:20},{name:'Lightning Chain',icon:'zap',description:'Chain lightning hitting up to 5 targets',manaCost:35}], racialTraits:[{name:'Adaptable',effect:'+5% XP gain'},{name:'Diplomatic',effect:'+10% gold from quests'}], strengths:['Powerful AoE damage spells','Only class with healing','Blink teleport for mobility'], weaknesses:['Very fragile in melee','Mana dependent','Low physical defense'], combatStyle:'Ranged Magic & Healing', weapons:'Staves, Wands, Orbs, Robes', alignment:'Neutral Good', difficulty:'Intermediate', flavorText:'The sky splits at her command.' },
+  { id:'human_ranger', name:'Kael Shadowblade', title:'The Shadow Blade', race:'Human', className:'Ranger', faction:'Crusade', factionColor:'#3b82f6', rarity:'Uncommon', portrait:'sprites/entities/units/human/human_archer.png', lore:"A ghost who moves through shadows, Kael is the Crusade's deadliest operative. His arrows find their mark before the enemy even knows war has begun. He answers to no one but the cause.", backstory:"Kael grew up in the slums of Port Grimaldi, learning to survive through cunning and speed. Recruited by the Crusade's covert division, he became their finest scout and assassin, preferring to end wars before they start.", quote:'"You never see the arrow that kills you."', primaryAttribute:'DEX', stats: ds('Human','Ranger'), abilities:[{name:'Precision',icon:'crosshair',description:'Passive accuracy and critical hit bonus',manaCost:0},{name:'Power Shot',icon:'target',description:'High damage ranged attack at 2x damage',manaCost:20},{name:'Multi Shot',icon:'split',description:'Fire 5 arrows in a spread pattern',manaCost:25},{name:'Rain of Arrows',icon:'cloud-rain',description:'Massive AoE ranged barrage',manaCost:40}], racialTraits:[{name:'Adaptable',effect:'+5% XP gain'},{name:'Diplomatic',effect:'+10% gold from quests'}], strengths:['Longest attack range','High critical hit chance','Stealth and evasion'], weaknesses:['Low armor and HP','Weak in prolonged melee','No healing abilities'], combatStyle:'Ranged Physical & Stealth', weapons:'Bows, Crossbows, Daggers, Light Armor', alignment:'Chaotic Good', difficulty:'Intermediate', flavorText:'Shadows are just arrows waiting to be loosed.' },
+  { id:'barbarian_warrior', name:'Ulfgar Bonecrusher', title:'The Mountain Breaker', race:'Barbarian', className:'Warrior', faction:'Crusade', factionColor:'#3b82f6', rarity:'Uncommon', portrait:'sprites/entities/units/barbarian/barbarian_warrior.png', lore:'From the frozen peaks of the Northlands, Ulfgar descends like an avalanche upon his foes. His massive frame and berserker fury make him a force of nature that no shield wall can withstand.', backstory:'Ulfgar earned his title by literally shattering a mountain pass to prevent a Legion invasion, burying an entire army beneath tons of stone. The act cost him his left eye but saved his entire tribe.', quote:'"I do not fight to survive. I fight because the mountain told me to."', primaryAttribute:'STR', stats: ds('Barbarian','Warrior'), abilities:[{name:'Invincibility',icon:'shield',description:'Become immune to all damage',manaCost:40},{name:'Damage Surge',icon:'zap',description:'+25% attack power boost',manaCost:25},{name:"Guardian's Aura",icon:'shield-check',description:'+15% defense to nearby allies',manaCost:30},{name:'Avatar Form',icon:'crown',description:'+40% all stats, increased size',manaCost:80}], racialTraits:[{name:'Rage',effect:'+20% damage below 50% HP'},{name:'Frost Resistance',effect:'+15% cold defense'}], strengths:['Highest armor and block chance','Rage damage bonus when wounded','Flexible tank or DPS builds'], weaknesses:['No ranged attacks','No magic or healing','Slow movement speed'], combatStyle:'Melee Physical Combat', weapons:'Great Axes, War Hammers, Fur Armor', alignment:'Chaotic Neutral', difficulty:'Beginner', flavorText:'The earth trembles when Ulfgar charges.' },
+  { id:'barbarian_worg', name:'Hrothgar Fangborn', title:'The Beast of the North', race:'Barbarian', className:'Worg', faction:'Crusade', factionColor:'#3b82f6', rarity:'Legendary', portrait:'sprites/entities/units/barbarian/barbarian_paladin.png', lore:'In the deepest winter, when wolves howl for blood, Hrothgar answers. Half-man, half-beast, he leads a pack of dire wolves across the frozen wastes, hunting Legion scouts with savage precision.', backstory:'Born during an eclipse, Hrothgar was left in the woods as an omen of doom. Raised by a great wolf mother, he returned to his tribe as a teenager who could speak with beasts and shift his form at will.', quote:'"The pack does not forgive. The pack does not forget."', primaryAttribute:'STR', stats: ds('Barbarian','Worg'), abilities:[{name:'Bear Form',icon:'shield',description:'+50% defense, +30% max HP',manaCost:30},{name:'Feral Rage',icon:'flame',description:'+30% attack speed and damage',manaCost:25},{name:'Raptor Form',icon:'zap',description:'Stealth DPS with +15% crit',manaCost:30},{name:'Worg Lord',icon:'crown',description:'Ultimate tank form with pack summon',manaCost:80}], racialTraits:[{name:'Rage',effect:'+20% damage below 50% HP'},{name:'Frost Resistance',effect:'+15% cold defense'}], strengths:['Multiple combat forms','Rage synergy with beast forms','Strong self-buffs'], weaknesses:['No ranged attacks','No healing spells','Form-dependent abilities'], combatStyle:'Melee Shapeshifting Combat', weapons:'Claws, Fangs, Natural Weapons', alignment:'Chaotic Neutral', difficulty:'Expert', flavorText:'When the north wind howls, it speaks his name.' },
+  { id:'barbarian_mage', name:'Volka Stormborn', title:'The Frost Witch', race:'Barbarian', className:'Mage', faction:'Crusade', factionColor:'#3b82f6', rarity:'Epic', portrait:'sprites/entities/units/barbarian/barbarian_mage.png', lore:'The northern shamans channel magic through primal fury rather than scholarly study. Volka commands blizzards and lightning, her spells fueled by the raw rage of the frozen north.', backstory:'During a deadly blizzard that buried her village, young Volka discovered she could command the storm itself. The tribal elders named her Stormborn and sent her south to aid the Crusade with her elemental fury.', quote:'"Winter does not come. I bring it."', primaryAttribute:'INT', stats: ds('Barbarian','Mage'), abilities:[{name:'Mana Shield',icon:'shield',description:'Passive shield from mana',manaCost:0},{name:'Fireball',icon:'flame',description:'AoE elemental damage',manaCost:30},{name:'Heal',icon:'heart',description:'Restore HP to target ally',manaCost:20},{name:'Lightning Chain',icon:'zap',description:'Chain lightning hitting 5 targets',manaCost:35}], racialTraits:[{name:'Rage',effect:'+20% damage below 50% HP'},{name:'Frost Resistance',effect:'+15% cold defense'}], strengths:['Powerful AoE damage','Rage bonus applies to spells','Frost resistance'], weaknesses:['Very fragile in melee','Mana dependent','Low physical defense'], combatStyle:'Ranged Magic & Healing', weapons:'Totems, Bone Staves, Runic Armor', alignment:'Chaotic Neutral', difficulty:'Advanced', flavorText:'Her anger is the storm. Her mercy is the calm.' },
+  { id:'barbarian_ranger', name:'Svala Windrider', title:'The Silent Huntress', race:'Barbarian', className:'Ranger', faction:'Crusade', factionColor:'#3b82f6', rarity:'Rare', portrait:'sprites/entities/units/barbarian/barbarian_archer.png', lore:'No prey escapes Svala. She tracks across frozen tundra, through blinding snowstorms, reading the land like an open book. Her arrows are tipped with the venom of ice serpents.', backstory:"Svala was the youngest hunter to ever complete the Trial of the Winter Hunt, tracking and slaying a frost drake alone at age fourteen. Now she serves as the Crusade's premier wilderness scout.", quote:'"The wind tells me where you hide."', primaryAttribute:'DEX', stats: ds('Barbarian','Ranger'), abilities:[{name:'Precision',icon:'crosshair',description:'Passive accuracy and crit bonus',manaCost:0},{name:'Power Shot',icon:'target',description:'High damage ranged attack',manaCost:20},{name:'Multi Shot',icon:'split',description:'5 arrow spread pattern',manaCost:25},{name:'Rain of Arrows',icon:'cloud-rain',description:'Massive AoE ranged barrage',manaCost:40}], racialTraits:[{name:'Rage',effect:'+20% damage below 50% HP'},{name:'Frost Resistance',effect:'+15% cold defense'}], strengths:['Longest attack range','Rage bonus when wounded','Stealth and evasion'], weaknesses:['Low armor and HP','Weak in prolonged melee','No healing abilities'], combatStyle:'Ranged Physical & Stealth', weapons:'Longbows, Ice Javelins, Leather Armor', alignment:'True Neutral', difficulty:'Intermediate', flavorText:'She does not miss. She does not warn.' },
+  { id:'dwarf_warrior', name:'Thane Ironshield', title:'The Mountain Guardian', race:'Dwarf', className:'Warrior', faction:'Fabled', factionColor:'#16a34a', rarity:'Rare', portrait:'sprites/entities/units/dwarf/dwarf_warrior.png', lore:'The Thane of Ironhold has defended the mountain passes for over a century. His enchanted shield, Aegis of Ancestors, was forged from the heart of the mountain itself and has never been pierced.', backstory:'Thane Ironshield is the 47th guardian of the Deep Gate, an unbroken lineage stretching back to the founding of Stonehold. When the Grudge Wars began, he sealed the lower mines and marched to war.', quote:'"Deeper than stone. Harder than iron. We endure."', primaryAttribute:'STR', stats: ds('Dwarf','Warrior'), abilities:[{name:'Invincibility',icon:'shield',description:'Complete damage immunity',manaCost:40},{name:'Damage Surge',icon:'zap',description:'+25% attack power boost',manaCost:25},{name:"Guardian's Aura",icon:'shield-check',description:'+15% defense to allies',manaCost:30},{name:'Avatar Form',icon:'crown',description:'+40% all stats',manaCost:80}], racialTraits:[{name:'Stoneborn',effect:'+20% Defense'},{name:'Master Craftsman',effect:'+1 crafting tier'}], strengths:['Highest defense in game','Stoneborn defense bonus stacks','Impenetrable tank'], weaknesses:['Very slow movement','No ranged attacks','No healing'], combatStyle:'Melee Physical Combat', weapons:'War Hammers, Tower Shields, Runic Plate', alignment:'Lawful Good', difficulty:'Beginner', flavorText:'The mountain does not move. Neither does he.' },
+  { id:'dwarf_worg', name:'Bromm Earthshaker', title:'The Cavern Beast', race:'Dwarf', className:'Worg', faction:'Fabled', factionColor:'#16a34a', rarity:'Legendary', portrait:'sprites/entities/units/dwarf/dwarf_paladin.png', lore:'Deep beneath the mountains, Bromm discovered an ancient bear spirit imprisoned in crystal. By freeing it, the spirit merged with his dwarven soul, creating something unprecedented: a shapeshifter of living stone.', backstory:'Bromm was a miner who broke through into a sealed cavern containing a primordial earth spirit. The merging nearly killed him but left him able to transform into a creature of rock and fury.', quote:'"The mountain has teeth. I am its bite."', primaryAttribute:'STR', stats: ds('Dwarf','Worg'), abilities:[{name:'Bear Form',icon:'shield',description:'+50% defense, +30% max HP',manaCost:30},{name:'Feral Rage',icon:'flame',description:'+30% attack speed',manaCost:25},{name:'Raptor Form',icon:'zap',description:'Stealth DPS mode',manaCost:30},{name:'Worg Lord',icon:'crown',description:'Ultimate stone form',manaCost:80}], racialTraits:[{name:'Stoneborn',effect:'+20% Defense'},{name:'Master Craftsman',effect:'+1 crafting tier'}], strengths:['Bear Form + Stoneborn = unstoppable tank','Multiple combat forms','High base defense'], weaknesses:['Extremely slow in all forms','No ranged attacks','No healing spells'], combatStyle:'Melee Shapeshifting Combat', weapons:'Stone Claws, Earth Fangs, Crystal Armor', alignment:'Neutral Good', difficulty:'Expert', flavorText:'The deep places remember. Bromm makes them forget.' },
+  { id:'dwarf_mage', name:'Runa Forgekeeper', title:'The Runesmith', race:'Dwarf', className:'Mage', faction:'Fabled', factionColor:'#16a34a', rarity:'Rare', portrait:'sprites/entities/units/dwarf/dwarf_mage.png', lore:'Dwarven magic is not the flashy arcana of elves or humans. It is the deep magic of rune and forge, of fire shaped by will and hammer. Runa channels this ancient craft in battle.', backstory:'Last of the Forgekeeper bloodline, Runa carries the knowledge of runic magic that predates the Grudge Wars. Her forge-spells burn hotter than dragonfire and her rune-shields are nigh unbreakable.', quote:'"Every rune tells a story. Mine tells of fire."', primaryAttribute:'INT', stats: ds('Dwarf','Mage'), abilities:[{name:'Mana Shield',icon:'shield',description:'Passive runic barrier',manaCost:0},{name:'Fireball',icon:'flame',description:'Forge-fire AoE blast',manaCost:30},{name:'Heal',icon:'heart',description:'Runic restoration',manaCost:20},{name:'Lightning Chain',icon:'zap',description:'Arc lightning through runes',manaCost:35}], racialTraits:[{name:'Stoneborn',effect:'+20% Defense'},{name:'Master Craftsman',effect:'+1 crafting tier'}], strengths:['Stoneborn makes her tankier than other mages','Powerful forge spells','Runic healing'], weaknesses:['Slow movement','Mana dependent','Short range compared to elves'], combatStyle:'Ranged Magic & Healing', weapons:'Runic Hammers, Forge Staves, Rune Armor', alignment:'Lawful Neutral', difficulty:'Intermediate', flavorText:'The forge burns eternal. So does she.' },
+  { id:'dwarf_ranger', name:'Durin Tunnelwatcher', title:'The Deep Scout', race:'Dwarf', className:'Ranger', faction:'Fabled', factionColor:'#16a34a', rarity:'Uncommon', portrait:'sprites/entities/units/dwarf/dwarf_archer.png', lore:'Not all dwarves fight on the front line. Durin patrols the endless tunnels beneath the mountains, his crossbow picking off threats in the dark long before they reach the surface.', backstory:'Durin lost his squad to a cave-in during a tunnel patrol. Alone in the dark for thirty days, he learned to navigate by echo and smell. He emerged transformed, able to fight in total darkness.', quote:'"In the deep, every sound is a target."', primaryAttribute:'DEX', stats: ds('Dwarf','Ranger'), abilities:[{name:'Precision',icon:'crosshair',description:'Enhanced accuracy in darkness',manaCost:0},{name:'Power Shot',icon:'target',description:'Armor-piercing crossbow bolt',manaCost:20},{name:'Multi Shot',icon:'split',description:'5 bolt spread pattern',manaCost:25},{name:'Rain of Arrows',icon:'cloud-rain',description:'Bolt barrage from the heights',manaCost:40}], racialTraits:[{name:'Stoneborn',effect:'+20% Defense'},{name:'Master Craftsman',effect:'+1 crafting tier'}], strengths:['Stoneborn gives extra survivability','Armor-piercing bolts','Dark vision'], weaknesses:['Slow movement','Less range than elf rangers','No healing abilities'], combatStyle:'Ranged Physical & Stealth', weapons:'Heavy Crossbows, Throwing Axes, Chain Mail', alignment:'Lawful Neutral', difficulty:'Intermediate', flavorText:'He sees in the dark. You do not see him.' },
+  { id:'elf_warrior', name:'Thalion Bladedancer', title:'The Graceful Death', race:'Elf', className:'Warrior', faction:'Fabled', factionColor:'#16a34a', rarity:'Common', portrait:'sprites/entities/units/elf/elf_warrior.png', lore:"Elven warriors do not rely on brute force. Thalion's blade moves like water, each stroke a masterwork of precision. He has dueled and defeated opponents twice his size through technique alone.", backstory:'Trained in the Moonblade Academy for three centuries, Thalion mastered every weapon form before settling on the twin curved blades that earned him his title. His dance-like fighting style is mesmerizing and lethal.', quote:'"A blade is a brush. Combat is art."', primaryAttribute:'STR', stats: ds('Elf','Warrior'), abilities:[{name:'Invincibility',icon:'shield',description:'Perfect dodge state',manaCost:40},{name:'Damage Surge',icon:'zap',description:'Blade dance combo +25% ATK',manaCost:25},{name:"Guardian's Aura",icon:'shield-check',description:'Moonshadow protection aura',manaCost:30},{name:'Avatar Form',icon:'crown',description:'Ascended blade master form',manaCost:80}], racialTraits:[{name:'Keen Senses',effect:'+15% Accuracy'},{name:'Arcane Affinity',effect:'+10% Mana'}], strengths:['Highest accuracy of all warriors','Fast attack speed','Arcane mana bonus'], weaknesses:['Lower HP than other warriors','No ranged attacks','Fragile for a tank'], combatStyle:'Melee Physical Combat', weapons:'Curved Blades, Mithril Armor, Elven Shields', alignment:'Neutral Good', difficulty:'Intermediate', flavorText:'His enemies never see the second strike.' },
+  { id:'elf_worg', name:'Sylara Wildheart', title:'The Forest Spirit', race:'Elf', className:'Worg', faction:'Fabled', factionColor:'#16a34a', rarity:'Epic', portrait:'sprites/entities/units/elf/elf_paladin.png', lore:"Sylara is the last of the Wildheart druids who once protected the great forests. She channels the spirits of ancient beasts through elven magic, her transformations enhanced by centuries of arcane study.", backstory:"When the Darkwood began to wither from Legion corruption, Sylara performed the ancient Rite of Binding, merging her soul with the forest's guardian spirit. Now she IS the forest's wrath.", quote:'"The forest breathes through me. And it is angry."', primaryAttribute:'STR', stats: ds('Elf','Worg'), abilities:[{name:'Bear Form',icon:'shield',description:'Ancient treant defense form',manaCost:30},{name:'Feral Rage',icon:'flame',description:"Nature's fury +30% ATK",manaCost:25},{name:'Raptor Form',icon:'zap',description:'Swift predator stealth',manaCost:30},{name:'Worg Lord',icon:'crown',description:'Ancient forest guardian form',manaCost:80}], racialTraits:[{name:'Keen Senses',effect:'+15% Accuracy'},{name:'Arcane Affinity',effect:'+10% Mana'}], strengths:['Extra mana for more transformations','Keen senses boost form accuracy','Ancient spirit power'], weaknesses:['Fragile base form','No ranged attacks','Form-dependent abilities'], combatStyle:'Melee Shapeshifting Combat', weapons:'Nature Claws, Spirit Fangs, Living Armor', alignment:'Neutral Good', difficulty:'Expert', flavorText:'She wears the shapes of forgotten gods.' },
+  { id:'elf_mage', name:'Lyra Stormweaver', title:'The Storm Weaver', race:'Elf', className:'Mage', faction:'Fabled', factionColor:'#16a34a', rarity:'Epic', portrait:'sprites/entities/units/elf/elf_mage.png', lore:'Elven mages are the most powerful spellcasters in all the realms. Lyra channels the raw essence of the ley lines, her magic amplified by centuries of study and an innate arcane connection.', backstory:'Lyra spent four hundred years studying in the Crystal Spire before the Grudge Wars forced her into battle. Her mastery of all eight schools of magic makes her the most versatile caster alive.', quote:'"Magic is not power. It is understanding. I understand everything."', primaryAttribute:'INT', stats: ds('Elf','Mage'), abilities:[{name:'Mana Shield',icon:'shield',description:'Arcane barrier from mana pool',manaCost:0},{name:'Fireball',icon:'flame',description:'Pure arcane fire explosion',manaCost:30},{name:'Heal',icon:'heart',description:'Ley line healing',manaCost:20},{name:'Lightning Chain',icon:'zap',description:'Storm magic chaining 5 targets',manaCost:35}], racialTraits:[{name:'Keen Senses',effect:'+15% Accuracy'},{name:'Arcane Affinity',effect:'+10% Mana'}], strengths:['Highest spell power in game','Extra mana from Arcane Affinity','Spell accuracy from Keen Senses'], weaknesses:['Extremely fragile','Mana dependent','Virtually no melee capability'], combatStyle:'Ranged Magic & Healing', weapons:'Crystal Staves, Moonstone Orbs, Silk Robes', alignment:'True Neutral', difficulty:'Advanced', flavorText:'The stars whisper their secrets to her alone.' },
+  { id:'elf_ranger', name:'Aelindra Swiftbow', title:'The Wind Walker', race:'Elf', className:'Ranger', faction:'Fabled', factionColor:'#16a34a', rarity:'Uncommon', portrait:'sprites/entities/units/elf/elf_archer.png', lore:'The greatest archer to ever live, Aelindra can split an arrow at three hundred paces while riding at full gallop. Her elven eyes miss nothing, and her enchanted bow never runs dry.', backstory:"Captain of the Silverglade Sentinels for two centuries, Aelindra has defended the borders of the Fabled lands against every threat. She trained under Lyra Stormweaver and infuses her arrows with arcane energy.", quote:'"I loosed the arrow yesterday. It arrives tomorrow. You die today."', primaryAttribute:'DEX', stats: ds('Elf','Ranger'), abilities:[{name:'Precision',icon:'crosshair',description:'Elven sight perfect accuracy',manaCost:0},{name:'Power Shot',icon:'target',description:'Arcane-infused arrow',manaCost:20},{name:'Multi Shot',icon:'split',description:'5 enchanted arrows',manaCost:25},{name:'Rain of Arrows',icon:'cloud-rain',description:'Arcane arrow storm',manaCost:40}], racialTraits:[{name:'Keen Senses',effect:'+15% Accuracy'},{name:'Arcane Affinity',effect:'+10% Mana'}], strengths:['Unmatched accuracy','Arcane-enhanced arrows','Fastest ranger'], weaknesses:['Very fragile','Poor melee defense','No healing abilities'], combatStyle:'Ranged Physical & Stealth', weapons:'Enchanted Longbows, Mithril Arrows, Leaf Armor', alignment:'Chaotic Good', difficulty:'Advanced', flavorText:'Her arrows sing the songs of extinction.' },
+  { id:'orc_warrior', name:'Grommash Ironjaw', title:'The Warchief', race:'Orc', className:'Warrior', faction:'Legion', factionColor:'#ef4444', rarity:'Common', portrait:'sprites/entities/units/orc/orc_warrior.png', lore:'The mightiest warrior the Legion has ever produced, Grommash earned his chieftainship by defeating every challenger in the Pit of Blood. His massive cleaver has carved a path of destruction across three continents.', backstory:'Born during a blood eclipse, Grommash was destined for war. At age six he killed his first opponent in the fighting pits. By twenty he had united the warring orc clans under a single banner through sheer force.', quote:'"BLOOD AND THUNDER!"', primaryAttribute:'STR', stats: ds('Orc','Warrior'), abilities:[{name:'Invincibility',icon:'shield',description:'Blood rage immunity',manaCost:40},{name:'Damage Surge',icon:'zap',description:'Berserker fury +25% ATK',manaCost:25},{name:"Guardian's Aura",icon:'shield-check',description:'Warcry defense boost',manaCost:30},{name:'Avatar Form',icon:'crown',description:'Warchief ascension form',manaCost:80}], racialTraits:[{name:'Bloodrage',effect:'+25% damage below 50% HP'},{name:'Warborn',effect:'+10% Critical'}], strengths:['Highest raw damage','Bloodrage + crit combo devastating','Best warrior for pure DPS'], weaknesses:['No ranged attacks','No healing','Reckless combat style'], combatStyle:'Melee Physical Combat', weapons:'Massive Cleavers, Spiked Armor, War Totems', alignment:'Chaotic Evil', difficulty:'Beginner', flavorText:'He does not ask for surrender.' },
+  { id:'orc_worg', name:'Fenris Bloodfang', title:'The Alpha', race:'Orc', className:'Worg', faction:'Legion', factionColor:'#ef4444', rarity:'Epic', portrait:'sprites/entities/units/orc/orc_paladin.png', lore:"Fenris challenged the great dire wolf Shadowmaw to single combat and won, absorbing the beast's spirit. Now he commands the Legion's beast packs, his howl freezing enemies in terror.", backstory:"Exiled from his clan for refusing to kill prisoners, Fenris wandered the Ashlands alone until Shadowmaw found him. Their battle lasted three days. When it ended, they were one being.", quote:'"I am the alpha. There is no omega."', primaryAttribute:'STR', stats: ds('Orc','Worg'), abilities:[{name:'Bear Form',icon:'shield',description:'War bear destruction form',manaCost:30},{name:'Feral Rage',icon:'flame',description:'Blood frenzy +30% ATK',manaCost:25},{name:'Raptor Form',icon:'zap',description:'Shadow hunter stealth',manaCost:30},{name:'Worg Lord',icon:'crown',description:'Alpha predator ascension',manaCost:80}], racialTraits:[{name:'Bloodrage',effect:'+25% damage below 50% HP'},{name:'Warborn',effect:'+10% Critical'}], strengths:['Bloodrage synergizes with feral forms','Crit bonus in all forms','Most aggressive worg'], weaknesses:['No ranged attacks','No healing','Berserker tendencies'], combatStyle:'Melee Shapeshifting Combat', weapons:'Blood Claws, Shadow Fangs, Bone Armor', alignment:'Chaotic Neutral', difficulty:'Expert', flavorText:'His shadow has teeth.' },
+  { id:'orc_mage', name:"Zul'jin the Hexmaster", title:'The Blood Shaman', race:'Orc', className:'Mage', faction:'Legion', factionColor:'#ef4444', rarity:'Rare', portrait:'sprites/entities/units/orc/orc_mage.png', lore:"Orc magic is blood magic, raw and dangerous. Zul'jin channels the life force of fallen enemies into devastating hexes and dark healing, growing stronger with every kill.", backstory:"Born with the gift of blood-sight, Zul'jin was taken by the Legion's war shamans at birth. He learned to weaponize pain itself, turning enemy suffering into fuel for his dark arts.", quote:'"Your blood screams louder than you do."', primaryAttribute:'INT', stats: ds('Orc','Mage'), abilities:[{name:'Mana Shield',icon:'shield',description:'Blood ward barrier',manaCost:0},{name:'Fireball',icon:'flame',description:'Blood fire explosion',manaCost:30},{name:'Heal',icon:'heart',description:'Blood sacrifice healing',manaCost:20},{name:'Lightning Chain',icon:'zap',description:'Chain hex through blood',manaCost:35}], racialTraits:[{name:'Bloodrage',effect:'+25% damage below 50% HP'},{name:'Warborn',effect:'+10% Critical'}], strengths:['Bloodrage boosts spell damage when wounded','Critical hit spells','Dark healing'], weaknesses:['Fragile in melee','Blood magic is unstable','Mana dependent'], combatStyle:'Ranged Magic & Healing', weapons:'Skull Staves, Blood Orbs, Hex Totems', alignment:'Neutral Evil', difficulty:'Advanced', flavorText:'He paints with the colors of agony.' },
+  { id:'orc_ranger', name:'Razak Deadeye', title:'The Trophy Hunter', race:'Orc', className:'Ranger', faction:'Legion', factionColor:'#ef4444', rarity:'Uncommon', portrait:'sprites/entities/units/orc/orc_archer.png', lore:'Razak hunts for glory, not survival. His trophy rack holds the heads of legendary beasts, and his poison-tipped bolts bring down prey that should be impossible to kill.', backstory:'A disgraced warrior who lost his sword arm in battle, Razak reinvented himself as a marksman. His custom war-crossbow fires bolts that can penetrate dragon scale at fifty paces.', quote:'"Every head on my wall was once the strongest in its land."', primaryAttribute:'DEX', stats: ds('Orc','Ranger'), abilities:[{name:'Precision',icon:'crosshair',description:'Predator instinct accuracy',manaCost:0},{name:'Power Shot',icon:'target',description:'Armor-crushing bolt',manaCost:20},{name:'Multi Shot',icon:'split',description:'Spread of poison bolts',manaCost:25},{name:'Rain of Arrows',icon:'cloud-rain',description:'Bolt storm barrage',manaCost:40}], racialTraits:[{name:'Bloodrage',effect:'+25% damage below 50% HP'},{name:'Warborn',effect:'+10% Critical'}], strengths:['Crit bonus stacks with Precision','Bloodrage makes him lethal when wounded','Armor-piercing'], weaknesses:['Low armor','Reckless positioning','No healing abilities'], combatStyle:'Ranged Physical & Stealth', weapons:'War Crossbows, Poison Bolts, Spiked Leather', alignment:'Chaotic Evil', difficulty:'Intermediate', flavorText:'His trophies whisper of things that should not die.' },
+  { id:'undead_warrior', name:'Lord Malachar', title:'The Deathless Knight', race:'Undead', className:'Warrior', faction:'Legion', factionColor:'#ef4444', rarity:'Rare', portrait:'sprites/entities/units/undead/undead_warrior.png', lore:'Once a noble paladin, Malachar was slain and raised by dark necromancy. Now he fights with the skill of his former life but the relentless endurance of undeath, unable to feel pain or fear.', backstory:'Sir Malachar the Pure was the greatest knight of his age until he fell defending a temple. The necromancer who raised him twisted his devotion into dark loyalty. He remembers fragments of who he was and hates what he has become.', quote:'"I cannot die. I have tried."', primaryAttribute:'STR', stats: ds('Undead','Warrior'), abilities:[{name:'Invincibility',icon:'shield',description:'Deathless ward immunity',manaCost:40},{name:'Damage Surge',icon:'zap',description:'Unholy strength +25% ATK',manaCost:25},{name:"Guardian's Aura",icon:'shield-check',description:'Dread aura defense',manaCost:30},{name:'Avatar Form',icon:'crown',description:'Death Knight ascension',manaCost:80}], racialTraits:[{name:'Undying',effect:'+20% HP'},{name:'Fear Aura',effect:'-10% enemy accuracy'}], strengths:['Highest effective HP from Undying bonus','Fear Aura weakens enemies','Cannot be feared'], weaknesses:['Slow','Vulnerable to holy magic','No healing synergies'], combatStyle:'Melee Physical Combat', weapons:'Cursed Blades, Bone Shields, Death Plate', alignment:'Lawful Evil', difficulty:'Intermediate', flavorText:'Death was just the beginning of his war.' },
+  { id:'undead_worg', name:'The Ghoulfather', title:'The Abomination', race:'Undead', className:'Worg', faction:'Legion', factionColor:'#ef4444', rarity:'Legendary', portrait:'sprites/entities/units/undead/undead_paladin.png', lore:"A failed necromantic experiment that merged a warrior's corpse with several beast spirits. The result is an abomination that shifts between grotesque forms, each more terrifying than the last.", backstory:'The Ghoulfather was created when a desperate necromancer tried to bind multiple animal spirits to a single corpse. The spirits fought for dominance, creating an entity that shifts between forms uncontrollably, driven by rage.', quote:'"We... are... HUNGRY."', primaryAttribute:'STR', stats: ds('Undead','Worg'), abilities:[{name:'Bear Form',icon:'shield',description:'Corpse bear horror form',manaCost:30},{name:'Feral Rage',icon:'flame',description:'Undying frenzy +30% ATK',manaCost:25},{name:'Raptor Form',icon:'zap',description:'Ghoul stalker stealth',manaCost:30},{name:'Worg Lord',icon:'crown',description:'Full abomination form',manaCost:80}], racialTraits:[{name:'Undying',effect:'+20% HP'},{name:'Fear Aura',effect:'-10% enemy accuracy'}], strengths:['Undying + Bear Form = massive HP pool','Fear Aura in all forms','Terrifying presence'], weaknesses:['Uncontrollable','Vulnerable to holy','No healing'], combatStyle:'Melee Shapeshifting Combat', weapons:'Bone Claws, Corpse Fangs, Stitched Armor', alignment:'Chaotic Evil', difficulty:'Expert', flavorText:'It remembers being three different things. None of them were kind.' },
+  { id:'undead_mage', name:'Necromancer Vexis', title:'The Soul Harvester', race:'Undead', className:'Mage', faction:'Legion', factionColor:'#ef4444', rarity:'Epic', portrait:'sprites/entities/units/undead/undead_mage.png', lore:'Vexis died as a scholar of the arcane arts and was raised specifically for her magical knowledge. In undeath, her power has grown beyond mortal limits, fueled by harvested souls.', backstory:'In life, Vexis was a renowned healer. The irony is not lost on her, she now commands the very forces of death she once fought against. Her soul spells tear the life essence from enemies.', quote:'"Death is not the end. It is the door to real power."', primaryAttribute:'INT', stats: ds('Undead','Mage'), abilities:[{name:'Mana Shield',icon:'shield',description:'Soul ward barrier',manaCost:0},{name:'Fireball',icon:'flame',description:'Soulfire explosion',manaCost:30},{name:'Heal',icon:'heart',description:'Life drain healing',manaCost:20},{name:'Lightning Chain',icon:'zap',description:'Soul chain through enemies',manaCost:35}], racialTraits:[{name:'Undying',effect:'+20% HP'},{name:'Fear Aura',effect:'-10% enemy accuracy'}], strengths:['Undying makes her surprisingly durable for a mage','Fear Aura helps survival','Soul magic amplification'], weaknesses:['Still fragile to burst damage','Holy magic weakness','Mana dependent'], combatStyle:'Ranged Magic & Healing', weapons:'Bone Staves, Soul Gems, Shadow Robes', alignment:'Neutral Evil', difficulty:'Advanced', flavorText:'She weaves spells from the screams of the fallen.' },
+  { id:'undead_ranger', name:'Shade Whisper', title:'The Phantom Archer', race:'Undead', className:'Ranger', faction:'Legion', factionColor:'#ef4444', rarity:'Uncommon', portrait:'sprites/entities/units/undead/undead_archer.png', lore:'Once the finest scout in the Crusade, Shade Whisper was killed and raised to serve the very forces she once hunted. Her spectral arrows pass through armor as if it were mist.', backstory:'In life she was named Elena Brightarrow, and she was beloved by her comrades. Now she hunts them with the same skill, her phantom arrows guided by the memories of a life she can no longer feel.', quote:'"I remember your face. I remember all their faces."', primaryAttribute:'DEX', stats: ds('Undead','Ranger'), abilities:[{name:'Precision',icon:'crosshair',description:'Spectral sight perfect aim',manaCost:0},{name:'Power Shot',icon:'target',description:'Phase arrow through armor',manaCost:20},{name:'Multi Shot',icon:'split',description:'Spectral arrow volley',manaCost:25},{name:'Rain of Arrows',icon:'cloud-rain',description:'Ghost arrow storm',manaCost:40}], racialTraits:[{name:'Undying',effect:'+20% HP'},{name:'Fear Aura',effect:'-10% enemy accuracy'}], strengths:['Phase arrows ignore some defense','Fear Aura provides safety','Undying survivability'], weaknesses:['Holy magic weakness','Haunted by past','No healing abilities'], combatStyle:'Ranged Physical & Stealth', weapons:'Phantom Bow, Spirit Arrows, Shadow Cloak', alignment:'Neutral Evil', difficulty:'Intermediate', flavorText:'Her arrows carry the weight of a life she can never reclaim.' },
+  { id:'pirate_king', name:'Racalvin the Pirate King', title:'The Scourge of the Grudge Ocean Line', race:'Barbarian', className:'Ranger', faction:'Crusade', factionColor:'#c9a030', rarity:'Legendary', portrait:'sprites/entities/units/barbarian/barbarian_archer.png', lore:'Legend speaks of a pirate so ruthless that even the sea feared him. Racalvin conquered the Grudge Ocean Line with nothing but a stolen ship and a crew of outcasts, building an empire of plunder and freedom.', backstory:"Born as the bastard son of a barbarian chieftain and a merchant's daughter, Racalvin was cast out at birth. He stowed away on a merchant vessel at age eight, mutinied at twelve, and by twenty commanded a fleet of thirty ships. His true name became synonymous with freedom and terror across every port.", quote:'"The sea does not bow. Neither do I."', primaryAttribute:'DEX', stats:(function(){var s=ds('Barbarian','Ranger');return{health:s.health+30,attack:s.attack+5,defense:s.defense,speed:s.speed+5,range:s.range,mana:s.mana}})(), abilities:[{name:'Precision',icon:'crosshair',description:'Sea-born accuracy',manaCost:0},{name:'Power Shot',icon:'target',description:'Cannon-force shot',manaCost:20},{name:'Multi Shot',icon:'split',description:'Broadside volley',manaCost:25},{name:'Storm of Arrows',icon:'crown',description:'Ultimate sea storm devastation',manaCost:50}], racialTraits:[{name:'Rage',effect:'+20% damage below 50% HP'},{name:'Frost Resistance',effect:'+15% cold defense'},{name:'Pirate King',effect:'+10% HP, +25% ATK, +15% SPD'}], strengths:['Highest base stats of any hero','Pirate King bonus on top of racial traits','Fastest hero in the game'], weaknesses:['Secret unlock required','Glass cannon build','No healing abilities'], combatStyle:'Ranged Physical & Stealth', weapons:'Flintlock Pistols, Cutlass, Captain\'s Coat', alignment:'Chaotic Neutral', difficulty:'Expert', flavorText:'Crowns are taken. Thrones are stolen. The sea is earned.' },
+];
+
+HEROES.forEach((hero, idx) => {
+  hero.walletInfo = HERO_WALLET_DATA[idx] || null;
+  hero.cnftMint = HERO_CNFT_MINTS[hero.id] || null;
+});
+
+function gbuxChipHTML(wInfo) {
+  if (wInfo.gbuxLive !== undefined) {
+    const n = wInfo.gbuxLive;
+    const fmt = n === 0 ? '0'
+      : n >= 1_000_000 ? (n / 1_000_000).toFixed(2) + 'M'
+      : n >= 1_000    ? (n / 1_000).toFixed(1) + 'K'
+      : n.toFixed(2);
+    return `<div class="gbux-chip" title="Live GBUX balance: ${n.toLocaleString()}">◈ ${fmt}</div>`;
+  }
+  return `<div class="gbux-chip gbux-loading" title="Fetching GBUX balance…">◈ …</div>`;
+}
+
+function shortWallet(wallet) {
+  if (!wallet) return 'Unassigned';
+  return `${wallet.slice(0, 4)}…${wallet.slice(-4)}`;
+}
+
+function starsHTML(rarity, size) {
+  size = size || 12;
+  const cfg = RARITY_CONFIG[rarity] || RARITY_CONFIG.Common;
+  let html = '';
+  for (let i = 0; i < cfg.stars; i++) {
+    html += `<span class="star-icon" style="width:${size}px;height:${size}px;background:${cfg.color};filter:drop-shadow(0 0 2px ${cfg.color}60)"></span>`;
+  }
+  return html;
+}
+
+function statSVG(type, color) {
+  const icons = {
+    health: '<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>',
+    attack: '<path d="M6.92 5H5l7 7-3.5 3.5 1.42 1.42L13.5 13.5l3 3L19 14l-7-7z"/><path d="M19 3l2 2-2.5 2.5L21 10l-4 4-2.5-2.5L12 14l-1.41-1.41 5.09-5.09L13 5l6-2z"/>',
+    defense: '<path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z"/>',
+    speed: '<path d="M13 2.05v2.02c3.95.49 7 3.85 7 7.93 0 1.45-.39 2.81-1.06 3.98l1.47 1.47C21.44 15.79 22 13.97 22 12c0-5.18-3.95-9.45-9-9.95zM12 19c-3.87 0-7-3.13-7-7 0-3.53 2.61-6.43 6-6.92V3.03C5.06 3.55 1 7.32 1 12c0 6.07 4.93 11 11 11 2.76 0 5.28-1.01 7.22-2.69l-1.44-1.44C16.26 20.16 14.21 21 12 21V19z"/><path d="M7.25 14.15l1.41 1.41L12 12.21V7h-2v4.79l-2.75 2.36z"/>',
+  };
+  return `<svg class="svg-icon" width="11" height="11" viewBox="0 0 24 24" fill="${color}">${icons[type]}</svg>`;
+}
+
+let filteredHeroes = [...HEROES];
+let selectedIndex = -1;
+let currentTab = 'lore';
+
+function applyFilters() {
+  const race = document.getElementById('filter-race').value;
+  const cls = document.getElementById('filter-class').value;
+  const faction = document.getElementById('filter-faction').value;
+  filteredHeroes = HEROES.filter(h => {
+    if (race !== 'All' && h.race !== race) return false;
+    if (cls !== 'All' && h.className !== cls) return false;
+    if (faction !== 'All' && h.faction !== faction) return false;
+    return true;
+  });
+  document.getElementById('count').textContent = filteredHeroes.length;
+  document.getElementById('total').textContent = HEROES.length;
+  renderGrid();
+}
+
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  const noResults = document.getElementById('no-results');
+  if (filteredHeroes.length === 0) {
+    grid.innerHTML = '';
+    noResults.style.display = 'block';
+    return;
+  }
+  noResults.style.display = 'none';
+  grid.innerHTML = filteredHeroes.map((hero, i) => {
+    const fc = FACTION_COLORS[hero.faction] || FACTION_COLORS.Crusade;
+    const pkOverride = hero.id === 'pirate_king' ? '#c9a030' : null;
+    const borderColor = pkOverride || fc.border;
+    const gradient = pkOverride ? 'linear-gradient(135deg, #1a1505 0%, #2a2010 50%, #1a1505 100%)' : fc.gradient;
+    const glow = pkOverride ? 'rgba(201,160,48,0.4)' : fc.glow;
+    return `<div class="card" style="border:2px solid ${borderColor};box-shadow:0 0 20px ${glow},0 4px 20px rgba(0,0,0,0.5);background:${gradient}" onclick="openModal(${i})">
+      <div class="top-line" style="background:linear-gradient(90deg,transparent,${borderColor},transparent)"></div>
+      <div class="card-portrait">
+        <img src="${ASSET_BASE}hero-portraits/${hero.id}.png" alt="${hero.name}" onerror="this.src='${ASSET_BASE}${hero.portrait}'" />
+        <div class="overlay"></div>
+        <div class="card-faction-tag" style="color:${hero.factionColor};border:1px solid ${hero.factionColor}40">${hero.faction}</div>
+        <div class="card-name-area">
+          <div class="card-name">${hero.name}</div>
+          <div class="card-title" style="color:${borderColor}">${hero.title}</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="stars">${starsHTML(hero.rarity)}</div>
+        <div class="stat-bar">
+          <div class="stat">${statSVG('health','#22c55e')}<span style="color:#22c55e">${hero.stats.health}</span></div>
+          <div class="stat">${statSVG('attack','#ef4444')}<span style="color:#ef4444">${hero.stats.attack}</span></div>
+          <div class="stat">${statSVG('defense','#3b82f6')}<span style="color:#3b82f6">${hero.stats.defense}</span></div>
+          <div class="stat">${statSVG('speed','#f59e0b')}<span style="color:#f59e0b">${hero.stats.speed}</span></div>
+        </div>
+        ${hero.walletInfo ? `<div class="wallet-strip">
+          <div class="wallet-pill">
+            <div class="wallet-label">Wallet</div>
+            <div class="wallet-code" title="${hero.walletInfo.wallet}">${shortWallet(hero.walletInfo.wallet)}</div>
+          </div>
+          ${gbuxChipHTML(hero.walletInfo)}
+        </div>
+        <div class="wallet-strip" style="margin-top:4px">
+          <div class="wallet-pill">
+            <div class="wallet-label">cNFT Collection</div>
+            <div class="wallet-code" title="${CNFT_COLLECTION.templateMint}">${shortWallet(CNFT_COLLECTION.templateMint)}</div>
+          </div>
+          ${hero.cnftMint
+            ? `<a href="${CNFT_COLLECTION.xrayBase}${hero.cnftMint}" target="_blank" class="gbux-chip" style="background:rgba(139,92,246,0.08);border-color:rgba(139,92,246,0.22);color:#a78bfa;text-decoration:none;cursor:pointer">XRAY ↗</a>`
+            : `<div class="gbux-chip" style="background:rgba(139,92,246,0.08);border-color:rgba(139,92,246,0.22);color:#a78bfa">GHERO</div>`
+          }
+        </div>` : ''}
+        <div class="card-footer">
+          <span class="card-meta">${hero.race} ${hero.className}</span>
+          <div class="card-abilities">
+            ${hero.abilities.slice(0,4).map(a => {
+              const c = a.manaCost > 0 ? '#a78bfa' : '#4ade80';
+              return `<div class="ability-icon-box" style="background:${borderColor}12;border:1px solid ${borderColor}25" title="${a.name}: ${a.description}${a.manaCost>0?' ('+a.manaCost+' MP)':' (Passive)'}"><img src="${skillSrc(a.icon)}" style="filter:drop-shadow(0 0 2px ${c})" /></div>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="bottom-line" style="background:linear-gradient(90deg,transparent,${borderColor},transparent)"></div>
+    </div>`;
+  }).join('');
+}
+
+function openModal(idx) {
+  selectedIndex = idx;
+  currentTab = 'lore';
+  renderModal();
+  document.getElementById('modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden');
+  document.body.style.overflow = '';
+  selectedIndex = -1;
+}
+
+function navHero(dir) {
+  if (selectedIndex < 0) return;
+  selectedIndex = (selectedIndex + dir + filteredHeroes.length) % filteredHeroes.length;
+  currentTab = 'lore';
+  renderModal();
+}
+
+function setTab(t) {
+  currentTab = t;
+  renderModal();
+}
+
+function renderModal() {
+  const hero = filteredHeroes[selectedIndex];
+  if (!hero) return;
+  const fc = FACTION_COLORS[hero.faction] || FACTION_COLORS.Crusade;
+  const pkOverride = hero.id === 'pirate_king' ? '#c9a030' : null;
+  const borderColor = pkOverride || fc.border;
+  const gradient = pkOverride ? 'linear-gradient(135deg, #0f0d05 0%, #1a1508 50%, #0f0d05 100%)' : fc.gradient;
+  const glow = pkOverride ? 'rgba(201,160,48,0.4)' : fc.glow;
+  const rarityCfg = RARITY_CONFIG[hero.rarity] || RARITY_CONFIG.Common;
+
+  let contentHTML = '';
+  if (currentTab === 'lore') {
+    contentHTML = `
+      <div class="panel"><p style="font-size:12px;font-style:italic;color:${borderColor};line-height:1.6">${hero.quote}</p></div>
+      <div><div class="panel-label">Lore</div><p style="font-size:12px;color:#ccc;line-height:1.6">${hero.lore}</p></div>
+      <div><div class="panel-label">Backstory</div><p style="font-size:12px;color:#aaa;line-height:1.6">${hero.backstory}</p></div>
+      <div class="panel">
+        <div class="panel-label">Racial Traits</div>
+        ${hero.racialTraits.map(t => `<div class="trait-row"><span class="trait-name">${t.name}</span><span class="trait-effect" style="color:${borderColor}">${t.effect}</span></div>`).join('')}
+      </div>
+      <div style="font-size:10px;font-style:italic;text-align:center;padding-top:8px;color:#666">${hero.flavorText}</div>
+    `;
+  } else if (currentTab === 'stats') {
+    const statList = [
+      { label:'Health', value:hero.stats.health, type:'health', color:'#22c55e' },
+      { label:'Attack', value:hero.stats.attack, type:'attack', color:'#ef4444' },
+      { label:'Defense', value:hero.stats.defense, type:'defense', color:'#3b82f6' },
+      { label:'Speed', value:hero.stats.speed, type:'speed', color:'#f59e0b' },
+      { label:'Range', value:hero.stats.range, type:'attack', color:'#06b6d4' },
+      { label:'Mana', value:hero.stats.mana, type:'speed', color:'#8b5cf6' },
+    ];
+    contentHTML = `
+      <div class="stat-grid">
+        ${statList.map(s => `<div class="stat-box"><svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="${s.color}">${s.type==='health'?'<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>':s.type==='attack'?'<path d="M6.92 5H5l7 7-3.5 3.5 1.42 1.42L13.5 13.5l3 3L19 14l-7-7z"/><path d="M19 3l2 2-2.5 2.5L21 10l-4 4-2.5-2.5L12 14l-1.41-1.41 5.09-5.09L13 5l6-2z"/>':s.type==='defense'?'<path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z"/>':'<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/>'}</svg><span class="stat-val" style="color:${s.color}">${s.value}</span><span class="stat-label">${s.label}</span></div>`).join('')}
+      </div>
+      ${hero.walletInfo ? `<div class="panel">
+        <div class="panel-label">Wallet & GBUX</div>
+        <div class="combat-row"><span class="label">Wallet</span><a href="${CNFT_COLLECTION.xrayBase}${hero.walletInfo.wallet}" target="_blank" style="font-family:monospace;font-size:11px;color:#ddd;text-decoration:none">${shortWallet(hero.walletInfo.wallet)} ↗</a></div>
+        <div class="combat-row"><span class="label">SOL Balance</span><span class="value" style="color:#14f195;font-weight:700">${hero.walletInfo.solLive !== undefined ? hero.walletInfo.solLive.toFixed(4) + ' SOL' : '…'}</span></div>
+        <div class="combat-row"><span class="label">GBUX Balance</span><span class="value" style="color:${borderColor};font-weight:700">${hero.walletInfo.gbuxLive !== undefined ? hero.walletInfo.gbuxLive.toLocaleString(undefined, {maximumFractionDigits:2}) : '…'}</span></div>
+        <div class="combat-row"><span class="label">SOL Allocated</span><span class="value">${hero.walletInfo.gbuxTarget.toFixed(2)} SOL</span></div>
+        <div class="combat-row"><span class="label">Token Account</span><span class="value" style="font-family:monospace;font-size:11px">${shortWallet(hero.walletInfo.gbuxAta)}</span></div>
+        <div style="height:1px;background:rgba(255,255,255,0.06);margin:8px 0"></div>
+        <div class="panel-label" style="margin-top:4px">cNFT Collection</div>
+        <div class="combat-row"><span class="label">Collection</span><span class="value" style="color:#a78bfa;font-weight:700">${CNFT_COLLECTION.name}</span></div>
+        <div class="combat-row"><span class="label">Symbol</span><span class="value">${CNFT_COLLECTION.symbol}</span></div>
+        <div class="combat-row"><span class="label">Template Mint</span><span class="value" style="font-family:monospace;font-size:11px">${shortWallet(CNFT_COLLECTION.templateMint)}</span></div>
+        <div class="combat-row"><span class="label">Collection ID</span><span class="value" style="font-family:monospace;font-size:11px">${CNFT_COLLECTION.collectionId.slice(0,8)}…</span></div>
+        ${hero.cnftMint ? `<div class="combat-row"><span class="label">cNFT Mint</span><a href="${CNFT_COLLECTION.xrayBase}${hero.cnftMint}" target="_blank" style="font-family:monospace;font-size:11px;color:#a78bfa">${shortWallet(hero.cnftMint)} ↗</a></div>` : `<div class="combat-row"><span class="label">cNFT Mint</span><span class="value" style="color:#666">Pending</span></div>`}
+      </div>` : ''}
+      <div>
+        <div class="panel-label">Combat Profile</div>
+        <div class="combat-row"><span class="label">Combat Style</span><span class="value">${hero.combatStyle}</span></div>
+        <div class="combat-row"><span class="label">Weapons</span><span class="value" style="text-align:right;max-width:180px">${hero.weapons}</span></div>
+        <div class="combat-row"><span class="label">Difficulty</span><span style="color:${hero.difficulty==='Expert'?'#ef4444':hero.difficulty==='Advanced'?'#f59e0b':hero.difficulty==='Intermediate'?'#3b82f6':'#22c55e'}">${hero.difficulty}</span></div>
+        <div class="combat-row"><span class="label">Primary Attr</span><span style="color:${borderColor};font-weight:700">${hero.primaryAttribute}</span></div>
+        <div class="combat-row"><span class="label">Rarity</span><span>${starsHTML(hero.rarity, 14)}</span></div>
+      </div>
+      <div class="sw-grid">
+        <div>
+          <div class="panel-label" style="color:#22c55e">Strengths</div>
+          <ul class="sw-list">${hero.strengths.map(s => `<li><span style="color:#22c55e">+</span> ${s}</li>`).join('')}</ul>
+        </div>
+        <div>
+          <div class="panel-label" style="color:#ef4444">Weaknesses</div>
+          <ul class="sw-list">${hero.weaknesses.map(w => `<li><span style="color:#ef4444">-</span> ${w}</li>`).join('')}</ul>
+        </div>
+      </div>
+    `;
+  } else if (currentTab === 'skills') {
+    contentHTML = `
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${hero.abilities.map(a => {
+          const costHTML = a.manaCost > 0
+            ? `<span class="ability-cost" style="background:rgba(139,92,246,0.15);color:#a78bfa">${a.manaCost} MP</span>`
+            : `<span class="ability-cost" style="background:rgba(34,197,94,0.15);color:#4ade80">Passive</span>`;
+          return `<div class="ability-row">
+            <div class="ability-icon-lg" style="background:${borderColor}20;border:1px solid ${borderColor}40">
+              <img src="${skillSrc(a.icon)}" style="filter:drop-shadow(0 0 2px ${borderColor})" />
+            </div>
+            <div class="ability-info">
+              <div class="ability-header"><span class="ability-name">${a.name}</span>${costHTML}</div>
+              <div class="ability-desc">${a.description}</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="panel">
+        <div class="panel-label">Racial Traits</div>
+        ${hero.racialTraits.map(t => `<div class="trait-row"><span class="trait-name" style="font-size:12px">${t.name}</span><span class="trait-effect" style="color:${borderColor}">${t.effect}</span></div>`).join('')}
+      </div>
+    `;
+  }
+
+  document.getElementById('modal-inner').innerHTML = `
+    <div class="modal-card" style="border:2px solid ${borderColor};box-shadow:0 0 40px ${glow},0 8px 40px rgba(0,0,0,0.6);background:${gradient}">
+      <div class="modal-portrait">
+        <img src="${ASSET_BASE}hero-portraits/${hero.id}.png" alt="${hero.name}" onerror="this.src='${ASSET_BASE}${hero.portrait}'" />
+        <div class="gradient-bottom"></div>
+        <div class="gradient-right"></div>
+        <div class="modal-tags">
+          <div class="modal-tag" style="border:1px solid ${rarityCfg.color}40"><span style="display:flex;gap:3px">${starsHTML(hero.rarity, 13)}</span></div>
+          <span class="modal-tag" style="color:${hero.factionColor};border:1px solid ${hero.factionColor}50">${hero.faction}</span>
+        </div>
+        <div class="modal-name-area">
+          <div class="modal-name">${hero.name}</div>
+          <div class="modal-title-text" style="color:${borderColor}">${hero.title}</div>
+          <div class="modal-race-info">
+            <span style="color:#ccc">${hero.race}</span>
+            <span style="color:#888">/</span>
+            <span style="color:#ccc">${hero.className}</span>
+            <span style="color:#888">/</span>
+            <span style="color:${borderColor};font-weight:700">${hero.alignment}</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-right">
+        <div class="modal-tabs">
+          ${['lore','stats','skills'].map(t => `<button class="modal-tab ${currentTab===t?'active':''}" style="color:${currentTab===t?borderColor:'#888'};border-bottom-color:${currentTab===t?borderColor:'transparent'}" onclick="setTab('${t}')">${t}</button>`).join('')}
+        </div>
+        <div class="modal-content">${contentHTML}</div>
+      </div>
+    </div>
+  `;
+}
+
+document.addEventListener('keydown', e => {
+  if (selectedIndex < 0) return;
+  if (e.key === 'Escape') closeModal();
+  if (e.key === 'ArrowLeft') navHero(-1);
+  if (e.key === 'ArrowRight') navHero(1);
+});
+
+applyFilters();
+
+// ── Live SOL + GBUX balance loader ────────────────────────────────────────────
+const RPC = 'https://api.mainnet-beta.solana.com';
+
+async function loadSolBalances() {
+  for (let i = 0; i < HERO_WALLET_DATA.length; i++) {
+    try {
+      const res = await fetch(RPC, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: i, method: 'getBalance', params: [HERO_WALLET_DATA[i].wallet] })
+      });
+      const data = await res.json();
+      HERO_WALLET_DATA[i].solLive = (data?.result?.value ?? 0) / 1e9;
+    } catch (e) {
+      HERO_WALLET_DATA[i].solLive = 0;
+    }
+    if (i % 5 === 4 || i === HERO_WALLET_DATA.length - 1) renderGrid();
+    if (i % 5 === 4) await new Promise(r => setTimeout(r, 600));
+  }
+}
+
+async function loadGbuxBalances() {
+  for (let i = 0; i < HERO_WALLET_DATA.length; i++) {
+    const ata = HERO_WALLET_DATA[i].gbuxAta;
+    try {
+      const res = await fetch(RPC, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: i, method: 'getTokenAccountBalance', params: [ata] })
+      });
+      const data = await res.json();
+      const val = data?.result?.value;
+      HERO_WALLET_DATA[i].gbuxLive = val ? (val.uiAmount ?? 0) : 0;
+    } catch (e) {
+      HERO_WALLET_DATA[i].gbuxLive = 0;
+    }
+    if (i % 5 === 4 || i === HERO_WALLET_DATA.length - 1) renderGrid();
+    if (i % 5 === 4) await new Promise(r => setTimeout(r, 800));
+  }
+}
+
+// Fetch SOL first (fast), then GBUX
+loadSolBalances().then(() => loadGbuxBalances());
+</script>
+</body>
+</html>

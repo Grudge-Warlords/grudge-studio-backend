@@ -1,0 +1,149 @@
+# ═══════════════════════════════════════════════════════════════
+# Grudge Studio — Replica Node (Windows VPS)
+# Usage: docker compose -f docker-compose.replica.yml up -d
+#
+# Runs on Node 2 (Windows VPS / 74.208.171.62)
+# Connects to Node 1 (Linux VPS / 74.208.155.229) as PRIMARY
+#
+# Services:
+#   grudge-bridge  — Replica bridge: heartbeat, validator, Legion GRD-17
+#   uptime-kuma    — External health monitoring of all *.grudge-studio.com
+#   redis          — Local cache for bridge operations
+# ═══════════════════════════════════════════════════════════════
+
+version: "3.9"
+
+networks:
+  replica-net:
+    driver: bridge
+
+volumes:
+  kuma-data:
+  redis-data:
+
+services:
+
+  # ─────────────────────────────────────────────
+  # GRUDGE BRIDGE — Replica Node
+  # Heartbeats to primary, validates DB state hashes,
+  # relays Legion GRD-17 messages, verifies R2 backups
+  # ─────────────────────────────────────────────
+  grudge-bridge:
+    build:
+      context: ./services/grudge-bridge
+      dockerfile: Dockerfile
+    container_name: grudge-bridge-replica
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      NODE_ROLE: replica
+      NODE_NAME: win-vps
+      BRIDGE_API_KEY: ${BRIDGE_API_KEY}
+      # MySQL on PRIMARY (read-only access for validator hashing)
+      MYSQL_HOST: ${PRIMARY_MYSQL_HOST:-74.208.155.229}
+      MYSQL_PORT: ${PRIMARY_MYSQL_PORT:-3306}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-grudge_game}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_CONTAINER: ""
+      # R2 for backup verification
+      R2_ENDPOINT: ${R2_ENDPOINT}
+      R2_BUCKET: ${R2_BUCKET:-grudge-assets}
+      R2_KEY: ${R2_KEY}
+      R2_SECRET: ${R2_SECRET}
+      # Peer: primary Linux VPS
+      PEER_NODES: "pub:74.208.155.229:4000"
+      # Discord alerts
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      # Validator
+      VALIDATOR_ENABLED: "true"
+      VALIDATOR_CRON: "*/5 * * * *"
+      VALIDATOR_TABLES: "users,characters,gold_transactions,island_state"
+      # Legion AI — GRD-17 inter-node communication
+      LEGION_ENABLED: "true"
+      GRD17_HMAC_SECRET: ${GRD17_HMAC_SECRET}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_AGENT_URL: ""
+      LEGION_MAX_INBOX: "1000"
+      LEGION_MSG_TTL: "3600"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - replica-net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ─────────────────────────────────────────────
+  # UPTIME KUMA — External Monitoring
+  # Monitors all *.grudge-studio.com endpoints
+  # from OUTSIDE the primary VPS (true external check)
+  # Dashboard: http://74.208.171.62:3001
+  # ─────────────────────────────────────────────
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma-external
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - kuma-data:/app/data
+    networks:
+      - replica-net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ─────────────────────────────────────────────
+  # REDIS — Local Cache for Bridge
+  # ─────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: grudge-redis-replica
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 64mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - replica-net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"

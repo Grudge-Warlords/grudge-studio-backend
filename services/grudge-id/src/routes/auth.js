@@ -7,7 +7,7 @@ const bcrypt = require('bcryptjs');
 const axios = require('axios');
 const { getDB } = require('../db');
 const { verifyTurnstile } = require('../middleware/turnstile');
-const { isAllowedRedirect, DEFAULT_AUTH_REDIRECT } = require('../../../shared/cors');
+const { isAllowedRedirect, DEFAULT_AUTH_REDIRECT } = require('../../shared/cors');
 
 const JWT_SECRET         = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN     = process.env.JWT_EXPIRES_IN || '7d';
@@ -31,7 +31,19 @@ function decodeOAuthState(state) {
   return DEFAULT_AUTH_REDIRECT;
 }
 
-// ── SSO cookie helper ─────────────────────────
+// ── Discord webhook helper (fire-and-forget) ───────────────
+function fireDiscordWebhook(payload) {
+  const url = process.env.DISCORD_SYSTEM_WEBHOOK_TOKEN;
+  if (!url || !url.startsWith('https://discord.com')) return;
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => {}); // never throw
+}
+
+// ── SSO cookie helper ─────────────────
 const SSO_COOKIE_NAME = 'grudge_sso';
 const SSO_COOKIE_OPTS = {
   httpOnly: true,
@@ -152,7 +164,9 @@ async function getOrCreateUser(db, identityField, identityValue, extraFields = {
   );
 
   [rows] = await db.query('SELECT * FROM users WHERE grudge_id = ? LIMIT 1', [grudge_id]);
-  return rows[0];
+  const newUser = rows[0];
+  if (newUser) newUser._isNew = true;
+  return newUser;
 }
 
 // ── POST /auth/wallet ─────────────────────────
@@ -293,6 +307,22 @@ router.get('/discord/callback', async (req, res, next) => {
     const token = issueToken(user);
     setSsoCookie(res, token);
 
+    // Notify Discord on new OAuth account
+    if (user._isNew) {
+      fireDiscordWebhook({
+        embeds: [{
+          title: '\uD83C\uDD95 New Account via Discord OAuth',
+          color: 0x5865f2,
+          fields: [
+            { name: 'Username', value: user.username || discord_tag, inline: true },
+            { name: 'Discord', value: discord_tag, inline: true },
+            { name: 'Method', value: 'Discord', inline: true },
+          ],
+          timestamp: new Date().toISOString(),
+        }],
+      });
+    }
+
     // Redirect to the calling app (or default) with token
     const sep = appRedirect.includes('?') ? '&' : '?';
     res.redirect(`${appRedirect}${sep}token=${token}&grudge_id=${user.grudge_id}&provider=discord`);
@@ -352,6 +382,15 @@ router.get('/user', async (req, res, next) => {
       faction: user.faction || null,
       race: user.race || null,
       class: user.class || null,
+      // Connected auth providers
+      discordId:       user.discord_id      || null,
+      discordTag:      user.discord_tag     || null,
+      googleId:        user.google_id       || null,
+      githubId:        user.github_id       || null,
+      githubUsername:  user.github_username || null,
+      puterUuid:       user.puter_uuid      || null,
+      hasPassword:     !!(user.password_hash && user.password_hash !== 'guest'),
+      hasPhone:        !!user.phone,
     });
   } catch (err) { next(err); }
 });
@@ -528,6 +567,20 @@ router.post('/register', verifyTurnstile, async (req, res, next) => {
     const token = issueToken(user);
     setSsoCookie(res, token);
 
+    // Notify Discord on new account
+    fireDiscordWebhook({
+      embeds: [{
+        title: '🆕 New Account Registered',
+        color: 0x00bfff,
+        fields: [
+          { name: 'Username', value: user.username, inline: true },
+          { name: 'Grudge ID', value: `\`${user.grudge_id}\``, inline: true },
+          { name: 'Method', value: 'Password', inline: true },
+        ],
+        timestamp: new Date().toISOString(),
+      }],
+    });
+
     res.status(201).json({
       success: true,
       token,
@@ -552,8 +605,85 @@ router.post('/register', verifyTurnstile, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── POST /auth/guest ──────────────────────────
-router.post('/guest', async (req, res, next) => {
+// ── POST /auth/forgot-password ───────────────────────
+// Always returns 200 to prevent email enumeration.
+router.post('/forgot-password', async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email required' });
+
+    const db = getDB();
+    const [[user]] = await db.query(
+      'SELECT grudge_id, username, email FROM users WHERE email = ? AND email IS NOT NULL LIMIT 1',
+      [email.toLowerCase().trim()]
+    );
+
+    // Always respond the same way — never reveal whether email exists
+    const OK = { ok: true, message: 'If that email is registered, a reset link has been sent.' };
+    if (!user) return res.json(OK);
+
+    const token   = require('crypto').randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await db.query(
+      'UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE grudge_id = ?',
+      [token, expires, user.grudge_id]
+    );
+
+    const resetUrl = `https://id.grudge-studio.com/auth/reset-password?token=${token}`;
+    const { sendEmail } = require('../../../shared/email');
+    await sendEmail({
+      to: user.email,
+      subject: 'Reset your Grudge Studio password',
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:auto;">
+          <h2 style="color:#c8a84b;">&#9876;&#65039; Grudge Studio</h2>
+          <p>Hi <strong>${user.username}</strong>,</p>
+          <p>We received a request to reset your password. Click the link below — it expires in <strong>1 hour</strong>.</p>
+          <a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#c8a84b;color:#000;text-decoration:none;border-radius:6px;font-weight:bold;margin:16px 0;">Reset Password</a>
+          <p style="font-size:12px;color:#888;">If you didn&#39;t request this, ignore this email. Your password won&#39;t change.</p>
+          <hr style="border-color:#333;"/>
+          <p style="font-size:11px;color:#666;">Grudge Studio &mdash; grudge-studio.com</p>
+        </div>
+      `,
+    });
+
+    res.json(OK);
+  } catch (err) { next(err); }
+});
+
+// ── POST /auth/reset-password ──────────────────────
+router.post('/reset-password', async (req, res, next) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password)
+      return res.status(400).json({ error: 'token and password required' });
+    if (password.length < 4)
+      return res.status(400).json({ error: 'Password must be at least 4 characters' });
+
+    const db = getDB();
+    const [[user]] = await db.query(
+      'SELECT grudge_id, reset_token_expires FROM users WHERE reset_token = ? LIMIT 1',
+      [token]
+    );
+
+    if (!user)
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    if (new Date(user.reset_token_expires) < new Date())
+      return res.status(400).json({ error: 'Reset token has expired — please request a new one' });
+
+    const hash = await bcrypt.hash(password, 10);
+    await db.query(
+      'UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE grudge_id = ?',
+      [hash, user.grudge_id]
+    );
+
+    res.json({ ok: true, message: 'Password updated. You can now log in with your new password.' });
+  } catch (err) { next(err); }
+});
+
+// ── POST /auth/guest ───────────────────────────────
+router.post('/guest',
   try {
     const { deviceId } = req.body;
     if (!deviceId) return res.status(400).json({ error: 'Device ID required' });
@@ -936,6 +1066,7 @@ router.post('/github/exchange', async (req, res, next) => {
 
     const db = getDB();
     const ghIdStr = String(gh.id);
+    const ghUsername = gh.login || null;
 
     let [rows] = await db.query('SELECT * FROM users WHERE github_id = ? LIMIT 1', [ghIdStr]);
     let user = rows[0];
@@ -945,15 +1076,15 @@ router.post('/github/exchange', async (req, res, next) => {
       [rows] = await db.query('SELECT * FROM users WHERE email = ? LIMIT 1', [primaryEmail]);
       user = rows[0];
       if (user) {
-        await db.query('UPDATE users SET github_id = ? WHERE grudge_id = ?', [ghIdStr, user.grudge_id]).catch(() => {});
+        await db.query('UPDATE users SET github_id = ?, github_username = ? WHERE grudge_id = ?', [ghIdStr, ghUsername, user.grudge_id]).catch(() => {});
       }
     }
 
     if (user) {
       if (user.is_banned) return res.status(403).json({ error: user.ban_reason || 'Account banned' });
       await db.query(
-        'UPDATE users SET last_login = NOW(), avatar_url = COALESCE(avatar_url, ?) WHERE grudge_id = ?',
-        [gh.avatar_url || null, user.grudge_id]
+        'UPDATE users SET last_login = NOW(), avatar_url = COALESCE(avatar_url, ?), github_username = COALESCE(github_username, ?) WHERE grudge_id = ?',
+        [gh.avatar_url || null, ghUsername, user.grudge_id]
       );
     } else {
       isNewUser = true;
@@ -1135,6 +1266,7 @@ router.get('/github/callback', async (req, res, next) => {
 
     const db = getDB();
     const ghIdStr = String(gh.id);
+    const ghUsername2 = gh.login || null;
 
     let [rows] = await db.query('SELECT * FROM users WHERE github_id = ? LIMIT 1', [ghIdStr]);
     let user = rows[0];
@@ -1142,14 +1274,14 @@ router.get('/github/callback', async (req, res, next) => {
     if (!user && primaryEmail) {
       [rows] = await db.query('SELECT * FROM users WHERE email = ? LIMIT 1', [primaryEmail]);
       user = rows[0];
-      if (user) await db.query('UPDATE users SET github_id = ? WHERE grudge_id = ?', [ghIdStr, user.grudge_id]).catch(() => {});
+      if (user) await db.query('UPDATE users SET github_id = ?, github_username = ? WHERE grudge_id = ?', [ghIdStr, ghUsername2, user.grudge_id]).catch(() => {});
     }
 
     if (user) {
       if (user.is_banned) return res.status(403).json({ error: user.ban_reason || 'Account banned' });
       await db.query(
-        'UPDATE users SET last_login = NOW(), avatar_url = COALESCE(avatar_url, ?) WHERE grudge_id = ?',
-        [gh.avatar_url || null, user.grudge_id]
+        'UPDATE users SET last_login = NOW(), avatar_url = COALESCE(avatar_url, ?), github_username = COALESCE(github_username, ?) WHERE grudge_id = ?',
+        [gh.avatar_url || null, ghUsername2, user.grudge_id]
       );
     } else {
       user = await getOrCreateUser(db, 'github_id', ghIdStr, {
@@ -1252,7 +1384,7 @@ router.post('/phone-verify', async (req, res, next) => {
 // Cross-app SSO: reads grudge_sso cookie, redirects with token if valid
 router.get('/sso-check', (req, res) => {
   const returnUrl = req.query.return;
-  if (!returnUrl || !isAllowedOrigin(returnUrl)) {
+  if (!returnUrl || !isAllowedRedirect(returnUrl)) {
     return res.status(400).json({ error: 'Invalid or missing return URL' });
   }
 
