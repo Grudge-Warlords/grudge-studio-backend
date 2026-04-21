@@ -10,6 +10,14 @@
 *.cert
 id_rsa*
 id_ed25519*
+.coolify-token
+*.token
+
+# ─── BACKUP / TEMP FILES ─────────────────────────────────
+*.bak
+*.bak.*
+*.yml.bak.*
+-w
 
 # ─── DEPENDENCIES ─────────────────────────────────────────
 node_modules/
