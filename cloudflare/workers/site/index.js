@@ -944,9 +944,9 @@ function handlePage(env) {
       <a href="https://star-way-gruda-web-client.vercel.app" target="_blank">Launch →</a>
     </div>
     <div class="tool-card">
-      <h3>🏗️ GDevelop Assistant</h3>
+      <h3>🏗️ grudgeDot Assistant</h3>
       <p>The development editor built in Grudge Studio — visual game creation with AI assistance.</p>
-      <a href="https://gdevelop-assistant-grudgenexus.vercel.app" target="_blank">Open editor →</a>
+      <a href="https://grudgedot-launcher-grudgenexus.vercel.app" target="_blank">Open editor →</a>
     </div>
     <div class="tool-card">
       <h3>🏴 Grudge Factions</h3>

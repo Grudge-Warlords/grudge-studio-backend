@@ -42,9 +42,9 @@ http:
           - "https://www.grudge-studio.com"
           # Dashboard
           - "https://dash.grudge-studio.com"
-          # GDevelop Assistant (primary hub)
-          - "https://gdevelop-assistant.vercel.app"
-          - "https://gdevelop-assistant-a785pw9e2-grudgenexus.vercel.app"
+          # grudgeDot Assistant (primary hub)
+          - "https://grudgedot-launcher.vercel.app"
+          - "https://grudgedot-launcher-a785pw9e2-grudgenexus.vercel.app"
           # Dungeon Crawler Quest
           - "https://dungeon-crawler-quest.vercel.app"
           # StarWay GRUDA

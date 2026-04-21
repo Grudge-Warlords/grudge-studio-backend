@@ -1,6 +1,6 @@
 const TARGETS = {
   'wcs.grudge-studio.com':   'https://gruda-wars.vercel.app',
-  'dev.grudge-studio.com':   'https://gdevelop-assistant.vercel.app',
+  'dev.grudge-studio.com':   'https://grudgedot-launcher.vercel.app',
   'apps.grudge-studio.com':  'https://grudge-platform.vercel.app',
   'dcq.grudge-studio.com':   'https://dungeon-crawler-quest.vercel.app',
   'armada.grudge-studio.com':'https://grim-armada-web.vercel.app',

@@ -711,7 +711,7 @@ All frontends authenticate via `id.grudge-studio.com` and call `api.grudge-studi
 - `grudge-platform.vercel.app` / `grudgeplatform.io` — Proxies auth to `id.grudge-studio.com`, game data to `api.grudge-studio.com` (PR #57, March 2026)
 - `grudgewarlords.com` (= `warlord-crafting-suite.vercel.app`) — Direct VPS calls
 - `warlord-crafting-suite.vercel.app` — Direct VPS calls
-- `gdevelop-assistant.vercel.app` — Direct VPS calls
+- `grudgedot-launcher.vercel.app` — Direct VPS calls
 - `grudge-engine-web.vercel.app` — Uses VPS GrudgeAPI.js
 - `gruda-wars.vercel.app` — Uses VPS backend
 - `starwaygruda-webclient-as2n.vercel.app` — Uses VPS backend
@@ -743,11 +743,11 @@ These old URLs have been **completely removed** from every repo's source code:
 - `gruda-legion-production.up.railway.app` → **DEAD**, all refs replaced with `api.grudge-studio.com`
 - `grudge-crafting.replit.app` → **DEAD**, all refs replaced with `api.grudge-studio.com`
 
-**Repos cleaned:** grudge-platform, grudge-studio, grudachain, GDevelopAssistant, Warlord-Crafting-Suite
+**Repos cleaned:** grudge-platform, grudge-studio, grudachain, grudgedot-launcher, Warlord-Crafting-Suite
 
 ### CORS_ORIGINS (current — docker-compose.yml)
 ```
-https://grudgewarlords.com,https://www.grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudgeplatform.com,https://www.grudgeplatform.com,https://grudgeplatform.io,https://www.grudgeplatform.io,https://play.grudgeplatform.io,https://grudachain.grudgestudio.com,https://grudachain-rho.vercel.app,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://gruda-wars.vercel.app,https://grudge-engine-web.vercel.app,https://starwaygruda-webclient-as2n.vercel.app,https://grim-armada-web.vercel.app,https://grudge-angeler.vercel.app,https://grudge-rts.vercel.app,https://grudge-studio-dash.vercel.app,https://nexus-nemesis-game.vercel.app,https://grudge-pvp-server.vercel.app,https://grudge-origins.vercel.app,https://app.puter.com,https://molochdagod.github.io
+https://grudgewarlords.com,https://www.grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudgeplatform.com,https://www.grudgeplatform.com,https://grudgeplatform.io,https://www.grudgeplatform.io,https://play.grudgeplatform.io,https://grudachain.grudgestudio.com,https://grudachain-rho.vercel.app,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://grudgedot-launcher.vercel.app,https://gruda-wars.vercel.app,https://grudge-engine-web.vercel.app,https://starwaygruda-webclient-as2n.vercel.app,https://grim-armada-web.vercel.app,https://grudge-angeler.vercel.app,https://grudge-rts.vercel.app,https://grudge-studio-dash.vercel.app,https://nexus-nemesis-game.vercel.app,https://grudge-pvp-server.vercel.app,https://grudge-origins.vercel.app,https://app.puter.com,https://molochdagod.github.io
 ```
 
 ---
@@ -765,5 +765,5 @@ https://grudgewarlords.com,https://www.grudgewarlords.com,https://grudge-studio.
 | ObjectStore | https://molochdagod.github.io/ObjectStore |
 | Coolify Docs (SSH) | https://coolify.io/docs/knowledge-base/server/openssh |
 | Warlord Crafting Suite | https://warlord-crafting-suite.vercel.app |
-| GDevelop Assistant | https://gdevelop-assistant.vercel.app |
+| grudgeDot Assistant | https://grudgedot-launcher.vercel.app |
 | Grudge Warlords Game | https://grudgewarlords.com |

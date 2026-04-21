@@ -5,7 +5,7 @@ Centralized AI gateway for all Grudge Studio apps at `ai.grudge-studio.com`.
 ## Architecture
 
 ```
-Grudge Apps (GDevelop, WCS, Engine, etc.)
+Grudge Apps (grudgeDot, WCS, Engine, etc.)
     │
     └── ai.grudge-studio.com (Cloudflare Worker)
             │
@@ -115,7 +115,7 @@ curl -X POST https://ai.grudge-studio.com/v1/chat \
   -d '{"message": "Hello from Grudge Studio"}'
 ```
 
-## Usage from GDevelop Assistant
+## Usage from grudgeDot Assistant
 
 Set in `.env`:
 

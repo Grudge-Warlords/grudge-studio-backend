@@ -74,7 +74,7 @@ All require JWT auth via shared/auth.js:
 | App | URL | Rewrites to |
 |-----|-----|------------|
 | Grudge Warlords (Web Engine 1) | grudgewarlords.com | /api/game/* → api.grudge-studio.com |
-| GDevelop Assistant | gdevelop-assistant.vercel.app | Direct proxy in server/grudgeAuth.ts |
+| grudgeDot Assistant | grudgedot-launcher.vercel.app | Direct proxy in server/grudgeAuth.ts |
 | Grudge Engine Web (Web Engine 2) | grudge-engine-web.vercel.app | Direct fetch to api.grudge-studio.com |
 | Dashboard | dash.grudge-studio.com | Direct |
 

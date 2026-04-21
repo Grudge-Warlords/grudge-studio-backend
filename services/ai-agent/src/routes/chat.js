@@ -1,7 +1,7 @@
 /**
  * Generic AI Chat — /ai/chat
  * Accepts any chat request, injects Grudge game context, returns AI response.
- * Used by: game clients, GDevelop editor, client portal, admin tools
+ * Used by: game clients, grudgeDot editor, client portal, admin tools
  *
  * POST /ai/chat
  * Body: { message: string, context?: string, provider?: string, history?: Array }

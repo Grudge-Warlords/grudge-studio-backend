@@ -33,7 +33,7 @@ const SOURCES = [
   { src: `${DESKTOP}/grudge-wars/public/heroes`,       prefix: 'heroes',             category: 'portrait',   tags: ['2d','hero','portrait'],        exts: ['.png','.jpg'] },
   { src: `${DESKTOP}/grim-armada-web/public/models`,   prefix: 'models/ships',       category: 'model3d',    tags: ['3d','ship','armada'],          exts: ['.glb','.fbx','.gltf'] },
   { src: `${DESKTOP}/StarWayGRUDA-WebClient/public`,   prefix: 'models/starway',     category: 'model3d',    tags: ['3d','starway','space'],        exts: ['.glb','.fbx','.gltf'] },
-  { src: `${DESKTOP}/GDevelopAssistant/client/public`, prefix: 'models/dev',         category: 'model3d',    tags: ['3d','dev','editor'],           exts: ['.glb'] },
+  { src: `${DESKTOP}/grudgedot-launcher/client/public`, prefix: 'models/dev',         category: 'model3d',    tags: ['3d','dev','editor'],           exts: ['.glb'] },
   { src: `${DESKTOP}/grudge-wars/public/audio`,        prefix: 'audio',              category: 'audio',      tags: ['audio','sfx','music'],         exts: ['.mp3','.ogg','.wav'] },
 ];
 

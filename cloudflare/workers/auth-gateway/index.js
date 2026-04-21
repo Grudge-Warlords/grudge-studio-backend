@@ -62,7 +62,7 @@ const ALLOWED_ORIGINS = new Set([
   'https://grudge-platform.vercel.app',
   'https://grudachain-rho.vercel.app',
   'https://warlord-crafting-suite.vercel.app',
-  'https://gdevelop-assistant.vercel.app',
+  'https://grudgedot-launcher.vercel.app',
   'https://gruda-wars.vercel.app',
   'https://grudge-engine-web.vercel.app',
   'https://starwaygruda-webclient-as2n.vercel.app',

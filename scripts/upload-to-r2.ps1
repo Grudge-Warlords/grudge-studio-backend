@@ -21,7 +21,7 @@ $SOURCES = @{
     audio       = @{ src="$DESKTOP\grudge-wars\public\audio";        prefix="audio";             exts=@("*.mp3","*.ogg","*.wav") }
     ships       = @{ src="$DESKTOP\grim-armada-web\public\models";   prefix="models/ships";      exts=@("*.glb","*.fbx","*.gltf") }
     starway     = @{ src="$DESKTOP\StarWayGRUDA-WebClient\public";   prefix="models/starway";    exts=@("*.glb","*.fbx","*.gltf") }
-    dev_models  = @{ src="$DESKTOP\GDevelopAssistant\client\public"; prefix="models/dev";        exts=@("*.glb") }
+    dev_models  = @{ src="$DESKTOP\grudgedot-launcher\client\public"; prefix="models/dev";        exts=@("*.glb") }
 }
 
 $toRun = if ($Category -eq "all") { $SOURCES.GetEnumerator() } `

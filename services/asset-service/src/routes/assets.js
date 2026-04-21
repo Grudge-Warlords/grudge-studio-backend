@@ -356,9 +356,9 @@ router.get('/conversion/:id', async (req, res, next) => {
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // POST /assets/sync-objectstore — Sync assets from ObjectStore manifest
-// Fetches gdevelop-assets.json and upserts into MySQL
+// Fetches grudgedot-assets.json and upserts into MySQL
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const OBJECTSTORE_MANIFEST = 'https://molochdagod.github.io/ObjectStore/api/v1/gdevelop-assets.json';
+const OBJECTSTORE_MANIFEST = 'https://molochdagod.github.io/ObjectStore/api/v1/grudgedot-assets.json';
 
 router.post('/sync-objectstore', internalAuth, async (req, res, next) => {
   try {

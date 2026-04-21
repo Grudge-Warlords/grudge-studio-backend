@@ -877,7 +877,7 @@ const ALLOWED_ORIGINS = [
   'https://grudge-studio.com',
   'https://grudgestudio.com',
   'https://dash.grudge-studio.com',
-  'https://gdevelop-assistant.vercel.app',
+  'https://grudgedot-launcher.vercel.app',
   'https://warlord-crafting-suite.vercel.app',
   'https://grudge-engine-web.vercel.app',
   'https://gruda-wars.vercel.app',

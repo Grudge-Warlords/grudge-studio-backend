@@ -4,7 +4,7 @@ description: |
   Grudge Studio game studio infrastructure architecture, service map, and deployment guide.
   Use this skill when working on ANY Grudge Studio project — backend services, frontend apps,
   auth, wallet, game integration, Docker, VPS, Vercel, or Cloudflare configuration.
-  Covers: grudge-studio-backend, grudge-wars (WCS), GDevelopAssistant, grudachain, grudge-platform,
+  Covers: grudge-studio-backend, grudge-wars (WCS), grudgedot-launcher, grudachain, grudge-platform,
   StarWayGRUDA-WebClient, grudge-builder, ObjectStore, GRUDA-Node, grim-armada-web.
 ---
 
@@ -21,7 +21,7 @@ All services share `grudge-net` Docker network + MySQL database. Traefik (via Co
 | Service | Port | Domain | Role |
 |---------|------|--------|------|
 | grudge-id | 3001 | id.grudge-studio.com | Auth: login, register, guest, Discord/Google/GitHub OAuth, Phantom wallet, Puter, phone SMS. Issues JWTs. |
-| game-api | 3003 | api.grudge-studio.com | Game data: characters, inventory, missions, factions, combat, economy, GDevelop proxy target |
+| game-api | 3003 | api.grudge-studio.com | Game data: characters, inventory, missions, factions, combat, economy, grudgeDot proxy target |
 | account-api | 3005 | account.grudge-studio.com | Profiles, social, achievements, object storage (R2) |
 | launcher-api | 3006 | launcher.grudge-studio.com | Version manifest, computer registration, launch tokens |
 | ws-service | 3007 | ws.grudge-studio.com | Real-time WebSocket (Socket.IO): /game, /crew, /global namespaces |
@@ -70,7 +70,7 @@ With custom domains:
 
 Pending custom domain (fix build first):
 - wcs.grudge-studio.com → grudge-wars — WCS / Grudge Warlords game (fix build error before assigning)
-- dev.grudge-studio.com → gdevelop-assistant — Dev tools, AI chat, editors (fix build error before assigning)
+- dev.grudge-studio.com → grudgedot-launcher — Dev tools, AI chat, editors (fix build error before assigning)
 
 Other Vercel (no custom domain needed):
 - objectstore.vercel.app → objectstore — Game data API mirror (canonical: molochdagod.github.io/ObjectStore)
@@ -122,7 +122,7 @@ NO production traffic goes through local machine.
 |------|------|
 | grudge-studio-backend | Docker compose, all backend services |
 | grudge-wars (GrudgeWars) | WCS frontend (React 19, Vite) |
-| GDevelopAssistant | Dev tools frontend (React 18, Vite) |
+| grudgedot-launcher | Dev tools frontend (React 18, Vite) |
 | grudachain | Nexus hub (vanilla HTML) |
 | grudge-platform | App launcher (vanilla HTML) |
 | StarWayGRUDA-WebClient | 3D game client |

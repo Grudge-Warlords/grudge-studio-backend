@@ -60,7 +60,7 @@ const TARGET_PROJECTS = [
   'grudge-wars',
   'grudge-warlords-game',
   'grudge-builder',
-  'gdevelop-assistant',
+  'grudgedot-launcher',
   'star-way-gruda-web-client',
   'grim-armada-web',
   'grudge-studio-dash',

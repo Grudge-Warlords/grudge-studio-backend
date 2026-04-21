@@ -26,7 +26,7 @@ const GRUDGE_DOMAIN_PATTERNS = [
 const GRUDGE_VERCEL_PREFIXES = [
   'grudge-',
   'dungeon-crawler',
-  'gdevelop-assistant',
+  'grudgedot-launcher',
   'warlord-',
   'grudachain',
   'gruda-',

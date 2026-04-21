@@ -50,7 +50,7 @@ const GRUDGE_PATTERNS = [
   /^https?:\/\/([a-z0-9-]+\.)?grudgewarlords\.com$/,
   /^https?:\/\/([a-z0-9-]+\.)?grudgeplatform\.io$/,
 ];
-const GRUDGE_VERCEL_PREFIXES = ['grudge-','warlord-','dungeon-crawler','gdevelop-','grudachain','gruda-'];
+const GRUDGE_VERCEL_PREFIXES = ['grudge-','warlord-','dungeon-crawler','grudgedot-','grudachain','gruda-'];
 function isAllowedOrigin(o) {
   if (!o) return true;
   if (GRUDGE_PATTERNS.some(p => p.test(o))) return true;

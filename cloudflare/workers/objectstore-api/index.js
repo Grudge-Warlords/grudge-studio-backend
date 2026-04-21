@@ -30,7 +30,7 @@ const ALLOWED_ORIGINS = new Set([
   'https://nexus.grudge-studio.com', 'https://play.grudge-studio.com',
   'https://client.grudge-studio.com', 'https://auth.grudge-studio.com',
   'https://assets.grudge-studio.com', 'https://objectstore.grudge-studio.com',
-  'https://gdevelop-assistant.vercel.app', 'https://grudge-platform.vercel.app',
+  'https://grudgedot-launcher.vercel.app', 'https://grudge-platform.vercel.app',
   'https://warlord-crafting-suite.vercel.app', 'https://grudge-warlords-game.vercel.app',
   'https://gruda-wars.vercel.app', 'https://grudge-engine-web.vercel.app',
   'https://nexus-nemesis-game.vercel.app', 'https://grim-armada-web.vercel.app',

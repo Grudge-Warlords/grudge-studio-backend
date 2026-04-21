@@ -98,11 +98,11 @@ const ASSET_SOURCES = {
     desc:   '3D models for StarWay open world',
   },
   dev_models: {
-    src:    join(PROJECTS_ROOT, 'GDevelopAssistant/client/public'),
+    src:    join(PROJECTS_ROOT, 'grudgedot-launcher/client/public'),
     prefix: 'models/dev',
     exts:   ['.glb'],
     tags:   ['3d', 'model', 'dev', 'editor'],
-    desc:   '3D models used in GDevelop tools',
+    desc:   '3D models used in grudgeDot tools',
   },
   audio: {
     src:    join(PROJECTS_ROOT, 'grudge-wars/public/audio'),

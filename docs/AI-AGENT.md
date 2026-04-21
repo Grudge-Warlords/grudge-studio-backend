@@ -205,7 +205,7 @@ Clients should use the **GRUDA Legion SDK** instead of calling the VPS directly:
 </script>
 ```
 
-### SDK Usage (Node.js / GDevelop Assistant)
+### SDK Usage (Node.js / grudgeDot Assistant)
 
 ```js
 const { GrudaLegionNode } = require('gruda-legion-sdk');
@@ -232,7 +232,7 @@ Client (editor, game page, SDK)
     │
     ├── Via AI Hub: ai.grudge-studio.com/v1/agents/havok/chat  (auth required)
     │
-    └── Via GDevelop: /api/gruda-legion/babylon/havok  (proxied)
+    └── Via grudgeDot: /api/gruda-legion/babylon/havok  (proxied)
             │
             ▼
         babylon-ai-workers (Cloudflare Worker)
