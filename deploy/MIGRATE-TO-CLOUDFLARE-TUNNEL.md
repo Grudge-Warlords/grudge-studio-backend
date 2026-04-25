@@ -2,9 +2,9 @@
 
 **Why:** HTTP 521 on every Traefik-routed subdomain means Cloudflare can't
 reach the VPS origin (Traefik down / port 443 closed / wrong DNS A record).
-`api.grudge-studio.com` is the only host that survived because it already
-runs through a Cloudflare Tunnel (see `grudge-backend`). This runbook
-extends that pattern to the rest of the stack.
+Moving public ingress onto a Cloudflare Tunnel makes the VPS outbound-only —
+no inbound ports, no Let's Encrypt, no Traefik dependency — so 521 becomes
+impossible as long as the `cloudflared` container is running.
 
 ## What changed in this repo
 - `docker-compose.yml` — new `cloudflared` service under the

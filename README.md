@@ -1,16 +1,14 @@
-# ⚠️ FROZEN — Grudge Studio Backend (Legacy)
+# Grudge Studio Backend
 
-> **This repository is frozen as of `freeze-v1.0`.** All active development has moved to
-> [**grudge-backend**](https://github.com/MolochDaGod/grudge-backend) — the unified Node.js/TypeScript
-> backend with PostgreSQL + Drizzle ORM.
->
-> This repo is kept as a read-only reference for migration. Do not commit new features here.
+Full-stack microservices backend for **grudgewarlords.com** and **grudge-studio.com** —
+the single source of truth for Grudge Studio identity, game APIs, real-time WebSockets,
+asset pipeline, launcher, and Cloudflare/Puter integrations.
 
----
+Built with Node.js · Docker · MySQL 8 · Redis 7 · Cloudflare Tunnel · Solana · Puter
 
-Full-stack microservices backend for **grudgewarlords.com** and **grudge-studio.com**.
-
-Built with Node.js · Docker · MySQL 8 · Redis 7 · nginx · Solana · Cloudflare · Puter
+> **Consolidated repo.** The previous `grudge-backend` (PostgreSQL/Drizzle prototype)
+> has been retired. All active development happens here. If you have a clone of the
+> old repo, delete it to avoid confusion.
 
 ---
 
@@ -90,7 +88,7 @@ Called by `grudge-server-worker.js` at `POST /api/auth/grudge-bridge`, allowing 
 
 ```bash
 # 1. Clone
-git clone https://github.com/MolochDaGod/grudge-studio-backend.git
+git clone https://github.com/Grudge-Warlords/grudge-studio-backend.git
 cd grudge-studio-backend
 
 # 2. Install all workspace deps
@@ -213,34 +211,67 @@ MySQL 8.0 — `grudge_game` database. Schema is applied automatically on first `
 
 ## Architecture
 
+Public ingress runs through **Cloudflare Tunnel** (`cloudflared`, outbound-only).
+No inbound ports / Let's Encrypt / nginx required. Traefik labels are still present
+on each service for legacy/rollback but are not the primary path.
+
 ```
 Internet
   │
   ▼
-nginx (80/443) + Cloudflare WAF
-  ├── id.grudge-studio.com       → grudge-id:3001
-  ├── api.grudge-studio.com      → game-api:3003
-  ├── account.grudge-studio.com  → account-api:3005
-  ├── launcher.grudge-studio.com → launcher-api:3006
-  ├── ws.grudge-studio.com       → grudge-headless:7777
-  └── assets.grudge-studio.com   → Cloudflare Worker (R2 CDN)
+Cloudflare Edge (WAF + TLS) — Zone: grudge-studio.com
+  │  outbound-only tunnel (cloudflared container, profile: tunnel)
+  ▼
+grudge-net (Docker bridge)
+  ├── id.grudge-studio.com         → grudge-id:3001
+  ├── api.grudge-studio.com        → game-api:3003
+  ├── account.grudge-studio.com    → account-api:3005
+  ├── launcher.grudge-studio.com   → launcher-api:3006
+  ├── assets-api.grudge-studio.com → asset-service:3008
+  ├── ws.grudge-studio.com         → ws-service:3007
+  ├── status.grudge-studio.com     → uptime-kuma:3001
+  ├── bridge.grudge-studio.com     → grudge-bridge:4000
+  ├── portal-api.grudge-studio.com → portal-api:5000
+  └── assets.grudge-studio.com     → Cloudflare Worker (R2 CDN, separate)
 
 External integrations:
   app.puter.com / *.puter.site  → grudge-id:3001 (/auth/puter-bridge)
   Puter KV                     ← grudge-server-worker.js (v4.0.0)
 
-Internal (grudge-net Docker bridge — NOT exposed):
+Internal-only (grudge-net — never tunneled):
   game-api      → ai-agent:3004        (AI missions + behavior)
   grudge-id     → wallet-service:3002  (wallet creation)
   game-api      → account-api:3005     (achievement awards)
   launcher-api  → grudge-headless      (launch token validation)
+  portal-api    → portal-postgres:5432 (rec0ded88 portal data)
 
 Data:
   All services  → MySQL:3306 (grudge_game)
+  portal-api    → Postgres:5432 (rec0ded88)
   game-api      → Redis:6379 (session cache)
   account-api   → Cloudflare R2 (avatars, assets)
   launcher-api  → Cloudflare R2 CDN (game bundles via cdn_base)
 ```
+
+### Public ingress — Cloudflare Tunnel
+
+The `cloudflared` service is gated by the `tunnel` Compose profile so it only
+starts when explicitly enabled. To bring up public ingress:
+
+```bash
+# 1. Set the tunnel token (one-time, get from one.dash.cloudflare.com)
+echo 'CLOUDFLARE_TUNNEL_TOKEN=eyJhIjoi...' >> .env
+
+# 2. Start the tunnel
+docker compose --profile tunnel up -d cloudflared
+
+# 3. Verify
+docker logs -f grudge-cloudflared   # expect "Registered tunnel connection"
+```
+
+Ingress map: [`cloudflared/config.yml`](cloudflared/config.yml).
+Full migration runbook (DNS cleanup, public hostnames, smoke tests, rollback):
+[`deploy/MIGRATE-TO-CLOUDFLARE-TUNNEL.md`](deploy/MIGRATE-TO-CLOUDFLARE-TUNNEL.md).
 
 ---
 
