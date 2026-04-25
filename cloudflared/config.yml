@@ -1,0 +1,56 @@
+# ─────────────────────────────────────────────────────────────
+# Cloudflare Tunnel — Grudge Studio Backend
+# ─────────────────────────────────────────────────────────────
+# Source-of-truth ingress map. When the tunnel is managed from
+# the Cloudflare Zero Trust dashboard (recommended — set
+# CLOUDFLARE_TUNNEL_TOKEN in .env), this file is reference-only
+# and the dashboard's Public Hostnames list takes precedence.
+# Mirror these entries in the dashboard exactly.
+#
+# Tunnel name: grudge-studio
+# Zone:        grudge-studio.com
+# Network:     grudge-net (docker bridge)
+# ─────────────────────────────────────────────────────────────
+
+tunnel: grudge-studio
+credentials-file: /etc/cloudflared/creds.json
+
+ingress:
+  # Unified Identity Service — login, OAuth, SSO, wallet, guest
+  - hostname: id.grudge-studio.com
+    service: http://grudge-id:3001
+
+  # Game API
+  - hostname: api.grudge-studio.com
+    service: http://game-api:3003
+
+  # Account / Profiles / Social
+  - hostname: account.grudge-studio.com
+    service: http://account-api:3005
+
+  # Launcher (version manifest, launch tokens)
+  - hostname: launcher.grudge-studio.com
+    service: http://launcher-api:3006
+
+  # Asset service (uploads, metadata)
+  - hostname: assets-api.grudge-studio.com
+    service: http://asset-service:3008
+
+  # Real-time WebSockets
+  - hostname: ws.grudge-studio.com
+    service: http://ws-service:3007
+
+  # Uptime Kuma dashboard
+  - hostname: status.grudge-studio.com
+    service: http://uptime-kuma:3001
+
+  # Grudge Bridge (VPS ops manager)
+  - hostname: bridge.grudge-studio.com
+    service: http://grudge-bridge:4000
+
+  # rec0ded88 / The-ENGINE portal API
+  - hostname: portal-api.grudge-studio.com
+    service: http://portal-api:5000
+
+  # Catch-all — required as the last rule
+  - service: http_status:404

@@ -605,4 +605,31 @@ services:
     networks:
       - grudge-net
 
+  # ─────────────────────────────────────────────
+  # CLOUDFLARE TUNNEL — Public ingress (replaces / parallels Traefik)
+  # ─────────────────────────────────────────────
+  # Outbound-only — no inbound ports needed on the VPS. Mirrors the
+  # pattern used by `grudge-backend` for api.grudge-studio.com.
+  #
+  # SETUP:
+  #   1. https://one.dash.cloudflare.com → Networks → Tunnels
+  #   2. Create tunnel "grudge-studio" → copy install token
+  #   3. Add to .env as CLOUDFLARE_TUNNEL_TOKEN
+  #   4. Map Public Hostnames per cloudflared/config.yml
+  #   5. docker compose up -d cloudflared
+  #
+  # See deploy/MIGRATE-TO-CLOUDFLARE-TUNNEL.md for the full runbook.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: grudge-cloudflared
+    restart: unless-stopped
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    networks:
+      - grudge-net
+
   # NOTE: nginx and certbot removed — Traefik (managed by Coolify) handles TLS + routing
+  # NOTE: cloudflared above is opt-in via `--profile tunnel`. Run alongside Traefik or
+  # use it as a drop-in replacement when migrating subdomains to Cloudflare Tunnel.
