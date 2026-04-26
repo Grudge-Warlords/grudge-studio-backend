@@ -126,7 +126,7 @@ app.get('/auth', (_req, res) => res.sendFile(path.join(__dirname, '..', 'public'
 app.use('/auth',     authLimiter, authRoutes);
 app.use('/auth',     ssoRoutes);                    // GET /auth/sso-check
 app.use('/api/auth', authLimiter, platformCompat);   // /api/auth/* compat for grudge-platform
-app.use('/identity', identityRoutes);
+app.use('/identity', authLimiter, identityRoutes);
 app.use('/device',   deviceRoutes);
 app.use('/admin',    adminRoutes);
 

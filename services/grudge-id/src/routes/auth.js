@@ -344,6 +344,13 @@ router.post('/verify', (req, res) => {
     const { token } = req.body;
     if (!token) return res.status(400).json({ error: 'token required' });
     const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+    res.json({ valid: true, payload });
+  } catch {
+    res.status(401).json({ valid: false, error: 'Invalid or expired token' });
+  }
+});
+
+// ── GET /auth/user ────────────────────────────
 // Returns current user profile from JWT Bearer token.
 // Used by useAuth() hook on all frontends.
 router.get('/user', async (req, res, next) => {

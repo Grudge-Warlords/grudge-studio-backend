@@ -100,12 +100,8 @@ app.get('/health', async (req, res) => {
     service: 'game-api',
     version: '2.0.0',
     uptime: Math.floor(process.uptime()),
-    db:    { ok: dbResult.ok, ms: dbResult.ms, error: dbResult.error || undefined },
+    db:    { ok: dbResult.ok },
     redis: { ok: redisUp },
-    mem:   {
-      rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
-      heap: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-    },
   });
 });
 app.use('/characters',  requireAuth, characterRoutes);
@@ -127,7 +123,8 @@ app.use('/admin',       requireAuth, adminRoutes);
 app.use((err, req, res, next) => {
   if (Sentry) Sentry.captureException(err);
   console.error('[game-api]', err.message);
-  res.status(err.status || 500).json({ error: err.message || 'Internal error' });
+  const isClientError = err.status && err.status >= 400 && err.status < 500;
+  res.status(err.status || 500).json({ error: isClientError ? err.message : 'Internal error' });
 });
 
 (async () => {

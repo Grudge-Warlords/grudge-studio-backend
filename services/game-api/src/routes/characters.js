@@ -117,10 +117,15 @@ router.patch('/:id/stats', async (req, res, next) => {
       return res.status(400).json({ error: `No valid fields. Allowed: ${MUTABLE_STATS.join(', ')}` });
     }
     const db = getDB();
-    const setClauses = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+    // Verify all keys are from MUTABLE_STATS allowlist before interpolation
+    const safeKeys = Object.keys(updates).filter(k => MUTABLE_STATS.includes(k));
+    if (!safeKeys.length) {
+      return res.status(400).json({ error: `No valid fields. Allowed: ${MUTABLE_STATS.join(', ')}` });
+    }
+    const setClauses = safeKeys.map(k => `${k} = ?`).join(', ');
     const [result] = await db.query(
       `UPDATE characters SET ${setClauses} WHERE id = ?`,
-      [...Object.values(updates), req.params.id]
+      [...safeKeys.map(k => updates[k]), req.params.id]
     );
     if (!result.affectedRows) return res.status(404).json({ error: 'Character not found' });
     res.json({ success: true, updated: updates });
