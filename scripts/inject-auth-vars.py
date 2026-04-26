@@ -1,28 +1,51 @@
 #!/usr/bin/env python3
-"""Inject missing auth env vars into Coolify .env and docker-compose.yml"""
+"""Inject missing auth env vars into Coolify .env and docker-compose.yml
+
+Before running, export every required variable in your shell:
+  export GOOGLE_CLIENT_SECRET=...
+  export ANTHROPIC_API_KEY=...
+  ...
+Never commit real secret values to source control.
+"""
 import os
+import sys
 
 BASE = '/data/coolify/services/l7kwyegn8qmocpfweql206ep'
 ENV_PATH = os.path.join(BASE, '.env')
 COMPOSE_PATH = os.path.join(BASE, 'docker-compose.yml')
 
-# Auth vars to add — read from the caller's environment so no secrets are
-# committed to source control.  Set each variable in your shell (or in a
-# local .env file that is never committed) before running this script.
+# Keys that MUST be set in the environment before running this script.
+REQUIRED_KEYS = [
+    'GOOGLE_CLIENT_SECRET',
+    'GITHUB_CLIENT_SECRET',
+    'TWILIO_ACCOUNT_SID',
+    'TWILIO_AUTH_TOKEN',
+    'TWILIO_VERIFY_SID',
+    'ANTHROPIC_API_KEY',
+    'CROSSMINT_SERVER_API_KEY',
+]
+
+missing = [k for k in REQUIRED_KEYS if not os.environ.get(k)]
+if missing:
+    print(f"ERROR: the following required environment variables are not set: {', '.join(missing)}", file=sys.stderr)
+    print("Set them in your shell before running this script.", file=sys.stderr)
+    sys.exit(1)
+
+# Auth vars to inject — values come entirely from the caller's environment.
 AUTH_VARS = {
     'GOOGLE_CLIENT_ID': os.environ.get('GOOGLE_CLIENT_ID', ''),
-    'GOOGLE_CLIENT_SECRET': os.environ.get('GOOGLE_CLIENT_SECRET', ''),
+    'GOOGLE_CLIENT_SECRET': os.environ['GOOGLE_CLIENT_SECRET'],
     'GOOGLE_REDIRECT_URI': os.environ.get('GOOGLE_REDIRECT_URI', 'https://id.grudge-studio.com/auth/google/callback'),
     'GITHUB_CLIENT_ID': os.environ.get('GITHUB_CLIENT_ID', ''),
-    'GITHUB_CLIENT_SECRET': os.environ.get('GITHUB_CLIENT_SECRET', ''),
+    'GITHUB_CLIENT_SECRET': os.environ['GITHUB_CLIENT_SECRET'],
     'GITHUB_REDIRECT_URI': os.environ.get('GITHUB_REDIRECT_URI', 'https://id.grudge-studio.com/auth/github/callback'),
-    'TWILIO_ACCOUNT_SID': os.environ.get('TWILIO_ACCOUNT_SID', ''),
-    'TWILIO_AUTH_TOKEN': os.environ.get('TWILIO_AUTH_TOKEN', ''),
+    'TWILIO_ACCOUNT_SID': os.environ['TWILIO_ACCOUNT_SID'],
+    'TWILIO_AUTH_TOKEN': os.environ['TWILIO_AUTH_TOKEN'],
     'TWILIO_PHONE_NUMBER': os.environ.get('TWILIO_PHONE_NUMBER', ''),
-    'TWILIO_VERIFY_SID': os.environ.get('TWILIO_VERIFY_SID', ''),
+    'TWILIO_VERIFY_SID': os.environ['TWILIO_VERIFY_SID'],
     'DEFAULT_AUTH_REDIRECT': os.environ.get('DEFAULT_AUTH_REDIRECT', 'https://grudgewarlords.com/auth'),
-    'ANTHROPIC_API_KEY': os.environ.get('ANTHROPIC_API_KEY', ''),
-    'CROSSMINT_SERVER_API_KEY': os.environ.get('CROSSMINT_SERVER_API_KEY', ''),
+    'ANTHROPIC_API_KEY': os.environ['ANTHROPIC_API_KEY'],
+    'CROSSMINT_SERVER_API_KEY': os.environ['CROSSMINT_SERVER_API_KEY'],
     'CROSSMINT_PROJECT_ID': os.environ.get('CROSSMINT_PROJECT_ID', ''),
     'COLYSEUS_CLOUD_TOKEN': os.environ.get('COLYSEUS_CLOUD_TOKEN', ''),
     'DOMAIN_CLIENT': os.environ.get('DOMAIN_CLIENT', 'client.grudge-studio.com'),
