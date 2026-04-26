@@ -1,30 +1,47 @@
 #!/usr/bin/env python3
-"""Inject missing auth env vars into Coolify .env and docker-compose.yml"""
+"""Inject missing auth env vars into Coolify .env and docker-compose.yml
+
+All secret values must be provided as environment variables when running this
+script. No credentials should be hardcoded in this file. Set the corresponding
+environment variables before executing, e.g.:
+
+    export GOOGLE_CLIENT_SECRET="your-secret"
+    python3 inject-auth-vars.py
+"""
 import os
+import sys
 
 BASE = '/data/coolify/services/l7kwyegn8qmocpfweql206ep'
 ENV_PATH = os.path.join(BASE, '.env')
 COMPOSE_PATH = os.path.join(BASE, 'docker-compose.yml')
 
-# Auth vars to add
+def _require_env(key):
+    """Return the value of an environment variable, or exit with an error."""
+    val = os.environ.get(key)
+    if not val:
+        print(f'ERROR: required environment variable {key} is not set.', file=sys.stderr)
+        sys.exit(1)
+    return val
+
+# Auth vars to add — values are read from the host environment at runtime.
 AUTH_VARS = {
-    'GOOGLE_CLIENT_ID': '315363496440-fou6jr23t7i4o1qve48dopluc9uai5u7.apps.googleusercontent.com',
-    'GOOGLE_CLIENT_SECRET': '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',
-    'GOOGLE_REDIRECT_URI': 'https://id.grudge-studio.com/auth/google/callback',
-    'GITHUB_CLIENT_ID': 'Ov23liJisyomTQA4H2lW',
-    'GITHUB_CLIENT_SECRET': 'd5c6c9b439d6f1fd570c96876f9cc4e19a3ee195',
-    'GITHUB_REDIRECT_URI': 'https://id.grudge-studio.com/auth/github/callback',
-    'TWILIO_ACCOUNT_SID': 'AC88ceed8acaa0070ecad123fe65121b0b',
-    'TWILIO_AUTH_TOKEN': 'a0133560f51ca58dc289bde74b5a3ab0',
-    'TWILIO_PHONE_NUMBER': '+18449284728',
-    'TWILIO_VERIFY_SID': 'VA370f8de25fd5d5c8b0ac6344dba0c90e',
-    'DEFAULT_AUTH_REDIRECT': 'https://grudgewarlords.com/auth',
-    'ANTHROPIC_API_KEY': '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',
-    'CROSSMINT_SERVER_API_KEY': 'sk_production_6627PmBFDZBZzt8ZgeSZ8AiD5e1hUsjyV3K1YQVpkkPEnfwGHhQFaf5ZcMGaVVEKdPWcha3JbHozs3EFdgXquham9jKk6NQLgPeNNfoXMx5JwSJfjBciLNnh7CTqZajhqJ9dqwWDSERrh2bFLPKjwgJ32JLHkhHMcGjBtWCzdLAeWiCTAjr1WyDE4XKnmgTGvQWs2ge4bA66YMwNuiVPEcnW',
-    'CROSSMINT_PROJECT_ID': '8410e23e-d003-4061-9b65-7c886a6c46ec',
-    'COLYSEUS_CLOUD_TOKEN': 'Njk3ZjU0YzM0Mzk5Nm1LYW85b0Z6ZmU3SEVZN0k1d240dXhKSGdtb1N5bXJT',
-    'DOMAIN_CLIENT': 'client.grudge-studio.com',
-    'DOMAIN_WALLET': 'wallet.grudge-studio.com',
+    'GOOGLE_CLIENT_ID': _require_env('GOOGLE_CLIENT_ID'),
+    'GOOGLE_CLIENT_SECRET': _require_env('GOOGLE_CLIENT_SECRET'),
+    'GOOGLE_REDIRECT_URI': os.environ.get('GOOGLE_REDIRECT_URI', 'https://id.grudge-studio.com/auth/google/callback'),
+    'GITHUB_CLIENT_ID': _require_env('GITHUB_CLIENT_ID'),
+    'GITHUB_CLIENT_SECRET': _require_env('GITHUB_CLIENT_SECRET'),
+    'GITHUB_REDIRECT_URI': os.environ.get('GITHUB_REDIRECT_URI', 'https://id.grudge-studio.com/auth/github/callback'),
+    'TWILIO_ACCOUNT_SID': _require_env('TWILIO_ACCOUNT_SID'),
+    'TWILIO_AUTH_TOKEN': _require_env('TWILIO_AUTH_TOKEN'),
+    'TWILIO_PHONE_NUMBER': _require_env('TWILIO_PHONE_NUMBER'),
+    'TWILIO_VERIFY_SID': _require_env('TWILIO_VERIFY_SID'),
+    'DEFAULT_AUTH_REDIRECT': os.environ.get('DEFAULT_AUTH_REDIRECT', 'https://grudgewarlords.com/auth'),
+    'ANTHROPIC_API_KEY': _require_env('ANTHROPIC_API_KEY'),
+    'CROSSMINT_SERVER_API_KEY': _require_env('CROSSMINT_SERVER_API_KEY'),
+    'CROSSMINT_PROJECT_ID': _require_env('CROSSMINT_PROJECT_ID'),
+    'COLYSEUS_CLOUD_TOKEN': _require_env('COLYSEUS_CLOUD_TOKEN'),
+    'DOMAIN_CLIENT': os.environ.get('DOMAIN_CLIENT', 'client.grudge-studio.com'),
+    'DOMAIN_WALLET': os.environ.get('DOMAIN_WALLET', 'wallet.grudge-studio.com'),
 }
 
 # 1. Update .env
