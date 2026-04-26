@@ -39,9 +39,9 @@ The provider layer (`src/llm/provider.js`) tries each LLM in order:
 Each provider is only attempted if its API key is set in the environment:
 
 ```
-ANTHROPIC_API_KEY=s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
-OPENAI_API_KEY=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
-DEEPSEEK_API_KEY=ssk-e12c4031db32476096d7772191adbf1d
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+DEEPSEEK_API_KEY=...
 ```
 
 ### Key Functions
