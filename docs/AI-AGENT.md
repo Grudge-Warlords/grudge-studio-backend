@@ -42,6 +42,9 @@ Each provider is only attempted if its API key is set in the environment:
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
 DEEPSEEK_API_KEY=your-deepseek-api-key
+ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
+OPENAI_API_KEY=sk-your-openai-key-here
+DEEPSEEK_API_KEY=your-deepseek-key-here
 ```
 
 ### Key Functions

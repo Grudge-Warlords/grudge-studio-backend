@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
-"""Inject missing auth env vars into Coolify .env and docker-compose.yml"""
+"""Inject missing auth env vars into Coolify .env and docker-compose.yml
+
+All secret values must be provided as environment variables when running this
+script. No credentials should be hardcoded in this file. Set the corresponding
+environment variables before executing, e.g.:
+
+    export GOOGLE_CLIENT_SECRET="your-secret"
+    python3 inject-auth-vars.py
+"""
 import os
+import sys
 
 BASE = '/data/coolify/services/l7kwyegn8qmocpfweql206ep'
 ENV_PATH = os.path.join(BASE, '.env')
@@ -25,6 +34,31 @@ AUTH_VARS = {
     'CROSSMINT_SERVER_API_KEY': os.environ.get('CROSSMINT_SERVER_API_KEY', ''),
     'CROSSMINT_PROJECT_ID': os.environ.get('CROSSMINT_PROJECT_ID', ''),
     'COLYSEUS_CLOUD_TOKEN': os.environ.get('COLYSEUS_CLOUD_TOKEN', ''),
+def _require_env(key):
+    """Return the value of an environment variable, or exit with an error."""
+    val = os.environ.get(key)
+    if not val:
+        print(f'ERROR: required environment variable {key} is not set.', file=sys.stderr)
+        sys.exit(1)
+    return val
+
+# Auth vars to add — values are read from the host environment at runtime.
+AUTH_VARS = {
+    'GOOGLE_CLIENT_ID': _require_env('GOOGLE_CLIENT_ID'),
+    'GOOGLE_CLIENT_SECRET': _require_env('GOOGLE_CLIENT_SECRET'),
+    'GOOGLE_REDIRECT_URI': os.environ.get('GOOGLE_REDIRECT_URI', 'https://id.grudge-studio.com/auth/google/callback'),
+    'GITHUB_CLIENT_ID': _require_env('GITHUB_CLIENT_ID'),
+    'GITHUB_CLIENT_SECRET': _require_env('GITHUB_CLIENT_SECRET'),
+    'GITHUB_REDIRECT_URI': os.environ.get('GITHUB_REDIRECT_URI', 'https://id.grudge-studio.com/auth/github/callback'),
+    'TWILIO_ACCOUNT_SID': _require_env('TWILIO_ACCOUNT_SID'),
+    'TWILIO_AUTH_TOKEN': _require_env('TWILIO_AUTH_TOKEN'),
+    'TWILIO_PHONE_NUMBER': _require_env('TWILIO_PHONE_NUMBER'),
+    'TWILIO_VERIFY_SID': _require_env('TWILIO_VERIFY_SID'),
+    'DEFAULT_AUTH_REDIRECT': os.environ.get('DEFAULT_AUTH_REDIRECT', 'https://grudgewarlords.com/auth'),
+    'ANTHROPIC_API_KEY': _require_env('ANTHROPIC_API_KEY'),
+    'CROSSMINT_SERVER_API_KEY': _require_env('CROSSMINT_SERVER_API_KEY'),
+    'CROSSMINT_PROJECT_ID': _require_env('CROSSMINT_PROJECT_ID'),
+    'COLYSEUS_CLOUD_TOKEN': _require_env('COLYSEUS_CLOUD_TOKEN'),
     'DOMAIN_CLIENT': os.environ.get('DOMAIN_CLIENT', 'client.grudge-studio.com'),
     'DOMAIN_WALLET': os.environ.get('DOMAIN_WALLET', 'wallet.grudge-studio.com'),
 }
