@@ -29,6 +29,18 @@ AUTH_VARS = {
     'DOMAIN_WALLET': os.environ.get('DOMAIN_WALLET', 'wallet.grudge-studio.com'),
 }
 
+# Validate that critical credentials are provided
+REQUIRED_VARS = [
+    'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_SECRET', 'TWILIO_AUTH_TOKEN',
+    'ANTHROPIC_API_KEY', 'CROSSMINT_SERVER_API_KEY',
+]
+missing_required = [k for k in REQUIRED_VARS if not AUTH_VARS.get(k)]
+if missing_required:
+    import sys
+    print(f"ERROR: Missing required environment variables: {', '.join(missing_required)}", file=sys.stderr)
+    print("Set these variables in the environment before running this script.", file=sys.stderr)
+    sys.exit(1)
+
 # 1. Update .env
 print("=== Updating .env ===")
 env = open(ENV_PATH).read()
