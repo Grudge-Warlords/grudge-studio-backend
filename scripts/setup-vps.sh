@@ -142,7 +142,7 @@ if command -v gh &>/dev/null 2>&1; then
   gh secret set DEPLOY_SSH_KEY    --repo "$REPO" --body "$(cat $KEY_FILE)"
   gh secret set VPS_HOST          --repo "$REPO" --body "$VPS_IP"
   gh secret set VPS_USER          --repo "$REPO" --body "$(whoami)"
-  gh secret set VPS_PASSWORD      --repo "$REPO" --body "Hf8vBjMC"
+  gh secret set VPS_PASSWORD      --repo "$REPO" --body "${VPS_PASSWORD:?VPS_PASSWORD env var must be set}"
   log "GitHub Actions secrets pushed!"
 else
   warn "  gh CLI not found — copy the key below manually"
