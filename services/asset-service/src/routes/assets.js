@@ -19,7 +19,7 @@ function auth(req, res, next) {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'Missing token' });
   try {
-    req.user = jwt.verify(header.slice(7), process.env.JWT_SECRET);
+    req.user = jwt.verify(header.slice(7), process.env.JWT_SECRET, { algorithms: ['HS256'] });
     next();
   } catch {
     res.status(401).json({ error: 'Invalid token' });
@@ -153,8 +153,8 @@ router.get('/', async (req, res, next) => {
       `SELECT uuid, r2_key, filename, mime, size, sha256, category, tags, visibility,
               owner_grudge_id, metadata, created_at, updated_at
        FROM assets WHERE ${where}
-       ORDER BY created_at DESC LIMIT ${Number(safeLimit)} OFFSET ${Number(offset)}`,
-      params
+       ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+      [...params, safeLimit, offset]
     );
 
     // Resolve CDN URLs
@@ -268,9 +268,10 @@ router.post('/bundle', internalAuth, async (req, res, next) => {
       'SELECT id FROM asset_bundles WHERE uuid = ?', [bundleUuid]
     );
 
-    // Insert bundle items
-    const values = assets.map(a => `(${bundle.id}, ${a.id})`).join(',');
-    await db.execute(`INSERT INTO asset_bundle_items (bundle_id, asset_id) VALUES ${values}`);
+    // Insert bundle items using parameterized placeholders
+    const itemPlaceholders = assets.map(() => '(?, ?)').join(',');
+    const itemValues = assets.flatMap(a => [bundle.id, a.id]);
+    await db.execute(`INSERT INTO asset_bundle_items (bundle_id, asset_id) VALUES ${itemPlaceholders}`, itemValues);
 
     // Generate presigned download URLs for each asset
     const [bundleAssets] = await db.execute(

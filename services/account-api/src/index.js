@@ -1,5 +1,5 @@
 require('dotenv').config();
-require('../../shared/validate-env')(['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS']);
+require('../../shared/validate-env')(['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS', 'JWT_SECRET', 'INTERNAL_API_KEY']);
 
 let Sentry;
 if (process.env.SENTRY_DSN) {
@@ -50,7 +50,7 @@ app.get('/health', async (req, res) => {
     status,
     service: 'account-api',
     version: '1.0.0',
-    db: { ok: dbResult.ok, ms: dbResult.ms, error: dbResult.error || undefined },
+    db: { ok: dbResult.ok },
   });
 });
 
@@ -70,8 +70,9 @@ app.use('/puter',         puterRoutes);
 app.use((err, req, res, next) => {
   if (Sentry) Sentry.captureException(err);
   console.error('[account-api]', err.message);
+  const isClientError = err.status && err.status >= 400 && err.status < 500;
   const status = err.status || (err.message?.includes('Only image') ? 400 : 500);
-  res.status(status).json({ error: err.message || 'Internal server error' });
+  res.status(status).json({ error: isClientError ? err.message : 'Internal server error' });
 });
 
 // ── Start + graceful shutdown ──────────────────────

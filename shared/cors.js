@@ -10,7 +10,13 @@
 function parseOrigins() {
   const raw = process.env.CORS_ORIGINS || '';
   const list = raw.split(',').map(o => o.trim()).filter(Boolean);
-  return list.length ? list : null; // null = allow all
+  if (list.length) return list;
+  // In production, require explicit CORS_ORIGINS to be set
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('[cors] WARNING: CORS_ORIGINS not set in production — denying cross-origin requests');
+    return [];
+  }
+  return null; // dev: allow all
 }
 
 const METHODS = 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS';
@@ -25,13 +31,14 @@ function grudgeCors() {
     const origins = parseOrigins();
     const requestOrigin = req.headers.origin;
 
-    if (!origins) {
+    if (origins === null) {
       // Dev: allow all
       res.setHeader('Access-Control-Allow-Origin', requestOrigin || '*');
-    } else if (requestOrigin && origins.includes(requestOrigin)) {
+    } else if (origins.length > 0 && requestOrigin && origins.includes(requestOrigin)) {
       res.setHeader('Access-Control-Allow-Origin', requestOrigin);
       res.setHeader('Vary', 'Origin');
     }
+    // else: no CORS headers set — browser will block cross-origin requests
 
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Methods', METHODS);
@@ -53,7 +60,7 @@ function grudgeCors() {
 function grudgeCorsConfig() {
   const origins = parseOrigins();
   return {
-    origin: origins || '*',
+    origin: origins === null ? '*' : (origins.length ? origins : false),
     credentials: true,
     methods: ['GET', 'POST'],
   };

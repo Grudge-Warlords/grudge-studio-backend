@@ -80,7 +80,7 @@ router.get('/validate-launch-token', async (req, res, next) => {
     const secret = process.env.LAUNCH_TOKEN_SECRET || process.env.JWT_SECRET;
     let payload;
     try {
-      payload = jwt.verify(token, secret);
+      payload = jwt.verify(token, secret, { algorithms: ['HS256'] });
     } catch {
       return res.status(401).json({ valid: false, error: 'Token invalid or expired' });
     }

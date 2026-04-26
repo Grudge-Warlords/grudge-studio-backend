@@ -96,7 +96,7 @@ function authMiddleware(socket, next) {
   if (!token) return next(new Error('Authentication required'));
 
   try {
-    const payload  = jwt.verify(token, JWT_SECRET);
+    const payload  = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     socket.user    = payload;
     socket.grudge_id = payload.grudge_id;
     next();

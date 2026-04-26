@@ -15,7 +15,7 @@ const ROLES = { guest: 0, pleb: 1, member: 2, admin: 3, master: 4 };
 function extractToken(req) {
   const h = req.headers.authorization;
   if (h && h.startsWith("Bearer ")) return h.slice(7);
-  return req.query?.token || req.body?.token || null;
+  return null;
 }
 
 function isAdmin(req) {
@@ -49,7 +49,7 @@ function makeRequireAuth(getDB) {
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      const payload = jwt.verify(token, JWT_SECRET);
+      const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
       req.user = payload;
 
       // Live ban check if DB available

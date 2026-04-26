@@ -48,7 +48,7 @@ const SSO_COOKIE_NAME = 'grudge_sso';
 const SSO_COOKIE_OPTS = {
   httpOnly: true,
   secure: true,
-  sameSite: 'none',
+  sameSite: 'lax',
   path: '/',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days (match JWT)
 };
@@ -102,6 +102,7 @@ function issueToken(user) {
     {
       grudge_id: user.grudge_id,
       username: user.username,
+      role: user.role || 'player',
       discord_id: user.discord_id,
       wallet_address: user.wallet_address,
       server_wallet_address: user.server_wallet_address,
@@ -116,7 +117,13 @@ function issueToken(user) {
 }
 
 // ── Helper: get or create user + server wallet ─
+// identityField must be one of these safe column names.
+const ALLOWED_IDENTITY_FIELDS = ['discord_id', 'wallet_address', 'google_id', 'github_id', 'email'];
+
 async function getOrCreateUser(db, identityField, identityValue, extraFields = {}) {
+  if (!ALLOWED_IDENTITY_FIELDS.includes(identityField)) {
+    throw new Error(`Disallowed identity field: ${identityField}`);
+  }
   let [rows] = await db.query(
     `SELECT * FROM users WHERE ${identityField} = ? LIMIT 1`,
     [identityValue]
@@ -323,9 +330,8 @@ router.get('/discord/callback', async (req, res, next) => {
       });
     }
 
-    // Redirect to the calling app (or default) with token
-    const sep = appRedirect.includes('?') ? '&' : '?';
-    res.redirect(`${appRedirect}${sep}token=${token}&grudge_id=${user.grudge_id}&provider=discord`);
+    // Redirect to the calling app with token in fragment (never sent to server/logged)
+    res.redirect(`${appRedirect}#token=${token}&grudge_id=${user.grudge_id}&provider=discord`);
   } catch (err) {
     if (err.banned) return res.status(403).json({ error: err.message });
     next(err);
@@ -337,14 +343,7 @@ router.post('/verify', (req, res) => {
   try {
     const { token } = req.body;
     if (!token) return res.status(400).json({ error: 'token required' });
-    const payload = jwt.verify(token, JWT_SECRET);
-    res.json({ valid: true, payload });
-  } catch {
-    res.status(401).json({ valid: false, error: 'Invalid or expired token' });
-  }
-});
-
-// ── GET /auth/user ────────────────────────────
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
 // Returns current user profile from JWT Bearer token.
 // Used by useAuth() hook on all frontends.
 router.get('/user', async (req, res, next) => {
@@ -355,7 +354,7 @@ router.get('/user', async (req, res, next) => {
     }
     let decoded;
     try {
-      decoded = jwt.verify(authHeader.substring(7), JWT_SECRET);
+      decoded = jwt.verify(authHeader.substring(7), JWT_SECRET, { algorithms: ['HS256'] });
     } catch {
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
@@ -408,7 +407,7 @@ router.get('/verify', async (req, res) => {
     if (!authHeader?.startsWith('Bearer ')) {
       return res.status(401).json({ valid: false, error: 'No token' });
     }
-    const payload = jwt.verify(authHeader.substring(7), JWT_SECRET);
+    const payload = jwt.verify(authHeader.substring(7), JWT_SECRET, { algorithms: ['HS256'] });
     res.json({ valid: true, payload });
   } catch {
     res.status(401).json({ valid: false, error: 'Invalid or expired token' });
@@ -417,7 +416,7 @@ router.get('/verify', async (req, res) => {
 
 // ── POST /auth/phone-send ─────────────────────
 // Send SMS verification code via Twilio Verify
-router.post('/phone-send', async (req, res, next) => {
+router.post('/phone-send', verifyTurnstile, async (req, res, next) => {
   try {
     const { phone } = req.body;
     if (!phone) return res.status(400).json({ error: 'Phone number required' });
@@ -519,8 +518,8 @@ router.post('/register', verifyTurnstile, async (req, res, next) => {
     if (username.length < 3 || username.length > 20) {
       return res.status(400).json({ error: 'Username must be 3-20 characters' });
     }
-    if (password.length < 4) {
-      return res.status(400).json({ error: 'Password must be at least 4 characters' });
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
 
     const db = getDB();
@@ -658,8 +657,8 @@ router.post('/reset-password', async (req, res, next) => {
     const { token, password } = req.body;
     if (!token || !password)
       return res.status(400).json({ error: 'token and password required' });
-    if (password.length < 4)
-      return res.status(400).json({ error: 'Password must be at least 4 characters' });
+    if (password.length < 8)
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
     const db = getDB();
     const [[user]] = await db.query(
@@ -902,7 +901,7 @@ router.post('/puter-link', async (req, res, next) => {
 
     let decoded;
     try {
-      decoded = jwt.verify(authHeader.substring(7), JWT_SECRET);
+      decoded = jwt.verify(authHeader.substring(7), JWT_SECRET, { algorithms: ['HS256'] });
     } catch {
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
@@ -1204,8 +1203,7 @@ router.get('/google/callback', async (req, res, next) => {
 
     const token = issueToken(user);
     setSsoCookie(res, token);
-    const sep = appRedirect.includes('?') ? '&' : '?';
-    res.redirect(`${appRedirect}${sep}token=${token}&grudge_id=${user.grudge_id}&provider=google`);
+    res.redirect(`${appRedirect}#token=${token}&grudge_id=${user.grudge_id}&provider=google`);
   } catch (err) {
     if (err.banned) return res.status(403).json({ error: err.message });
     next(err);
@@ -1295,8 +1293,7 @@ router.get('/github/callback', async (req, res, next) => {
 
     const token = issueToken(user);
     setSsoCookie(res, token);
-    const sep = appRedirect.includes('?') ? '&' : '?';
-    res.redirect(`${appRedirect}${sep}token=${token}&grudge_id=${user.grudge_id}&provider=github`);
+    res.redirect(`${appRedirect}#token=${token}&grudge_id=${user.grudge_id}&provider=github`);
   } catch (err) {
     if (err.banned) return res.status(403).json({ error: err.message });
     next(err);
@@ -1389,13 +1386,12 @@ router.get('/sso-check', (req, res) => {
   }
 
   const ssoCookie = req.cookies?.[SSO_COOKIE_NAME];
-  const sep = returnUrl.includes('?') ? '&' : '?';
 
   if (ssoCookie) {
     try {
-      jwt.verify(ssoCookie, JWT_SECRET);
-      // Valid session — redirect with token
-      return res.redirect(`${returnUrl}${sep}sso_token=${ssoCookie}`);
+      jwt.verify(ssoCookie, JWT_SECRET, { algorithms: ['HS256'] });
+      // Valid session — redirect with token in fragment (not logged by servers)
+      return res.redirect(`${returnUrl}#sso_token=${ssoCookie}`);
     } catch {
       // Expired/invalid — clear cookie and redirect without token
       res.clearCookie(SSO_COOKIE_NAME, SSO_COOKIE_OPTS);
@@ -1403,6 +1399,7 @@ router.get('/sso-check', (req, res) => {
   }
 
   // No valid session — redirect back, app shows login
+  const sep = returnUrl.includes('?') ? '&' : '?';
   res.redirect(`${returnUrl}${sep}sso_required=true`);
 });
 

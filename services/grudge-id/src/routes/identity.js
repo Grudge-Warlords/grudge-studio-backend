@@ -12,7 +12,7 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   try {
-    req.user = jwt.verify(header.slice(7), JWT_SECRET);
+    req.user = jwt.verify(header.slice(7), JWT_SECRET, { algorithms: ['HS256'] });
     next();
   } catch {
     res.status(401).json({ error: 'Invalid token' });
@@ -149,12 +149,13 @@ router.post('/link-puter', async (req, res, next) => {
 // Called by puter-onboarding.ts linkAuth() after Discord/wallet/Web3Auth login.
 // One player → one Grudge ID → multiple auth methods all linked.
 //
-// Body: { grudgeId, puterUuid, authMethod: 'discord'|'wallet'|'web3auth'|'email', credential }
-router.post('/link-auth', async (req, res, next) => {
+// Body: { puterUuid, authMethod: 'discord'|'wallet'|'web3auth'|'email', credential }
+router.post('/link-auth', requireAuth, async (req, res, next) => {
   try {
-    const { grudgeId, puterUuid, authMethod, credential } = req.body;
-    if (!grudgeId || !authMethod || !credential) {
-      return res.status(400).json({ error: 'grudgeId, authMethod, and credential are required' });
+    const grudgeId = req.user.grudge_id;
+    const { puterUuid, authMethod, credential } = req.body;
+    if (!authMethod || !credential) {
+      return res.status(400).json({ error: 'authMethod and credential are required' });
     }
 
     const db = getDB();
@@ -247,7 +248,7 @@ router.get('/:grudge_id', async (req, res, next) => {
   try {
     const db = getDB();
     const [rows] = await db.query(
-      `SELECT grudge_id, username, puter_id, faction, race, class, created_at
+      `SELECT grudge_id, username, faction, race, class, created_at
        FROM users WHERE grudge_id = ? AND is_active = 1 LIMIT 1`,
       [req.params.grudge_id]
     );

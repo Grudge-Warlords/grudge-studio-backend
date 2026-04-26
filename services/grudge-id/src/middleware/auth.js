@@ -9,7 +9,7 @@ function requireAuth(req, res, next) {
   const raw = (header?.startsWith('Bearer ') ? header.slice(7) : null) || cookie;
   if (!raw) return res.status(401).json({ error: 'Authorization required' });
   try {
-    req.user = jwt.verify(raw, JWT_SECRET);
+    req.user = jwt.verify(raw, JWT_SECRET, { algorithms: ['HS256'] });
     next();
   } catch {
     res.status(401).json({ error: 'Invalid or expired token' });

@@ -43,14 +43,15 @@ function setupEngine(io, redisSub, redisPub, authMiddleware) {
 
   // Auth is optional for engine — allow guests to see presence
   engineNS.use((socket, next) => {
-    try {
-      authMiddleware(socket, next);
-    } catch {
-      // Allow unauthenticated connections with limited capabilities
-      socket.grudge_id = `guest_${socket.id.slice(0, 8)}`;
-      socket.user = { username: 'Guest' };
+    authMiddleware(socket, (err) => {
+      if (err) {
+        // Allow unauthenticated connections with limited capabilities
+        socket.grudge_id = `guest_${socket.id.slice(0, 8)}`;
+        socket.user = { username: 'Guest' };
+        return next();
+      }
       next();
-    }
+    });
   });
 
   engineNS.on('connection', (socket) => {

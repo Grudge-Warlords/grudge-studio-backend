@@ -17,7 +17,7 @@ function optionalAuth(req, res, next) {
   const header = req.headers.authorization;
   if (header && header.startsWith('Bearer ')) {
     try {
-      req.user = jwt.verify(header.slice(7), JWT_SECRET);
+      req.user = jwt.verify(header.slice(7), JWT_SECRET, { algorithms: ['HS256'] });
     } catch { req.user = null; }
   }
   next();
@@ -29,7 +29,7 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Auth required' });
   }
   try {
-    req.user = jwt.verify(header.slice(7), JWT_SECRET);
+    req.user = jwt.verify(header.slice(7), JWT_SECRET, { algorithms: ['HS256'] });
     next();
   } catch {
     return res.status(401).json({ error: 'Invalid token' });

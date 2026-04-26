@@ -33,6 +33,12 @@ router.post('/', async (req, res, next) => {
     if (!name || !race || !cls) {
       return res.status(400).json({ error: 'name, race, and class are required' });
     }
+    if (typeof name !== 'string' || name.length < 2 || name.length > 32) {
+      return res.status(400).json({ error: 'Character name must be 2-32 characters' });
+    }
+    if (!/^[\w\s'-]+$/.test(name)) {
+      return res.status(400).json({ error: 'Character name contains invalid characters' });
+    }
     if (!VALID_RACES.includes(race.toLowerCase())) {
       return res.status(400).json({ error: `Invalid race. Valid: ${VALID_RACES.join(', ')}` });
     }
@@ -70,6 +76,16 @@ router.get('/:id', async (req, res, next) => {
 router.patch('/:id/position', async (req, res, next) => {
   try {
     const { island, pos_x, pos_y, pos_z } = req.body;
+    // Validate coordinates are finite numbers within reasonable world bounds
+    const COORD_MAX = 1_000_000;
+    for (const [name, val] of [['pos_x', pos_x], ['pos_y', pos_y], ['pos_z', pos_z]]) {
+      if (val !== undefined && val !== null) {
+        const n = Number(val);
+        if (!isFinite(n) || n < -COORD_MAX || n > COORD_MAX) {
+          return res.status(400).json({ error: `${name} out of range` });
+        }
+      }
+    }
     const db = getDB();
     const query = req.isInternal
       ? 'UPDATE characters SET island = ?, pos_x = ?, pos_y = ?, pos_z = ? WHERE id = ?'
@@ -84,9 +100,12 @@ router.patch('/:id/position', async (req, res, next) => {
 
 // ── PATCH /characters/:id/stats ─────────────
 // Game server uses x-internal-key to write back HP/XP/stats after combat.
-// Players can also update their own character's mutable stats.
+// This endpoint is restricted to internal (game server) calls only.
 router.patch('/:id/stats', async (req, res, next) => {
   try {
+    if (!req.isInternal) {
+      return res.status(403).json({ error: 'Stats may only be updated by the game server' });
+    }
     const updates = {};
     for (const field of MUTABLE_STATS) {
       if (req.body[field] !== undefined) {
@@ -99,13 +118,10 @@ router.patch('/:id/stats', async (req, res, next) => {
     }
     const db = getDB();
     const setClauses = Object.keys(updates).map(k => `${k} = ?`).join(', ');
-    const query = req.isInternal
-      ? `UPDATE characters SET ${setClauses} WHERE id = ?`
-      : `UPDATE characters SET ${setClauses} WHERE id = ? AND grudge_id = ?`;
-    const params = req.isInternal
-      ? [...Object.values(updates), req.params.id]
-      : [...Object.values(updates), req.params.id, req.user.grudge_id];
-    const [result] = await db.query(query, params);
+    const [result] = await db.query(
+      `UPDATE characters SET ${setClauses} WHERE id = ?`,
+      [...Object.values(updates), req.params.id]
+    );
     if (!result.affectedRows) return res.status(404).json({ error: 'Character not found' });
     res.json({ success: true, updated: updates });
   } catch (err) { next(err); }

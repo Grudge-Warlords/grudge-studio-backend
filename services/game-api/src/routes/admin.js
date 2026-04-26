@@ -28,8 +28,7 @@ router.use((req, res, next) => {
   if (req.isInternal) return next();
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const role = req.user.role || req.user.roles?.[0] || 'player';
-  // Allow: master (Racalvin), admin, owner (legacy alias for master)
-  if (!['admin', 'master', 'owner'].includes(role)) {
+  if (!['admin', 'master'].includes(role)) {
     return res.status(403).json({ error: 'Admin access required' });
   }
   next();
@@ -114,9 +113,17 @@ router.get('/db/schema/:table', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// POST /admin/db/query — execute read-only SQL (SELECT only)
+// POST /admin/db/query — execute read-only SQL (SELECT only, master role only)
 router.post('/db/query', async (req, res, next) => {
   try {
+    // Restrict raw SQL execution to master role
+    if (!req.isInternal) {
+      const role = req.user?.role || 'player';
+      if (role !== 'master') {
+        return res.status(403).json({ error: 'Raw SQL requires master role' });
+      }
+    }
+
     const { sql } = req.body;
     if (!sql) return res.status(400).json({ error: 'sql required' });
 
@@ -130,7 +137,7 @@ router.post('/db/query', async (req, res, next) => {
     const [rows] = await db.query(sql);
     res.json({ rows, count: rows.length });
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    res.status(400).json({ error: 'Query failed' });
   }
 });
 
@@ -187,7 +194,9 @@ router.get('/containers', async (req, res) => {
 
 router.post('/containers/:id/restart', async (req, res) => {
   try {
-    const data = await bridgeFetch('/deploy', 'POST', { action: 'restart', service: req.params.id });
+    const serviceId = req.params.id.replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!serviceId) return res.status(400).json({ error: 'Invalid service id' });
+    const data = await bridgeFetch('/deploy', 'POST', { action: 'restart', service: serviceId });
     res.json(data || { ok: true });
   } catch (e) {
     res.status(502).json({ error: 'Bridge unreachable', detail: e.message });
@@ -196,8 +205,10 @@ router.post('/containers/:id/restart', async (req, res) => {
 
 router.get('/containers/:id/logs', async (req, res) => {
   try {
+    const serviceId = req.params.id.replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!serviceId) return res.status(400).json({ error: 'Invalid service id' });
     const lines = Number(req.query.lines) || 100;
-    const data = await bridgeFetch(`/deploy?service=${req.params.id}&lines=${lines}`);
+    const data = await bridgeFetch(`/deploy?service=${serviceId}&lines=${lines}`);
     res.json(data || { logs: '' });
   } catch (e) {
     res.status(502).json({ error: 'Bridge unreachable', detail: e.message });

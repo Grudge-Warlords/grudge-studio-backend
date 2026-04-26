@@ -10,7 +10,7 @@ const CODE_TTL_MINUTES = 10;
 function getUser(req) {
   const h = req.headers.authorization;
   if (!h?.startsWith('Bearer ')) return null;
-  try { return jwt.verify(h.slice(7), process.env.JWT_SECRET); }
+  try { return jwt.verify(h.slice(7), process.env.JWT_SECRET, { algorithms: ['HS256'] }); }
   catch { return null; }
 }
 

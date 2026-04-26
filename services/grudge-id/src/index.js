@@ -115,11 +115,7 @@ app.get('/health', async (req, res) => {
     service: 'grudge-id',
     ts: Date.now(),
     uptime: Math.floor(process.uptime()),
-    db: { ok: dbResult.ok, ms: dbResult.ms, error: dbResult.error || undefined },
-    mem: {
-      rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
-      heap: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-    },
+    db: { ok: dbResult.ok },
   });
 });
 

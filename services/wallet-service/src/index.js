@@ -25,7 +25,7 @@ app.use('/phantom', phantomRoutes);
 
 app.use((err, req, res, next) => {
   console.error('[wallet-service]', err.message);
-  res.status(err.status || 500).json({ error: err.message || 'Internal error' });
+  res.status(err.status || 500).json({ error: err.status ? err.message : 'Internal error' });
 });
 
 (async () => {
