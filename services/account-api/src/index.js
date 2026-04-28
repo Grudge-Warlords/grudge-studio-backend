@@ -1,5 +1,7 @@
 require('dotenv').config();
-require('../../shared/validate-env')(['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS']);
+const { validateEnv, validateCanonicalDB } = require('../../shared/validate-env');
+validateEnv(['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS']);
+validateCanonicalDB({ serviceName: 'account-api' });
 
 let Sentry;
 if (process.env.SENTRY_DSN) {

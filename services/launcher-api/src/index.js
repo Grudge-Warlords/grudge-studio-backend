@@ -1,4 +1,8 @@
 require('dotenv').config();
+
+const { validateCanonicalDB } = require('../../shared/validate-env');
+validateCanonicalDB({ serviceName: 'launcher-api' });
+
 const express   = require('express');
 const helmet    = require('helmet');
 const rateLimit = require('express-rate-limit');

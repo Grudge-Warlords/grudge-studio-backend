@@ -1,5 +1,7 @@
 require('dotenv').config();
-require('../../../shared/validate-env')(['JWT_SECRET', 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS']);
+const { validateEnv, validateCanonicalDB } = require('../../../shared/validate-env');
+validateEnv(['JWT_SECRET', 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS']);
+validateCanonicalDB({ serviceName: 'grudge-id' });
 const express = require('express');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
