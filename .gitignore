@@ -46,3 +46,10 @@ Desktop.ini
 *.swp
 *.swo
 *~
+
+# ─── Tunnel/binary clutter (added 2026-04-28) ────────────────
+cloudflare/credentials.json
+cloudflare/config.yml
+cloudflared.deb
+*.bak
+*.bak.*
