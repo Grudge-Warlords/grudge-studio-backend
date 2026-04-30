@@ -48,8 +48,13 @@ COPY --chown=node:node src ./src
 COPY --chown=node:node public ./public
 COPY --chown=node:node package.json ./
 
-# Symlink for shared imports
-RUN ln -s /app/grudge-id/node_modules /app/node_modules 2>/dev/null || true
+# Symlinks so the source compiles inside the container with the same
+# relative paths used in dev:
+#   - /app/node_modules    → node resolution at parent depth
+#   - /shared              → the require('../../../shared/...') paths
+#                            in src/*.js resolve to /shared in container
+RUN ln -s /app/grudge-id/node_modules /app/node_modules 2>/dev/null || true \
+ && ln -s /app/grudge-id/shared /shared 2>/dev/null || true
 
 # Run as non-root
 USER node
