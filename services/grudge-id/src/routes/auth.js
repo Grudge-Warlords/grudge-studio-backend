@@ -682,8 +682,8 @@ router.post('/reset-password', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── POST /auth/guest ───────────────────────────────
-router.post('/guest',
+// ── POST /auth/guest ────────────────────────────
+router.post('/guest', async (req, res, next) => {
   try {
     const { deviceId } = req.body;
     if (!deviceId) return res.status(400).json({ error: 'Device ID required' });
