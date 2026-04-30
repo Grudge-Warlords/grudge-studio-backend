@@ -12,7 +12,7 @@ warn() { echo -e "${YELLOW}▶${NC} $1"; }
 err()  { echo -e "${RED}✗${NC} $1"; }
 
 DEPLOY_DIR="/opt/grudge-studio-backend"
-GH_TOKEN="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"
+GH_TOKEN="${GH_TOKEN:?GH_TOKEN environment variable must be set}"
 REPO_URL="https://${GH_TOKEN}@github.com/MolochDaGod/grudge-studio-backend.git"
 
 echo -e "${CYAN}"
