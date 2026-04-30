@@ -11,6 +11,7 @@ const fs   = require('fs');
 const path = require('path');
 
 const authRoutes   = require('./routes/auth');
+const linksRoutes  = require('./routes/links');
 const identityRoutes = require('./routes/identity');
 const deviceRoutes = require('./routes/device');
 const adminRoutes  = require('./routes/admin');
@@ -129,6 +130,10 @@ app.get('/health', async (req, res) => {
 app.use('/auth', express.static(path.join(__dirname, '..', 'public')));
 app.get('/auth', (_req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'auth.html')));
 
+// /auth/links/* MUST be mounted before /auth so the broader prefix
+// router doesn't shadow it. Bypasses authLimiter on the OAuth callback
+// path so providers' redirects don't get rate-limited.
+app.use('/auth/links', linksRoutes);
 app.use('/auth',     authLimiter, authRoutes);
 app.use('/auth',     ssoRoutes);                    // GET /auth/sso-check
 app.use('/api/auth', authLimiter, platformCompat);   // /api/auth/* compat for grudge-platform
