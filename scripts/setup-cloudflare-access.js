@@ -185,7 +185,7 @@ async function createPolicy(appId, service) {
       decision: 'allow',
       include: [
         // Add admin email(s) here — replace with actual admin emails
-        { email: { email: 'admin@grudge-studio.com' } },
+        { email: { email: 'games@grudgestudio.org' } },
         { service_token: {} },
       ],
       precedence: 2,

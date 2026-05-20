@@ -80,12 +80,10 @@ INTERNAL NETWORK:
 **Cloudflare Workers** (no VPS — deployed via `npx wrangler deploy`):
 
 | Worker | Route | Config |
-||--------|-------|--------|
-|| `grudge-studio-site` | grudge-studio.com/* | cloudflare/workers/site/ |
-|| `grudge-dashboard` | dash.grudge-studio.com/* | cloudflare/workers/dashboard/ |
-|| `grudge-r2-cdn` | assets.grudge-studio.com/* | cloudflare/workers/r2-cdn/ |
-|| `grudge-ai-hub` | ai.grudge-studio.com/* | cloudflare/workers/ai-hub/ |
-|| `babylon-ai-workers` | babylon-ai-workers.grudge.workers.dev | D:\GrudgeStudio\babylon-ai-workers/ |
+|--------|-------|--------|
+| `grudge-studio-site` | grudge-studio.com/* | cloudflare/workers/site/ |
+| `grudge-dashboard` | dash.grudge-studio.com/* | cloudflare/workers/dashboard/ |
+| `grudge-r2-cdn` | assets.grudge-studio.com/* | cloudflare/workers/r2-cdn/ |
 
 ---
 
@@ -157,28 +155,22 @@ GET  /combat/leaderboard             — Top 25 by kills
 ### PvP (v2)
 ```
 GET  /pvp/lobbies                    — Open lobbies (?mode=duel|crew_battle|arena_ffa&limit=N)
-POST /pvp/lobby                      — Create lobby { mode, island, char_id, settings }
-GET  /pvp/lobby/:code                — Lobby detail
-POST /pvp/lobby/:code/join           — Join lobby { char_id }
-POST /pvp/lobby/:code/ready          — Toggle ready
-POST /pvp/lobby/:code/start          — Host starts match (all must be ready)
-DELETE /pvp/lobby/:code/leave        — Leave lobby
-POST /pvp/queue                      — Join matchmaking queue { mode, char_id }
+POST /pvp/lobbies                    — Create lobby { mode, island, is_private }
+GET  /pvp/lobbies/:code              — Lobby detail
+POST /pvp/lobbies/:code/join         — Join lobby
+POST /pvp/lobbies/:code/ready        — Toggle ready
+POST /pvp/lobbies/:code/leave        — Leave lobby
+POST /pvp/lobbies/:code/start [INT]  — Force-start lobby (internal)
+GET  /pvp/queue                      — Player's current queue status
+POST /pvp/queue                      — Join matchmaking queue { mode }
 DELETE /pvp/queue                    — Leave matchmaking queue
-GET  /pvp/ratings                    — Player ELO ratings
-GET  /pvp/leaderboard                — ELO rankings (?mode=duel&limit=50)
-POST /pvp/match/result [INT]         — Submit match result + ELO update (all modes)
-
-Server Management (INTERNAL):
-POST   /pvp/server/register [INT]    — Headless server registers/heartbeats { server_id, host, port, capacity }
-POST   /pvp/server/release  [INT]    — Release server back to idle { server_id }
-DELETE /pvp/server/:id      [INT]    — Remove server from pool
-GET    /pvp/servers          [INT]    — List all registered game servers + status
+GET  /pvp/leaderboard                — ELO rankings (?mode=duel&limit=10)
+GET  /pvp/match/:id                  — Match detail
+POST /pvp/match/:id/result [INT]     — Submit match result + ELO update
 
 Modes: duel (2p) · crew_battle (up to 10) · arena_ffa (up to 16)
 ELO:   K=32, default 1200, floor 100, queue range ±150, TTL 300s
 Codes: GRD-XXXX format
-Server allocation: auto-assigns idle headless server on match start; falls back to relay mode
 ```
 
 ### Islands (10 islands: island_1 through island_10)
@@ -261,19 +253,14 @@ pvp.emit('leave_lobby', { lobby_code });
 pvp.emit('ready',       { lobby_code });
 
 // Match events (server → client)
-pvp.on('pvp:player_joined', (data) => { /* player joined lobby */ });
-pvp.on('pvp:player_left',   (data) => { /* player left lobby */ });
-pvp.on('pvp:ready_update',  (data) => { /* { grudge_id, is_ready, all_ready } */ });
-pvp.on('pvp:countdown',     ({ seconds }) => { /* 5-4-3-2-1 */ });
-pvp.on('pvp:match_start',   ({ lobby_code, mode, island, server, players }) => {
-  // server: { host, port } if dedicated server allocated, null = relay mode
-});
-pvp.on('pvp:match_end',     ({ winner_grudge_id, winner_team, match_id }) => { /* result */ });
-pvp.on('pvp:game_state',    ({ state }) => { /* authoritative state from headless server */ });
+pvp.on('lobby_update',   (data) => { /* player list, ready status */ });
+pvp.on('countdown',      ({ seconds }) => { /* 3-2-1 */ });
+pvp.on('match_start',    ({ match_id, players }) => { /* match begins */ });
+pvp.on('match_end',      ({ winner_id, elo_changes }) => { /* result */ });
 
 // Matchmaking queue
-pvp.emit('pvp:queue_join',  { mode: 'duel' });
-pvp.on('pvp:queue_matched', ({ lobby_code, mode }) => { /* auto-join lobby code */ });
+pvp.emit('join_queue',  { mode: 'duel' });
+pvp.on('queue_matched', ({ lobby_code }) => { /* auto-join lobby code */ });
 
 // In-match action relay
 pvp.emit('action', { match_id, type, payload });
@@ -366,37 +353,6 @@ GET  /ai/context             — Full system context JSON (game rules, factions,
 POST /ai/mission/generate    — Generate a mission for a player
 POST /ai/companion/interact  — AI companion dialogue / action
 GET  /ai/faction/intel       — Faction-level mission + behavioral data
-```
-
-### Babylon AI Workers (Cloudflare — BabylonJS 9 Specialists)
-
-**URL:** `https://babylon-ai-workers.grudge.workers.dev`  
-**Also via:** `https://ai.grudge-studio.com/v1/agents/havok/chat` and `/v1/agents/sage/chat`  
-**Source:** `D:\GrudgeStudio\babylon-ai-workers`  
-**Storage:** Vectorize (embeddings), KV (cache + learned patterns), R2 (large docs), Workers AI (LLM)
-
-Two domain-specialist workers with RAG over BabylonJS 9 API docs:
-
-**Havok Scholar** — Physics, character controllers, collision, constraints:
-```
-POST /havok   — { question, context?, code? } → { answer, worker, source, model }
-```
-
-**Babylon Sage** — Rendering, materials, animations, terrain, VFX:
-```
-POST /sage    — { question, context?, code? } → { answer, worker, source, model }
-```
-
-**Shared endpoints:**
-```
-POST /learn   — Ingest new BabylonJS docs into knowledge base
-GET  /search  — Semantic search (?q=query&domain=physics|rendering|all)
-GET  /health  — { status, workers, version, storage }
-```
-
-**Client SDK:** `public/grudge-babylon-sdk.js` (drop-in for any editor/game page)
-```javascript
-const answer = await BabylonAI.ask('How do I set up PhysicsCharacterController?');
 ```
 
 ### Mission Generation (called by game-api)
@@ -595,9 +551,8 @@ nano /opt/grudge-studio-backend/.env
 
 **Cloudflare Workers secrets** (set via `npx wrangler secret put`):
 ```
-DASH_API_KEY   → Standalone admin password for dash.grudge-studio.com (store in password manager)
+DASH_API_KEY   → Internal API key for dashboard worker
 ```
-To reset: npx wrangler secret put DASH_API_KEY --config cloudflare/workers/dashboard/wrangler.toml
 
 ---
 
@@ -638,14 +593,10 @@ ssh root@74.208.155.229 "cd /opt/grudge-studio-backend && git pull && bash deplo
 Human, Orc, Elf, Undead, Barbarian, Dwarf
 
 ### Classes
-**All classes can equip all 17 weapon types. Classes have BENEFITS (mastery bonuses) with their specialty weapons, NOT restrictions.**
-
-- **Warrior** — Mastery bonuses: shields, swords, 2h weapons. Stamina system fills from parries/blocks. AoE charge attacks, group invincibility, double jump.
-- **Mage** — Mastery bonuses: staffs, tomes, wands, maces. Teleport blocks (max 10). Elemental builds. Off-hand relics.
-- **Ranger** — Mastery bonuses: bows, crossbows, guns, daggers, spears. RMB+LMB parry → 0.5s counter dash window.
-- **Worge** — Mastery bonuses: staffs, spears, daggers, bows, hammers, maces, relics. 3 forms: Bear (tank), Raptor (stealth/invisible), Large Bird (flyable/mountable by players or AI).
-
-**Weapon Mastery:** Each of the 17 weapon types has its own XP progression tree unlocked through use — not class-gated. Classes receive a head-start bonus on their specialty weapons. `classWeaponRestrictions` in legacy data should NOT be enforced in UI — treat as recommended loadouts only.
+- **Warrior** — Shields, swords, 2h weapons. Stamina system. Parry/block/charge. AoE + group invincibility.
+- **Mage** — Staffs, tomes, wands, maces. Teleport blocks (max 10). Elemental builds.
+- **Ranger** — Bows, crossbows, guns, daggers, spears. RMB+LMB parry → counter dash.
+- **Worge** — 3 forms: Bear (tank), Raptor (stealth), Large Bird (flyable/mountable). Staffs, spears, bows.
 
 ### Factions
 - **Crusade** — Allied with Human, Elf
@@ -701,54 +652,28 @@ services:
 
 ## 14. Frontend → Backend Integration Status
 
-> **MIGRATION COMPLETE (March 2026):** Every single Grudge frontend now authenticates
-> via `id.grudge-studio.com` and calls `api.grudge-studio.com` for game data.
-> There are ZERO remaining Neon, Supabase, Railway, or Replit connections.
+All frontends should authenticate via `id.grudge-studio.com` and call `api.grudge-studio.com` for game data.
 
-All frontends authenticate via `id.grudge-studio.com` and call `api.grudge-studio.com` for game data.
+| Frontend | Auth Backend | Game Data Backend | Status |
+|----------|-------------|-------------------|--------|
+| grudge-platform.vercel.app | Own Vercel functions (`/api/login`) | N/A | ⚠ Should forward to `id.grudge-studio.com` |
+| grudgewarlords.com | Own Vercel API (`/api/auth/*`) | Own Vercel API | ⚠ Should connect to VPS for game data |
+| warlord-crafting-suite.vercel.app | auth-gateway-flax.vercel.app (Neon) | `grudge-crafting.replit.app` (DEAD) | ❌ Needs VPS migration |
+| gdevelop-assistant.vercel.app | auth-gateway-flax.vercel.app (Neon) | `gruda-legion-production.up.railway.app` (DEAD) | ❌ Needs VPS migration |
+| grudachain.grudgestudio.com | N/A | Static links only | ✅ OK |
+| dash.grudge-studio.com | Cloudflare Worker + `DASH_API_KEY` | VPS APIs | ✅ OK |
 
-**Vercel Frontends (all ✅ connected to VPS):**
-- `grudge-platform.vercel.app` / `grudgeplatform.io` — Proxies auth to `id.grudge-studio.com`, game data to `api.grudge-studio.com` (PR #57, March 2026)
-- `grudgewarlords.com` (= `warlord-crafting-suite.vercel.app`) — Direct VPS calls
-- `warlord-crafting-suite.vercel.app` — Direct VPS calls
-- `grudgedot-launcher.vercel.app` — Direct VPS calls
-- `grudge-engine-web.vercel.app` — Uses VPS GrudgeAPI.js
-- `gruda-wars.vercel.app` — Uses VPS backend
-- `starwaygruda-webclient-as2n.vercel.app` — Uses VPS backend
-- `grudge-builder.vercel.app` — Uses VPS backend
-- `grim-armada-web.vercel.app` — VITE_BACKEND_URL=api.grudge-studio.com
-- `grudge-angeler.vercel.app` — Uses VPS backend
-- `grudge-rts.vercel.app` — Uses VPS backend
-- `grudge-studio-dash.vercel.app` — Uses VPS backend
-
-**Cloudflare (all ✅):**
-- `grudge-studio.com` — Cloudflare Worker
-- `dash.grudge-studio.com` — Cloudflare Worker + DASH_API_KEY → VPS
-- `assets.grudge-studio.com` — Cloudflare R2 CDN Worker
-- `grudachain.grudgestudio.com` — Cloudflare Pages (GrudaChain frontend)
-
-**GitHub Pages (all ✅):**
-- `molochdagod.github.io/ObjectStore` — Static game data JSON
-- `molochdagod.github.io/GrudgeStudioNPM` — GrudgeStudioSDK uses VPS
-
-**Puter Sites (all ✅ — URLs updated in puter-deploy):**
-- `grudge-studio-app.puter.site` — Uses VPS backend
-- `grudge-command-center.puter.site` — Uses VPS backend
-
-### Dead Services — FULLY PURGED (March 2026)
-
-These old URLs have been **completely removed** from every repo's source code:
-
-- `auth-gateway-flax.vercel.app` → **ARCHIVED** repo, all refs replaced with `id.grudge-studio.com`
-- `gruda-legion-production.up.railway.app` → **DEAD**, all refs replaced with `api.grudge-studio.com`
-- `grudge-crafting.replit.app` → **DEAD**, all refs replaced with `api.grudge-studio.com`
-
-**Repos cleaned:** grudge-platform, grudge-studio, grudachain, grudgedot-launcher, Warlord-Crafting-Suite
-
-### CORS_ORIGINS (current — docker-compose.yml)
+### Required CORS_ORIGINS (VPS .env)
 ```
-https://grudgewarlords.com,https://www.grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudgeplatform.com,https://www.grudgeplatform.com,https://grudgeplatform.io,https://www.grudgeplatform.io,https://play.grudgeplatform.io,https://grudachain.grudgestudio.com,https://grudachain-rho.vercel.app,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://grudgedot-launcher.vercel.app,https://gruda-wars.vercel.app,https://grudge-engine-web.vercel.app,https://starwaygruda-webclient-as2n.vercel.app,https://grim-armada-web.vercel.app,https://grudge-angeler.vercel.app,https://grudge-rts.vercel.app,https://grudge-studio-dash.vercel.app,https://nexus-nemesis-game.vercel.app,https://grudge-pvp-server.vercel.app,https://grudge-origins.vercel.app,https://app.puter.com,https://molochdagod.github.io
+https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,https://grudge-platform.vercel.app,https://grudachain.grudgestudio.com,https://dash.grudge-studio.com,https://warlord-crafting-suite.vercel.app,https://gdevelop-assistant.vercel.app,https://app.puter.com
 ```
+
+### Dead Service References to Replace
+| Old URL (DEAD) | Replace With | Affected Projects |
+|----------------|-------------|--------------------|
+| `gruda-legion-production.up.railway.app` | `api.grudge-studio.com` | GDevelopAssistant (`shared/grudachain.ts`) |
+| `grudge-crafting.replit.app` | `api.grudge-studio.com` | WCS (`client/src/lib/api.ts`) |
+| `auth-gateway-flax.vercel.app` (Neon) | `id.grudge-studio.com` (VPS MySQL) | GDevelopAssistant, WCS |
 
 ---
 
@@ -758,12 +683,12 @@ https://grudgewarlords.com,https://www.grudgewarlords.com,https://grudge-studio.
 |----------|-----|
 | GitHub Repo | https://github.com/MolochDaGod/grudge-studio-backend |
 | Live Site | https://grudge-studio.com |
-| Platform Hub | https://grudgeplatform.io |
+| Platform Hub | https://grudge-platform.vercel.app |
 | Dashboard | https://dash.grudge-studio.com |
 | API Health | https://api.grudge-studio.com/health |
 | WS Health | https://ws.grudge-studio.com/health |
 | ObjectStore | https://molochdagod.github.io/ObjectStore |
 | Coolify Docs (SSH) | https://coolify.io/docs/knowledge-base/server/openssh |
 | Warlord Crafting Suite | https://warlord-crafting-suite.vercel.app |
-| grudgeDot Assistant | https://grudgedot-launcher.vercel.app |
+| GDevelop Assistant | https://gdevelop-assistant.vercel.app |
 | Grudge Warlords Game | https://grudgewarlords.com |

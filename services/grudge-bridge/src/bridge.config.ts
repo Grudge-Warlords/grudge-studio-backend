@@ -60,40 +60,8 @@ export interface BridgeConfig {
     weeklyRetentionWeeks: number;
   };
 
-  /** Validator — cross-node state verification */
-  validator: {
-    enabled: boolean;
-    /** Cron schedule for periodic validation (default: every 5 min) */
-    intervalCron: string;
-    /** Tables to hash for state verification */
-    tables: string[];
-    /** GRD-V identity for this node */
-    identity: string;
-  };
-
-  /** Legion AI — GRD-17 inter-node AI communication */
-  legion: {
-    enabled: boolean;
-    /** HMAC secret for signing GRD-17 messages */
-    hmacSecret: string;
-    /** Gemini API key for GRUDA NODE AI */
-    geminiApiKey: string;
-    /** Anthropic API key (fallback provider) */
-    anthropicApiKey: string;
-    /** Max pending messages before backpressure */
-    maxInboxSize: number;
-    /** Message TTL in seconds */
-    messageTtlSecs: number;
-    /** AI agent internal URL (primary node) */
-    aiAgentUrl: string;
-  };
-
   discordWebhookUrl: string;
   composeDir: string;
-  /** game-api internal URL for logging deploy events to dash_events table */
-  gameApiUrl: string;
-  /** Internal API key for service-to-service calls */
-  internalApiKey: string;
 }
 
 function env(key: string, fallback = ""): string {
@@ -186,26 +154,7 @@ export function loadConfig(): BridgeConfig {
       weeklyRetentionWeeks: parseInt(env("BACKUP_WEEKLY_RETAIN", "8"), 10),
     },
 
-    validator: {
-      enabled: env("VALIDATOR_ENABLED", "true") === "true",
-      intervalCron: env("VALIDATOR_CRON", "*/5 * * * *"),
-      tables: (env("VALIDATOR_TABLES", "users,characters,gold_transactions,island_state")).split(","),
-      identity: `GRD-V-${env("NODE_NAME", os.hostname()).toUpperCase().replace(/[^A-Z0-9]/g, "")}`,
-    },
-
-    legion: {
-      enabled: env("LEGION_ENABLED", "true") === "true",
-      hmacSecret: env("GRD17_HMAC_SECRET"),
-      geminiApiKey: env("GEMINI_API_KEY"),
-      anthropicApiKey: env("ANTHROPIC_API_KEY"),
-      maxInboxSize: parseInt(env("LEGION_MAX_INBOX", "1000"), 10),
-      messageTtlSecs: parseInt(env("LEGION_MSG_TTL", "3600"), 10),
-      aiAgentUrl: env("AI_AGENT_URL", "http://ai-agent:3004"),
-    },
-
     discordWebhookUrl: env("DISCORD_WEBHOOK_URL"),
     composeDir: env("COMPOSE_DIR", "/opt/grudge-studio-backend"),
-    gameApiUrl: env("GAME_API_URL", "http://game-api:3003"),
-    internalApiKey: env("INTERNAL_API_KEY"),
   };
 }

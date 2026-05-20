@@ -1,26 +1,32 @@
 # ─────────────────────────────────────────────────────────────
 # Cloudflare Tunnel — Grudge Studio Backend
 # ─────────────────────────────────────────────────────────────
-# Source-of-truth ingress map. When the tunnel is managed from
-# the Cloudflare Zero Trust dashboard (recommended — set
-# CLOUDFLARE_TUNNEL_TOKEN in .env), this file is reference-only
-# and the dashboard's Public Hostnames list takes precedence.
-# Mirror these entries in the dashboard exactly.
+# This file is ONLY used when the tunnel is run in "local config"
+# mode. If you manage the tunnel from the Cloudflare Zero Trust
+# dashboard (recommended — CLOUDFLARE_TUNNEL_TOKEN in .env), the
+# dashboard's Public Hostnames list takes precedence and this
+# file is ignored.
+#
+# It is kept here as the source of truth for which internal
+# services are exposed and on what internal port. Mirror this
+# list exactly in the dashboard's Public Hostnames UI.
 #
 # Tunnel name: grudge-studio
 # Zone:        grudge-studio.com
-# Network:     grudge-net (docker bridge)
 # ─────────────────────────────────────────────────────────────
 
 tunnel: grudge-studio
 credentials-file: /etc/cloudflared/creds.json
 
+# Services resolve by their docker-compose service name on the
+# `grudge-net` bridge network that `cloudflared` is attached to.
 ingress:
   # Unified Identity Service — login, OAuth, SSO, wallet, guest
   - hostname: id.grudge-studio.com
     service: http://grudge-id:3001
 
-  # Game API
+  # Game API (already live — kept here so one tunnel can own
+  # all grudge-studio.com subdomains if you consolidate)
   - hostname: api.grudge-studio.com
     service: http://game-api:3003
 
@@ -47,10 +53,6 @@ ingress:
   # Grudge Bridge (VPS ops manager)
   - hostname: bridge.grudge-studio.com
     service: http://grudge-bridge:4000
-
-  # rec0ded88 / The-ENGINE portal API
-  - hostname: portal-api.grudge-studio.com
-    service: http://portal-api:5000
 
   # Catch-all — required as the last rule
   - service: http_status:404

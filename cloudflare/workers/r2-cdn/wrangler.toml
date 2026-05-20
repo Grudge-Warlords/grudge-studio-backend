@@ -1,49 +1,22 @@
-name               = "grudge-r2-cdn"
-main               = "index.js"
-compatibility_date = "2025-02-04"
-account_id         = "ee475864561b02d4588180b8b9acf694"
+name = "grudge-r2-cdn"
+main = "src/index.ts"
+compatibility_date = "2024-09-01"
 
-# ── R2 binding (native — no S3 API key needed for reads) ─────────────────────
+# Custom domain — set up via Cloudflare dashboard:
+#   CNAME assets → grudge-r2-cdn.<account>.workers.dev
+routes = [
+  { pattern = "assets.grudge-studio.com/*", zone_name = "grudge-studio.com" }
+]
+
+# R2 bucket binding
 [[r2_buckets]]
-binding     = "GRUDGE_ASSETS"
+binding = "ASSETS"
 bucket_name = "grudge-assets"
 
-# ── KV namespace for rate limiting ───────────────────────────────────────────
-# Create before first deploy:
-#   npx wrangler kv namespace create "GRUDGE_RATE_LIMIT"
-# Copy the returned `id` below.
-[[kv_namespaces]]
-binding = "RATE_LIMIT"
-id      = "35be1828b2124f82abdc770293177165"
+# KV for rate limiting (optional — create via: npx wrangler kv namespace create "RATE_LIMIT")
+# [[kv_namespaces]]
+# binding = "RATE_LIMIT"
+# id = "<your-kv-namespace-id>"
 
-# ── Environment variables ────────────────────────────────────────────────────
 [vars]
-ENVIRONMENT = "production"
-
-# ── Routes / custom domains ──────────────────────────────────────────────────
-# CDN reads: assets.grudge-studio.com
-[[routes]]
-pattern = "assets.grudge-studio.com/*"
-zone_id = "e8c0c2ee3063f24eb31affddabf9730a"
-
-# objectstore.grudge-studio.com is handled by the dedicated objectstore-api worker
-# See cloudflare/workers/objectstore-api/wrangler.toml
-
-# Legacy grudgestudio.com (keep until fully migrated)
-# [[routes]]
-# pattern = "assets.grudgestudio.com/*"
-# zone_name = "grudgestudio.com"
-
-# ── Dev preview (local) ──────────────────────────────────────────────────────
-# npx wrangler dev  →  http://localhost:8787
-# Uses real R2 bucket in preview mode.
-
-# ══════════════════════════════════════════════════════════════════════════════
-# STAGING ENVIRONMENT
-# Deploy: npx wrangler deploy --env staging
-# ══════════════════════════════════════════════════════════════════════════════
-[env.staging]
-name = "grudge-r2-cdn-staging"
-
-[env.staging.vars]
-ENVIRONMENT = "staging"
+ALLOWED_ORIGINS = "https://grudge-space-rts.vercel.app,https://starrts.grudge-studio.com,https://grudgewarlords.com,https://grudge-studio.com,http://localhost:5173"

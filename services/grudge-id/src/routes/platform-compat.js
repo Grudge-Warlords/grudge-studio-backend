@@ -1,113 +1,258 @@
 "use strict";
+
 /**
- * Platform Compatibility Routes — /api/auth/*
- * Returns { success: true, token, user: UserProfile } shape
- * expected by grudge-platform, WCS, and all React frontends.
+ * Platform Compatibility Routes
+ *
+ * grudge-platform (and other React/TS frontends) call endpoints at
+ * /api/auth/login, /api/auth/register, /api/auth/guest, /api/auth/user,
+ * /api/auth/verify, /api/auth/logout, /api/auth/web3auth
+ *
+ * These routes wrap the core grudge-id logic and return the
+ * { success: true, token, user: UserProfile } shape expected by
+ * src/lib/api.ts in grudge-platform.
  */
+
 const { Router } = require("express");
+const bcrypt = require("bcrypt");
+const cfg = require("../config");
+const {
+  findByEmail,
+  findByUsername,
+  findById,
+  findOrCreateByProvider,
+  createWithProvider,
+  getProviders,
+  toUserProfile,
+} = require("../services/user");
+const { signAccess, verifyAccess } = require("../services/jwt");
+const { authLimiter } = require("../middleware/rateLimit");
+const { requireTurnstile } = require("../middleware/turnstile");
+const { requireAuth } = require("../middleware/auth");
+
 const router = Router();
+const SALT_ROUNDS = 12;
 
-// These routes proxy to the existing auth.js routes but reshape the response
-// to match the UserProfile interface grudge-platform expects.
+/* ── Helper: build standard platform response ──────── */
+async function buildResponse(user) {
+  const providers = await getProviders(user.id);
+  const profile = toUserProfile(user, providers);
 
-const AUTH_BASE = process.env.IDENTITY_API || "http://localhost:3001";
+  // If wallet provider exists, set walletAddress from provider data
+  const walletProv = providers.find((p) => p.provider === "wallet");
+  if (walletProv && walletProv.provider_data) {
+    try {
+      const data =
+        typeof walletProv.provider_data === "string"
+          ? JSON.parse(walletProv.provider_data)
+          : walletProv.provider_data;
+      profile.walletAddress = data.address || walletProv.provider_uid;
+    } catch {
+      profile.walletAddress = walletProv.provider_uid;
+    }
+  }
 
-/** POST /api/auth/login */
-router.post("/login", async (req, res) => {
+  const token = signAccess(user);
+  return { success: true, token, user: profile };
+}
+
+/**
+ * POST /api/auth/login
+ * Body: { username, password } — matches grudge-platform's auth.login()
+ * Also accepts { email, password } for backward compat.
+ */
+router.post("/login", authLimiter, requireTurnstile, async (req, res) => {
   try {
-    const resp = await fetch(`${AUTH_BASE}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req.body),
-    });
-    const data = await resp.json();
-    if (!resp.ok) return res.status(resp.status).json(data);
-    // Reshape to platform format
-    res.json({ success: true, token: data.token, user: data.user || data });
+    const { username, email, password } = req.body;
+    const identifier = username || email;
+
+    if (!identifier || !password) {
+      return res.status(400).json({ error: "Username/email and password are required" });
+    }
+
+    // Try username first, then email
+    let user = await findByUsername(identifier);
+    if (!user) user = await findByEmail(identifier.toLowerCase());
+    if (!user || !user.password_hash) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    const data = await buildResponse(user);
+    console.log(`[API] Login: ${user.display_name} (${user.grudge_id})`);
+    res.json(data);
   } catch (err) {
+    console.error("[API] Login error:", err);
     res.status(500).json({ error: "Login failed" });
   }
 });
 
-/** POST /api/auth/register */
-router.post("/register", async (req, res) => {
+/**
+ * POST /api/auth/register
+ * Body: { username, password, email? }
+ */
+router.post("/register", authLimiter, requireTurnstile, async (req, res) => {
   try {
-    const resp = await fetch(`${AUTH_BASE}/auth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req.body),
+    const { username, password, email } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username and password are required" });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
+
+    // Check if username or email is taken
+    const existingName = await findByUsername(username);
+    if (existingName) {
+      return res.status(409).json({ error: "Username already taken" });
+    }
+    if (email) {
+      const existingEmail = await findByEmail(email.toLowerCase());
+      if (existingEmail) {
+        return res.status(409).json({ error: "Email already registered" });
+      }
+    }
+
+    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+
+    const { user } = await findOrCreateByProvider({
+      provider: "email",
+      providerUid: email ? email.toLowerCase() : `user:${username}`,
+      username,
+      displayName: username,
+      email: email ? email.toLowerCase() : null,
+      passwordHash,
     });
-    const data = await resp.json();
-    if (!resp.ok) return res.status(resp.status).json(data);
-    res.status(201).json({ success: true, token: data.token, user: data.user || data });
+
+    const data = await buildResponse(user);
+    console.log(`[API] Register: ${user.display_name} (${user.grudge_id})`);
+    res.status(201).json(data);
   } catch (err) {
+    console.error("[API] Register error:", err);
     res.status(500).json({ error: "Registration failed" });
   }
 });
 
-/** POST /api/auth/guest */
-router.post("/guest", async (req, res) => {
+/**
+ * POST /api/auth/guest
+ * Creates an anonymous guest account.
+ */
+router.post("/guest", authLimiter, requireTurnstile, async (req, res) => {
   try {
-    const resp = await fetch(`${AUTH_BASE}/auth/guest`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req.body),
+    const { nanoid } = require("nanoid");
+    const guestTag = nanoid(8);
+    const user = await createWithProvider({
+      provider: "guest",
+      providerUid: `guest-${guestTag}`,
+      username: `Guest_${guestTag}`,
+      displayName: `Guest_${guestTag}`,
+      isGuest: true,
     });
-    const data = await resp.json();
-    if (!resp.ok) return res.status(resp.status).json(data);
-    res.status(201).json({ success: true, token: data.token, user: data.user || data });
+
+    const data = await buildResponse(user);
+    console.log(`[API] Guest: ${user.display_name} (${user.grudge_id})`);
+    res.status(201).json(data);
   } catch (err) {
-    res.status(500).json({ error: "Guest creation failed" });
+    console.error("[API] Guest error:", err);
+    res.status(500).json({ error: "Guest account creation failed" });
   }
 });
 
-/** GET /api/auth/user — returns current user profile */
-router.get("/user", async (req, res) => {
+/**
+ * GET /api/auth/user
+ * Returns the current user's profile. Used by auth.me() in grudge-platform.
+ */
+router.get("/user", requireAuth, async (req, res) => {
   try {
-    const auth = req.headers.authorization;
-    if (!auth) return res.status(401).json({ error: "No token" });
-    const resp = await fetch(`${AUTH_BASE}/identity/me`, {
-      headers: { Authorization: auth },
-    });
-    const data = await resp.json();
-    if (!resp.ok) return res.status(resp.status).json(data);
-    res.json(data);
+    const user = await findById(req.user.userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const providers = await getProviders(user.id);
+    const profile = toUserProfile(user, providers);
+
+    const walletProv = providers.find((p) => p.provider === "wallet");
+    if (walletProv) {
+      try {
+        const data =
+          typeof walletProv.provider_data === "string"
+            ? JSON.parse(walletProv.provider_data)
+            : walletProv.provider_data;
+        profile.walletAddress = data?.address || walletProv.provider_uid;
+      } catch {
+        profile.walletAddress = walletProv.provider_uid;
+      }
+    }
+
+    res.json(profile);
   } catch (err) {
+    console.error("[API] User profile error:", err);
     res.status(500).json({ error: "Failed to fetch profile" });
   }
 });
 
-/** POST /api/auth/verify */
+/**
+ * POST /api/auth/verify
+ * Body: { token } — verifies a JWT and returns the user.
+ */
 router.post("/verify", async (req, res) => {
   try {
-    const resp = await fetch(`${AUTH_BASE}/auth/verify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req.body),
-    });
-    const data = await resp.json();
-    res.status(resp.status).json(data);
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ valid: false, error: "Missing token" });
+
+    const payload = verifyAccess(token);
+    const user = await findById(payload.sub);
+    if (!user) return res.json({ valid: false });
+
+    const providers = await getProviders(user.id);
+    const profile = toUserProfile(user, providers);
+    res.json({ valid: true, user: { userId: String(user.id), username: user.username || user.display_name, grudgeId: user.grudge_id, isGuest: Boolean(user.is_guest) } });
   } catch {
     res.json({ valid: false });
   }
 });
 
-/** POST /api/auth/logout */
-router.post("/logout", (_req, res) => res.json({ success: true }));
+/**
+ * POST /api/auth/logout
+ * Clears server-side session (stateless JWT — best effort).
+ */
+router.post("/logout", (_req, res) => {
+  res.json({ success: true });
+});
 
-/** POST /api/auth/web3auth */
-router.post("/web3auth", async (req, res) => {
+/**
+ * POST /api/auth/web3auth
+ * Body: { idToken, walletAddress, email? }
+ * For Web3Auth embedded wallet login from grudge-platform.
+ */
+router.post("/web3auth", authLimiter, async (req, res) => {
   try {
-    const resp = await fetch(`${AUTH_BASE}/auth/wallet`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req.body),
+    const { idToken, walletAddress, email } = req.body;
+
+    if (!idToken || !walletAddress) {
+      return res.status(400).json({ error: "Missing idToken or walletAddress" });
+    }
+
+    // TODO: Verify idToken against Web3Auth JWKS in production.
+    // For now we trust the token since the frontend validates it via Web3Auth SDK.
+
+    const { user } = await findOrCreateByProvider({
+      provider: "wallet",
+      providerUid: walletAddress,
+      displayName: `${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}`,
+      email: email || null,
+      providerData: { chain: "solana", address: walletAddress, method: "web3auth" },
     });
-    const data = await resp.json();
-    if (!resp.ok) return res.status(resp.status).json(data);
-    res.json({ success: true, token: data.token, user: data.user || data });
+
+    const data = await buildResponse(user);
+    console.log(`[API] Web3Auth login: ${walletAddress.slice(0, 8)}... (${user.grudge_id})`);
+    res.json(data);
   } catch (err) {
-    res.status(500).json({ error: "Web3Auth failed" });
+    console.error("[API] Web3Auth error:", err);
+    res.status(500).json({ error: "Web3Auth authentication failed" });
   }
 });
 

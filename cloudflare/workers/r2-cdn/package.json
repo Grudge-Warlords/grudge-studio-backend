@@ -1,14 +1,14 @@
 {
   "name": "grudge-r2-cdn",
-  "version": "1.0.0",
   "private": true,
-  "description": "Grudge Studio R2 CDN Worker — edge-serves grudgedata bucket",
+  "version": "1.0.0",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "tail": "wrangler tail"
   },
   "devDependencies": {
-    "wrangler": "^3.114.17"
+    "@cloudflare/workers-types": "^4.20240909.0",
+    "wrangler": "^3.78.0"
   }
 }
