@@ -202,26 +202,43 @@ const PROVIDERS = {
       };
     },
   },
-  // Non-OAuth providers (wallet/phone/puter/email) are linked through
-  // their own bespoke endpoints — they're advertised here so the UI
-  // can list them, but POST /auth/links/start refuses them with
-  // a hint pointing to the right entry endpoint.
-  wallet: { isOAuth: false, isConfigured: () => true, hint: "POST /auth/wallet/link" },
-  phone: { isOAuth: false, isConfigured: () => true, hint: "POST /auth/phone/send + /auth/phone/verify" },
-  puter: { isOAuth: false, isConfigured: () => true, hint: "POST /auth/puter-bridge/link" },
-  email: { isOAuth: false, isConfigured: () => true, hint: "POST /auth/link/claim" },
+
+  // ── Non-OAuth providers — listed but not startable from /start ──
+  wallet:   { column: 'wallet_address', isOAuth: false, isConfigured: () => true,
+              hint: 'POST /auth/wallet  (Web3Auth flow)' },
+  web3auth: { column: 'web3auth_id',    isOAuth: false, isConfigured: () => true,
+              hint: 'POST /auth/wallet  (Web3Auth JWT)' },
+  phone:    { column: 'phone',          isOAuth: false, isConfigured: () => true,
+              hint: 'POST /auth/phone-send + /auth/phone-verify' },
+  puter:    { column: 'puter_id',       isOAuth: false, isConfigured: () => true,
+              hint: 'POST /auth/puter-link' },
+  email:    { column: 'email',          isOAuth: false, isConfigured: () => true,
+              hint: 'POST /auth/register or /auth/forgot-password' },
 };
 
-/** Build the absolute callback URL for a given provider. */
+/** All columns we read for the /auth/links list response. */
+const LINK_COLUMNS = [
+  'discord_id', 'discord_tag',
+  'google_id',
+  'github_id', 'github_username',
+  'wallet_address', 'web3auth_id',
+  'puter_id', 'puter_username',
+  'phone',
+  'email',
+  'password_hash',
+  'avatar_url',
+  'last_login',
+];
+
+/** Build the link-callback URL for a given provider.
+ * Alias kept as linkCallbackUrl so OAuth provider defs above can reference it. */
 function linkCallbackUrl(provider) {
-  // We use the same host the provider redirect URIs are registered against,
-  // but on a dedicated /auth/links/callback/:provider path so the link-intent
-  // state is never confused with a normal login state.
-  const base = (cfg[provider] && cfg[provider].redirectUri)
-    ? cfg[provider].redirectUri.replace(/\/auth\/[^/]+\/callback$/, "")
-    : "https://id.grudge-studio.com";
-  return `${base}/auth/links/callback/${provider}`;
+  const base = process.env.LINK_CALLBACK_BASE
+    || process.env.GRUDGE_ID_PUBLIC_URL
+    || 'https://id.grudge-studio.com';
+  return `${base.replace(/\/$/, '')}/auth/links/callback/${provider}`;
 }
+// signLinkIntent / verifyLinkIntent / verifyAccess imported from ../services/jwt (see top of file).
 
 /* ─────────────────────────────────────────────────────────────
  * GET /auth/links

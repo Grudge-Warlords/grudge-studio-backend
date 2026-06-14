@@ -8,6 +8,7 @@ const axios = require('axios');
 const { getDB } = require('../db');
 const { verifyTurnstile } = require('../middleware/turnstile');
 const { isAllowedRedirect, DEFAULT_AUTH_REDIRECT } = require('../../shared/cors');
+const accounts = require('../accounts');
 
 const JWT_SECRET         = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN     = process.env.JWT_EXPIRES_IN || '7d';
@@ -116,57 +117,15 @@ function issueToken(user) {
 }
 
 // ── Helper: get or create user + server wallet ─
+// Delegates to the canonical accounts.resolveOrCreateUser so every provider
+// shares ONE creation path (UUID grudge_id, real-or-NULL puter_id, server
+// wallet). Signature preserved for existing callers.
 async function getOrCreateUser(db, identityField, identityValue, extraFields = {}) {
-  let [rows] = await db.query(
-    `SELECT * FROM users WHERE ${identityField} = ? LIMIT 1`,
-    [identityValue]
-  );
-
-  if (rows.length > 0) {
-    const user = rows[0];
-    // ── Ban check ─────────────────────────────
-    if (user.is_banned) {
-      const err = new Error(user.ban_reason || 'Account banned');
-      err.status = 403;
-      err.banned = true;
-      throw err;
-    }
-    await db.query('UPDATE users SET last_login = NOW() WHERE grudge_id = ?', [user.grudge_id]);
-    return user;
-  }
-
-  // New user - create Grudge ID
-  const grudge_id = uuidv4();
-
-  // Request server-side wallet from wallet-service
-  let server_wallet_address = null;
-  let server_wallet_index = null;
-  try {
-    const resp = await axios.post(
-      `${WALLET_SERVICE_URL}/wallet/create`,
-      { grudge_id },
-      { headers: { 'x-internal-key': INTERNAL_API_KEY } }
-    );
-    server_wallet_address = resp.data.address;
-    server_wallet_index = resp.data.index;
-  } catch (e) {
-    console.warn('[grudge-id] wallet-service unavailable:', e.message);
-  }
-
-  // Generate puter_id
-  const puter_id = `GRUDGE-${grudge_id.split('-')[0].toUpperCase()}`;
-
-  await db.query(
-    `INSERT INTO users
-      (grudge_id, puter_id, server_wallet_address, server_wallet_index, last_login, ${identityField}, ${Object.keys(extraFields).join(', ')})
-     VALUES (?, ?, ?, ?, NOW(), ?, ${Object.keys(extraFields).map(() => '?').join(', ')})`,
-    [grudge_id, puter_id, server_wallet_address, server_wallet_index, identityValue, ...Object.values(extraFields)]
-  );
-
-  [rows] = await db.query('SELECT * FROM users WHERE grudge_id = ? LIMIT 1', [grudge_id]);
-  const newUser = rows[0];
-  if (newUser) newUser._isNew = true;
-  return newUser;
+  return accounts.resolveOrCreateUser(db, {
+    field: identityField,
+    value: identityValue,
+    extra: extraFields,
+  });
 }
 
 // ── POST /auth/wallet ─────────────────────────
@@ -534,36 +493,17 @@ router.post('/register', verifyTurnstile, async (req, res, next) => {
       return res.status(409).json({ error: 'Username or email already taken' });
     }
 
-    const grudge_id = uuidv4();
-    const puter_id = `GRUDGE-${grudge_id.split('-')[0].toUpperCase()}`;
     const password_hash = await bcrypt.hash(password, 10);
 
-    // Server wallet
-    let server_wallet_address = null;
-    let server_wallet_index = null;
-    try {
-      const resp = await axios.post(
-        `${WALLET_SERVICE_URL}/wallet/create`,
-        { grudge_id },
-        { headers: { 'x-internal-key': INTERNAL_API_KEY } }
-      );
-      server_wallet_address = resp.data.address;
-      server_wallet_index = resp.data.index;
-    } catch (e) {
-      console.warn('[grudge-id] wallet-service unavailable:', e.message);
-    }
-
-    await db.query(
-      `INSERT INTO users
-        (grudge_id, puter_id, username, email, password_hash, display_name,
-         server_wallet_address, server_wallet_index, is_guest, gold, gbux_balance, last_login)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, FALSE, 1000, 0, NOW())`,
-      [grudge_id, puter_id, username, email || null, password_hash, username,
-       server_wallet_address, server_wallet_index]
-    );
-
-    const [rows] = await db.query('SELECT * FROM users WHERE grudge_id = ? LIMIT 1', [grudge_id]);
-    const user = rows[0];
+    const user = await accounts.createUser(db, {
+      username,
+      email: email || null,
+      password_hash,
+      display_name: username,
+      is_guest: 0,
+      gold: 1000,
+      gbux_balance: 0,
+    });
     const token = issueToken(user);
     setSsoCookie(res, token);
 
@@ -700,18 +640,14 @@ router.post('/guest', async (req, res, next) => {
     let isNewUser = false;
 
     if (!user) {
-      const grudge_id = uuidv4();
-      const puter_id = `GRUDGE-${grudge_id.split('-')[0].toUpperCase()}`;
-
-      await db.query(
-        `INSERT INTO users
-          (grudge_id, puter_id, username, display_name, password_hash, is_guest, gold, gbux_balance, last_login)
-         VALUES (?, ?, ?, ?, 'guest', TRUE, 500, 0, NOW())`,
-        [grudge_id, puter_id, guestUsername, `Guest ${deviceId.slice(0, 6)}`]
-      );
-
-      const [rows] = await db.query('SELECT * FROM users WHERE grudge_id = ? LIMIT 1', [grudge_id]);
-      user = rows[0];
+      user = await accounts.createUser(db, {
+        username: guestUsername,
+        display_name: `Guest ${deviceId.slice(0, 6)}`,
+        password_hash: 'guest',
+        is_guest: 1,
+        gold: 500,
+        gbux_balance: 0,
+      });
       isNewUser = true;
     } else {
       await db.query('UPDATE users SET last_login = NOW() WHERE grudge_id = ?', [user.grudge_id]);
@@ -838,8 +774,8 @@ router.post('/puter', async (req, res, next) => {
 
     const db = getDB();
 
-    // Check if user exists by puter_uuid
-    let [rows] = await db.query('SELECT * FROM users WHERE puter_uuid = ? LIMIT 1', [puterUuid]);
+    // Look up by the canonical Puter column (real Puter UUID lives in puter_id).
+    let [rows] = await db.query('SELECT * FROM users WHERE puter_id = ? LIMIT 1', [puterUuid]);
     let user = rows[0];
     let isNewUser = false;
 
@@ -847,39 +783,18 @@ router.post('/puter', async (req, res, next) => {
       if (user.is_banned) return res.status(403).json({ error: user.ban_reason || 'Account banned' });
       await db.query('UPDATE users SET last_login = NOW() WHERE grudge_id = ?', [user.grudge_id]);
     } else {
-      // Create new user
+      // Create a new canonical account carrying the real Puter UUID.
       isNewUser = true;
-      const grudge_id = uuidv4();
-      const puter_id = `GRUDGE-${grudge_id.split('-')[0].toUpperCase()}`;
       const finalUsername = username || puterUsername || `puter_${puterUuid.slice(0, 8)}`;
-      const displayName = puterUsername || finalUsername;
-
-      // Server wallet
-      let server_wallet_address = null;
-      let server_wallet_index = null;
-      try {
-        const resp = await axios.post(
-          `${WALLET_SERVICE_URL}/wallet/create`,
-          { grudge_id },
-          { headers: { 'x-internal-key': INTERNAL_API_KEY } }
-        );
-        server_wallet_address = resp.data.address;
-        server_wallet_index = resp.data.index;
-      } catch (e) {
-        console.warn('[grudge-id] wallet-service unavailable:', e.message);
-      }
-
-      await db.query(
-        `INSERT INTO users
-          (grudge_id, puter_id, puter_uuid, puter_username, username, display_name,
-           server_wallet_address, server_wallet_index, is_guest, gold, gbux_balance, last_login)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, FALSE, 1000, 100, NOW())`,
-        [grudge_id, puter_id, puterUuid, puterUsername || null, finalUsername, displayName,
-         server_wallet_address, server_wallet_index]
-      );
-
-      [rows] = await db.query('SELECT * FROM users WHERE grudge_id = ? LIMIT 1', [grudge_id]);
-      user = rows[0];
+      user = await accounts.createUser(db, {
+        puter_id: puterUuid,
+        puter_username: puterUsername || null,
+        username: finalUsername,
+        display_name: puterUsername || finalUsername,
+        is_guest: 0,
+        gold: 1000,
+        gbux_balance: 100,
+      });
     }
 
     const token = issueToken(user);
@@ -912,9 +827,9 @@ router.post('/puter-link', async (req, res, next) => {
 
     const db = getDB();
 
-    // Check for conflicts
+    // Check for conflicts on the canonical Puter column.
     const [conflict] = await db.query(
-      'SELECT id FROM users WHERE puter_uuid = ? AND grudge_id != ? LIMIT 1',
+      'SELECT id FROM users WHERE puter_id = ? AND grudge_id != ? LIMIT 1',
       [puterUuid, decoded.grudge_id]
     );
     if (conflict.length > 0) {
@@ -922,7 +837,7 @@ router.post('/puter-link', async (req, res, next) => {
     }
 
     await db.query(
-      'UPDATE users SET puter_uuid = ?, puter_username = ? WHERE grudge_id = ?',
+      'UPDATE users SET puter_id = ?, puter_username = ? WHERE grudge_id = ?',
       [puterUuid, puterUsername || null, decoded.grudge_id]
     );
 
@@ -982,8 +897,6 @@ router.post('/google/exchange', async (req, res, next) => {
       );
     } else {
       isNewUser = true;
-      const grudge_id = uuidv4();
-      const puter_id = `GRUDGE-${grudge_id.split('-')[0].toUpperCase()}`;
       let username = `g_${(gu.name || '').replace(/\s+/g, '').slice(0, 16)}` || `google_${gu.id.slice(0, 8)}`;
 
       const [taken] = await db.query('SELECT id FROM users WHERE username = ? LIMIT 1', [username]);
@@ -991,30 +904,17 @@ router.post('/google/exchange', async (req, res, next) => {
 
       const password_hash = await bcrypt.hash(uuidv4(), 10);
 
-      let server_wallet_address = null;
-      let server_wallet_index = null;
-      try {
-        const resp = await axios.post(
-          `${WALLET_SERVICE_URL}/wallet/create`, { grudge_id },
-          { headers: { 'x-internal-key': INTERNAL_API_KEY } }
-        );
-        server_wallet_address = resp.data.address;
-        server_wallet_index = resp.data.index;
-      } catch (e) { console.warn('[grudge-id] wallet-service unavailable:', e.message); }
-
-      await db.query(
-        `INSERT INTO users
-          (grudge_id, puter_id, username, display_name, email, avatar_url,
-           google_id, password_hash, server_wallet_address, server_wallet_index,
-           is_guest, gold, gbux_balance, last_login)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE, 1000, 0, NOW())`,
-        [grudge_id, puter_id, username, gu.name || username, gu.email || null,
-         gu.picture || null, gu.id, password_hash,
-         server_wallet_address, server_wallet_index]
-      );
-
-      [rows] = await db.query('SELECT * FROM users WHERE grudge_id = ? LIMIT 1', [grudge_id]);
-      user = rows[0];
+      user = await accounts.createUser(db, {
+        username,
+        display_name: gu.name || username,
+        email: gu.email || null,
+        avatar_url: gu.picture || null,
+        google_id: gu.id,
+        password_hash,
+        is_guest: 0,
+        gold: 1000,
+        gbux_balance: 0,
+      });
     }
 
     const token = issueToken(user);
@@ -1088,8 +988,6 @@ router.post('/github/exchange', async (req, res, next) => {
       );
     } else {
       isNewUser = true;
-      const grudge_id = uuidv4();
-      const puter_id = `GRUDGE-${grudge_id.split('-')[0].toUpperCase()}`;
       let username = `gh_${(gh.login || '').slice(0, 16)}` || `github_${ghIdStr.slice(0, 8)}`;
 
       const [taken] = await db.query('SELECT id FROM users WHERE username = ? LIMIT 1', [username]);
@@ -1097,30 +995,17 @@ router.post('/github/exchange', async (req, res, next) => {
 
       const password_hash = await bcrypt.hash(uuidv4(), 10);
 
-      let server_wallet_address = null;
-      let server_wallet_index = null;
-      try {
-        const resp = await axios.post(
-          `${WALLET_SERVICE_URL}/wallet/create`, { grudge_id },
-          { headers: { 'x-internal-key': INTERNAL_API_KEY } }
-        );
-        server_wallet_address = resp.data.address;
-        server_wallet_index = resp.data.index;
-      } catch (e) { console.warn('[grudge-id] wallet-service unavailable:', e.message); }
-
-      await db.query(
-        `INSERT INTO users
-          (grudge_id, puter_id, username, display_name, email, avatar_url,
-           github_id, password_hash, server_wallet_address, server_wallet_index,
-           is_guest, gold, gbux_balance, last_login)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE, 1000, 0, NOW())`,
-        [grudge_id, puter_id, username, gh.name || username, primaryEmail || null,
-         gh.avatar_url || null, ghIdStr, password_hash,
-         server_wallet_address, server_wallet_index]
-      );
-
-      [rows] = await db.query('SELECT * FROM users WHERE grudge_id = ? LIMIT 1', [grudge_id]);
-      user = rows[0];
+      user = await accounts.createUser(db, {
+        username,
+        display_name: gh.name || username,
+        email: primaryEmail || null,
+        avatar_url: gh.avatar_url || null,
+        github_id: ghIdStr,
+        password_hash,
+        is_guest: 0,
+        gold: 1000,
+        gbux_balance: 0,
+      });
     }
 
     const token = issueToken(user);
@@ -1342,33 +1227,18 @@ router.post('/phone-verify', async (req, res, next) => {
       await db.query('UPDATE users SET last_login = NOW() WHERE grudge_id = ?', [user.grudge_id]);
     } else {
       isNewUser = true;
-      const grudge_id = uuidv4();
-      const puter_id = `GRUDGE-${grudge_id.split('-')[0].toUpperCase()}`;
       const username = `ph_${normalized.replace(/\+/g, '').slice(-8)}`;
       const password_hash = await bcrypt.hash(uuidv4(), 10);
 
-      let server_wallet_address = null;
-      let server_wallet_index = null;
-      try {
-        const resp = await axios.post(
-          `${WALLET_SERVICE_URL}/wallet/create`, { grudge_id },
-          { headers: { 'x-internal-key': INTERNAL_API_KEY } }
-        );
-        server_wallet_address = resp.data.address;
-        server_wallet_index = resp.data.index;
-      } catch (e) { console.warn('[grudge-id] wallet-service unavailable:', e.message); }
-
-      await db.query(
-        `INSERT INTO users
-          (grudge_id, puter_id, username, display_name, phone, password_hash,
-           server_wallet_address, server_wallet_index, is_guest, gold, gbux_balance, last_login)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, FALSE, 1000, 0, NOW())`,
-        [grudge_id, puter_id, username, 'Phone User', normalized, password_hash,
-         server_wallet_address, server_wallet_index]
-      );
-
-      [rows] = await db.query('SELECT * FROM users WHERE grudge_id = ? LIMIT 1', [grudge_id]);
-      user = rows[0];
+      user = await accounts.createUser(db, {
+        username,
+        display_name: 'Phone User',
+        phone: normalized,
+        password_hash,
+        is_guest: 0,
+        gold: 1000,
+        gbux_balance: 0,
+      });
     }
 
     const token = issueToken(user);

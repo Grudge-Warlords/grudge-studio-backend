@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { getDB } = require('../db');
+const accounts = require('../accounts');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -78,66 +79,52 @@ router.post('/link-puter', async (req, res, next) => {
     const db = getDB();
     const now = new Date();
 
-    // 1. Does this Puter UUID already exist?
-    const [existing] = await db.query(
-      `SELECT grudge_id, username, puter_id, discord_id, discord_tag,
-              wallet_address, web3auth_id, is_guest, is_active, created_at, last_login
-       FROM users WHERE puter_id = ? LIMIT 1`,
-      [puterUuid]
-    );
-
-    if (existing.length) {
-      const u = existing[0];
-      // Update is_guest status if they've claimed their account
-      if (u.is_guest && !isTemp) {
-        await db.query(
-          'UPDATE users SET is_guest = 0, last_login = ? WHERE puter_id = ?',
-          [now, puterUuid]
-        );
-      } else {
-        await db.query('UPDATE users SET last_login = ? WHERE puter_id = ?', [now, puterUuid]);
-      }
-
-      return res.json({
-        grudgeId:    u.grudge_id,
-        puterUuid,
-        username:    u.username,
-        isTemp:      isTemp ? (u.is_guest === 1) : false,
-        isNew:       false,
-        linkedAuth: {
-          discord:       u.discord_id   || undefined,
-          walletAddress: u.wallet_address || undefined,
-          web3authId:    u.web3auth_id  || undefined,
-        },
-        pipActive:   true,
-        createdAt:   u.created_at,
-        lastSeen:    now.toISOString(),
-      });
+    // If the caller already holds a Grudge session, attach this Puter UUID to
+    // THAT account rather than minting a second one (single-canonical-ID).
+    let sessionGrudgeId = null;
+    const hdr = req.headers.authorization;
+    if (hdr && hdr.startsWith('Bearer ')) {
+      try { sessionGrudgeId = jwt.verify(hdr.slice(7), JWT_SECRET).grudge_id || null; } catch {}
     }
 
-    // 2. New Puter UUID → generate Grudge ID and create user
-    const grudgeId = 'grudge_' + puterUuid.replace(/-/g, '').slice(0, 12);
-    const safeUsername = username || `player_${grudgeId.slice(-6)}`;
+    // One canonical path: returns the existing account for this Puter UUID,
+    // attaches it to the session account, or creates a fresh canonical one.
+    const user = await accounts.resolveOrCreateUser(db, {
+      field: 'puter_id',
+      value: puterUuid,
+      sessionGrudgeId,
+      extra: {
+        username: username || `player_${puterUuid.replace(/-/g, '').slice(0, 6)}`,
+        is_guest: isTemp ? 1 : 0,
+        is_temp:  isTemp ? 1 : 0,
+      },
+    });
 
-    await db.query(
-      `INSERT INTO users
-         (grudge_id, username, puter_id, is_guest, is_active, created_at, last_login)
-       VALUES (?, ?, ?, ?, 1, ?, ?)`,
-      [grudgeId, safeUsername, puterUuid, isTemp ? 1 : 0, now, now]
-    );
+    const isNew = !!user._isNew;
 
-    console.log(`[grudge-id] New player onboarded: ${grudgeId} (puter: ${puterUuid}, temp: ${isTemp})`);
+    // Existing temp/guest account that just claimed (isTemp=false) → promote.
+    if (!isNew && user.is_guest && !isTemp) {
+      await db.query('UPDATE users SET is_guest = 0, is_temp = 0 WHERE grudge_id = ?', [user.grudge_id]);
+      user.is_guest = 0;
+    }
 
-    return res.status(201).json({
-      grudgeId,
+    console.log(`[grudge-id] link-puter ${isNew ? 'created' : 'resolved'} ${user.grudge_id} (puter: ${puterUuid}, temp: ${!!isTemp})`);
+
+    return res.status(isNew ? 201 : 200).json({
+      grudgeId:    user.grudge_id,
       puterUuid,
-      username: safeUsername,
-      isTemp:   !!isTemp,
-      isNew:    true,
-      linkedAuth: {},
-      pipActive: true,
-      createdAt: now.toISOString(),
-      lastSeen:  now.toISOString(),
+      username:    user.username,
+      isTemp:      isTemp ? !!user.is_guest : false,
+      isNew,
+      linkedAuth: {
+        discord:       user.discord_id     || undefined,
+        walletAddress: user.wallet_address || undefined,
+        web3authId:    user.web3auth_id    || undefined,
+        email:         user.email          || undefined,
+      },
+      pipActive:   true,
+      createdAt:   user.created_at || now.toISOString(),
+      lastSeen:    now.toISOString(),
     });
   } catch (err) {
     next(err);
@@ -163,28 +150,29 @@ router.post('/link-auth', async (req, res, next) => {
       wallet:    'wallet_address',
       web3auth:  'web3auth_id',
       email:     'email',
+      puter:     'puter_id',
     };
 
     const column = columnMap[authMethod];
     if (!column) return res.status(400).json({ error: `Unknown authMethod: ${authMethod}` });
 
-    // Check if this credential is already linked to a DIFFERENT Grudge ID
+    // If this credential already belongs to a DIFFERENT Grudge ID, do NOT
+    // silently steal it (the old behaviour stranded the other account's data).
+    // Surface the conflict so the client runs a real merge via /auth/links/merge.
     const [conflict] = await db.query(
-      `SELECT grudge_id FROM users WHERE ${column} = ? AND grudge_id != ? LIMIT 1`,
+      `SELECT grudge_id FROM users WHERE \`${column}\` = ? AND grudge_id != ? LIMIT 1`,
       [credential, grudgeId]
     );
-
     if (conflict.length) {
-      // Merge: update the conflicting record to point to this grudge_id
-      // (prefer the newer/puter-linked identity)
-      await db.query(
-        `UPDATE users SET ${column} = NULL WHERE grudge_id = ?`,
-        [conflict[0].grudge_id]
-      );
+      return res.status(409).json({
+        error: 'credential_linked_elsewhere',
+        message: `That ${authMethod} is already linked to another Grudge ID. Use POST /auth/links/merge to combine the accounts.`,
+        conflictGrudgeId: conflict[0].grudge_id,
+      });
     }
 
     await db.query(
-      `UPDATE users SET ${column} = ? WHERE grudge_id = ?`,
+      `UPDATE users SET \`${column}\` = ? WHERE grudge_id = ?`,
       [credential, grudgeId]
     );
 
