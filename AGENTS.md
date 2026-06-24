@@ -1,12 +1,16 @@
-# Grudge Studio — System Reference (AGENTS.md)
+# Grudge Warlords Era Backend — System Reference (AGENTS.md)
+
+> **Scope:** this repo is the **Grudge Warlords Era game backend + game database** (`grudge_game`),
+> not the generic Grudge Studio company site. `README.md` is the canonical source of truth — if
+> anything here conflicts with it, README wins.
 
 ## Single Backend — Always Use These
 
 ### Auth (ALL apps must use)
-Primary gateway: `https://auth-gateway-otb8qmmyd-grudgenexus.vercel.app`
-- Redirect: `window.location.href = GATEWAY + '?return=' + encodeURIComponent(window.location.href)`
-- Redirects back to app with auth stored in localStorage
-- Keys: `grudge_auth_token` (JWT), `grudge_user_id`, `grudge_id` (UUID), `grudge_username`
+Canonical auth source: `https://id.grudge-studio.com` (the `grudge-id` service in this repo).
+- Issues the Grudge ID JWT consumed by every game service here.
+- Storage keys: `grudge_auth_token` (JWT), `grudge_user_id`, `grudge_id` (UUID), `grudge_username`
+- Legacy Vercel `auth-gateway-*` URLs are retired — do not introduce new auth gateways.
 
 VPS Auth API: `https://id.grudge-studio.com`
 - POST /auth/login, /auth/register, /auth/puter, /auth/wallet
@@ -38,7 +42,7 @@ URL pattern: `{CDN}/{category}/{GRUDGE-UUID}.{ext}`
 - `grudge_username` — display name
 
 ### Do NOT
-- Create new auth flows — use the gateway
+- Create new auth flows — use `id.grudge-studio.com`
 - Use `uuidv4()` for entity IDs
 - Hardcode asset URLs — use CDN helpers
 - Use Replit — use Vercel for web apps
@@ -63,9 +67,9 @@ ObjectStore is the single source of truth for game data and assets.
 | wallet-service | internal only | 3002 |
 | ai-agent | internal only | 3004 |
 
-### Auth Gateway (All Apps Use This First)
-`https://auth-gateway-otb8qmmyd-grudgenexus.vercel.app`
-- Redirect: `?return=<app_url>`
+### Auth (All Apps Use This)
+Canonical auth source: `https://id.grudge-studio.com` (grudge-id). Legacy Vercel `auth-gateway-*`
+URLs are retired — do not reintroduce them.
 - Sets localStorage: `grudge_auth_token`, `grudge_user_id`, `grudge_id`, `grudge_username`
 
 ### Auth Endpoints (id.grudge-studio.com)
@@ -102,9 +106,10 @@ URL: `{CDN_BASE}/{category}/{GRUDGE-UUID}.{ext}`
 - `services/shared/logEvent.js` ? event logging
 
 ### Database
-- MySQL (Docker): `grudge_game` db ? all game data
-- Neon PostgreSQL: game accounts via Vercel (env: DATABASE_URL)
+- MySQL (Docker): `grudge_game` — the ONLY game/runtime database (Unity + WebGL + other games needing a game DB)
+- portal-postgres (Docker): `rec0ded88` — used ONLY by the separate The-ENGINE portal-api, not game data
 - Redis (Docker): sessions and caching
+- Neon PostgreSQL / Supabase: removed — never reintroduce (single source of truth = MySQL `grudge_game`)
 
 ### Environment
 All services: `NODE_ENV=production`

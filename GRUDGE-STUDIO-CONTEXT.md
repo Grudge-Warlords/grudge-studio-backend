@@ -2,6 +2,10 @@
 **For AI Assistants, Agents, and Developers**
 Version: 2.0 | VPS: `74.208.155.229` | Last updated: March 2026
 
+> **Scope:** this is the **Grudge Warlords Era game backend + game database** (`grudge_game`), not
+> the generic Grudge Studio company site. The repo `README.md` is the canonical source of truth;
+> this context doc must stay consistent with it.
+
 ---
 
 > **How to use this doc**
@@ -18,7 +22,7 @@ You are working on the Grudge Studio game backend for Grudge Warlords.
 
 INFRASTRUCTURE:
 - VPS: 74.208.155.229 (Debian/Ubuntu, Docker + Coolify)
-- GitHub repo: https://github.com/MolochDaGod/grudge-studio-backend
+- GitHub repo: https://github.com/Grudge-Warlords/grudge-studio-backend
 - Cloudflare zone: e8c0c2ee3063f24eb31affddabf9730a (grudge-studio.com)
 - Cloudflare account: ee475864561b02d4588180b8b9acf694
 
@@ -681,7 +685,7 @@ https://grudgewarlords.com,https://grudge-studio.com,https://grudgestudio.com,ht
 
 | Resource | URL |
 |----------|-----|
-| GitHub Repo | https://github.com/MolochDaGod/grudge-studio-backend |
+| GitHub Repo | https://github.com/Grudge-Warlords/grudge-studio-backend |
 | Live Site | https://grudge-studio.com |
 | Platform Hub | https://grudge-platform.vercel.app |
 | Dashboard | https://dash.grudge-studio.com |

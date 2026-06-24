@@ -12,6 +12,11 @@ description: |
 
 Created by Racalvin The Pirate King. All backend runs on VPS. All frontends on Vercel.
 
+> **This repo = the Grudge Warlords Era game backend + game database (`grudge_game`).** It is the
+> game/runtime backend, not the generic Grudge Studio company site. MySQL `grudge_game` holds game
+> data only; account/identity comes from `grudge-id`. The repo `README.md` is the canonical source
+> of truth; this skill must stay consistent with it.
+
 ## VPS Backend (Docker Compose — single source of truth)
 
 Repository: `grudge-studio-backend` (github.com/Grudge-Warlords/grudge-studio-backend)
