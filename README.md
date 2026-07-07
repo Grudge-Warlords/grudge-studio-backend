@@ -1,6 +1,23 @@
 # Grudge Studio Backend
 
-Full-stack microservices backend for **grudgewarlords.com** and **grudgestudio.com**.
+> **RETIRED (2026-07)** — This VPS microservices stack is no longer production.
+> Use these instead:
+>
+> | Role | Repo | Live URL |
+> |------|------|----------|
+> | Auth + unified API | [grudge-backend](https://github.com/MolochDaGod/grudge-backend) | `id.grudge-studio.com`, `api.grudge-studio.com` |
+> | Game state (SSOT) | [GrudgeBuilder](https://github.com/Grudge-Warlords/GrudgeBuilder) | `grudge-api-production-0d46.up.railway.app` |
+> | Asset catalog | [ObjectStore](https://github.com/MolochDaGod/ObjectStore) | `objectstore.grudge-studio.com` |
+> | Binary CDN | GrudgeBuilder `workers/cdn/` | `assets.grudge-studio.com` |
+> | AI gateway | grudge-ai-hub | `ai.grudge-studio.com` |
+>
+> Fleet SSOT: `GrudgeBuilder/shared/fleet/manifest.ts`. Do **not** deploy this repo to the VPS unless you are explicitly maintaining legacy Warlords infrastructure.
+
+---
+
+## Legacy reference (archived)
+
+Full-stack microservices backend for **grudgewarlords.com** and **grudgestudio.com** (historical).
 
 Built with Node.js · Docker · MySQL 8 · Redis 7 · nginx · Solana · Cloudflare · Puter
 
