@@ -1,13 +1,28 @@
 # Grudge Warlords Era Backend — System Reference (AGENTS.md)
 
-> **Scope:** this repo is the **Grudge Warlords Era game backend + game database** (`grudge_game`),
-> not the generic Grudge Studio company site. `README.md` is the canonical source of truth — if
-> anything here conflicts with it, README wins.
+> **RETIRED (2026-07):** This repo is **not** the live production backend. Agents must use
+> **grudge-backend** (auth/API) and **GrudgeBuilder Railway** (game state Postgres SSOT).
+> Fleet URLs: `GrudgeBuilder/shared/fleet/manifest.ts`. The content below is legacy reference only.
 
-## Single Backend — Always Use These
+## Canonical production (use these, not this repo)
 
-### Auth (ALL apps must use)
-Canonical auth source: `https://id.grudge-studio.com` (the `grudge-id` service in this repo).
+| Service | URL | Repo |
+|---------|-----|------|
+| Auth gateway | `https://id.grudge-studio.com` | grudge-backend |
+| Unified API | `https://api.grudge-studio.com` | grudge-backend |
+| Game state | `https://grudge-api-production-0d46.up.railway.app` | GrudgeBuilder |
+| ObjectStore | `https://objectstore.grudge-studio.com/api/v1` | ObjectStore |
+| Assets CDN | `https://assets.grudge-studio.com` | GrudgeBuilder workers/cdn |
+| AI | `https://ai.grudge-studio.com` | grudge-ai-hub |
+
+Health probes: `/api/health` on auth, api, and Railway; `/health` on objectstore and ai.
+
+---
+
+## Legacy VPS stack (archived — do not deploy)
+
+### Auth (historical — was grudge-id in this repo)
+Legacy auth source: `https://id.grudge-studio.com` (now served by **grudge-backend**, not grudge-id:3001).
 - Issues the Grudge ID JWT consumed by every game service here.
 - Storage keys: `grudge_auth_token` (JWT), `grudge_user_id`, `grudge_id` (UUID), `grudge_username`
 - Legacy Vercel `auth-gateway-*` URLs are retired — do not introduce new auth gateways.
