@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="GRUDGE Studio Authentication">
+  <meta name="theme-color" content="#d97706">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E⚔️%3C/text%3E%3C/svg%3E">
+  <title>GRUDGE — Sign In</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 50%, #0f2840 100%);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      color: #e0e0e0; overflow-x: hidden;
+    }
+    .bg-overlay { position: fixed; inset: 0; background: radial-gradient(ellipse at center, rgba(255,215,0,0.1) 0%, transparent 70%); pointer-events: none; }
+    .container { position: relative; z-index: 10; width: 100%; max-width: 460px; padding: 20px; }
+    .auth-card {
+      background: rgba(20, 20, 40, 0.95); border: 1px solid rgba(255, 215, 0, 0.3);
+      border-radius: 24px; padding: 40px 32px; backdrop-filter: blur(20px);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+    .logo-section { text-align: center; margin-bottom: 32px; }
+    .logo {
+      font-family: 'Cinzel', serif; font-size: 2.5rem; font-weight: 700;
+      background: linear-gradient(135deg, #ffd700, #ff8c00);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      margin-bottom: 8px;
+    }
+    .tagline { color: #888; font-size: 0.9rem; }
+    .tab-nav { display: flex; background: rgba(255,255,255,0.05); border-radius: 12px; padding: 4px; margin-bottom: 24px; }
+    .tab-btn {
+      flex: 1; padding: 12px 8px; background: transparent; border: none; color: #888;
+      font-size: 0.85rem; font-weight: 600; cursor: pointer; border-radius: 8px;
+      transition: all 0.3s ease; font-family: 'Inter', sans-serif;
+    }
+    .tab-btn.active { background: linear-gradient(135deg, #ffd700, #ff8c00); color: #1a1a2e; }
+    .tab-btn:hover:not(.active) { color: #fff; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .auth-btn {
+      width: 100%; padding: 16px 20px; border-radius: 12px; font-size: 1rem; font-weight: 600;
+      cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center;
+      justify-content: center; gap: 12px; margin-bottom: 12px; border: none; font-family: 'Inter', sans-serif;
+    }
+    .auth-btn.primary { background: linear-gradient(135deg, #ffd700, #ff8c00); color: #1a1a2e; }
+    .auth-btn.primary:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(255,215,0,0.4); }
+    .auth-btn.puter { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; }
+    .auth-btn.puter:hover { box-shadow: 0 8px 25px rgba(99,102,241,0.4); }
+    .auth-btn.discord { background: linear-gradient(135deg, #5865f2, #4752c4); color: white; }
+    .auth-btn.discord:hover { box-shadow: 0 8px 25px rgba(88,101,242,0.4); }
+    .auth-btn.web3 { background: linear-gradient(135deg, #8b5cf6, #ec4899); color: white; }
+    .auth-btn.web3:hover { box-shadow: 0 8px 25px rgba(139,92,246,0.4); }
+    .auth-btn.google { background: linear-gradient(135deg, #ea4335, #fbbc05); color: white; }
+    .auth-btn.google:hover { box-shadow: 0 8px 25px rgba(234,67,53,0.3); }
+    .auth-btn.github { background: linear-gradient(135deg, #333, #555); color: white; }
+    .auth-btn.github:hover { box-shadow: 0 8px 25px rgba(255,255,255,0.1); }
+    .auth-btn.guest { background: rgba(255,255,255,0.1); color: #aaa; border: 1px solid #444; }
+    .auth-btn.guest:hover { background: rgba(255,255,255,0.15); border-color: #666; }
+    .auth-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+    .auth-btn svg { width: 24px; height: 24px; }
+    .divider { display: flex; align-items: center; margin: 20px 0; color: #555; font-size: 0.8rem; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, #444, transparent); }
+    .divider span { padding: 0 16px; }
+    .oauth-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+    .oauth-row .auth-btn { margin-bottom: 0; font-size: 0.9rem; padding: 14px 12px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; color: #aaa; font-size: 0.85rem; margin-bottom: 8px; }
+    .form-group input {
+      width: 100%; padding: 14px 16px; background: rgba(255,255,255,0.05); border: 1px solid #444;
+      border-radius: 10px; color: #fff; font-size: 1rem; font-family: 'Inter', sans-serif; transition: all 0.3s ease;
+    }
+    .form-group input:focus { outline: none; border-color: #ffd700; box-shadow: 0 0 0 3px rgba(255,215,0,0.1); }
+    .form-group input::placeholder { color: #666; }
+    .wallet-icons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
+    .wallet-icon-card {
+      text-align: center; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.05); transition: all 0.2s;
+    }
+    .wallet-icon-card:hover { border-color: rgba(139,92,246,0.3); background: rgba(139,92,246,0.08); }
+    .wallet-icon-card .icon { font-size: 1.5rem; margin-bottom: 8px; }
+    .wallet-icon-card .label { font-size: 0.75rem; color: #888; }
+    .status-message { padding: 14px 16px; border-radius: 10px; margin: 16px 0; font-size: 0.9rem; display: flex; align-items: center; gap: 10px; }
+    .status-message.success { background: rgba(76,175,80,0.15); border: 1px solid #4caf50; color: #4caf50; }
+    .status-message.error { background: rgba(244,67,54,0.15); border: 1px solid #f44336; color: #f44336; }
+    .status-message.info { background: rgba(33,150,243,0.15); border: 1px solid #2196f3; color: #2196f3; }
+    .hidden { display: none !important; }
+    .footer-links { text-align: center; margin-top: 24px; color: #666; font-size: 0.8rem; }
+    .footer-links a { color: #ffd700; text-decoration: none; }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid transparent; border-top-color: currentColor; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 480px) { .auth-card { padding: 32px 20px; } .logo { font-size: 2rem; } .oauth-row { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="bg-overlay"></div>
+  <div class="container">
+    <div class="auth-card">
+      <div class="logo-section">
+        <div class="logo">GRUDGE</div>
+        <div class="tagline">Sign in to continue</div>
+      </div>
+      <nav class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('quick',this)">Quick Sign In</button>
+        <button class="tab-btn" onclick="switchTab('email',this)">Email</button>
+        <button class="tab-btn" onclick="switchTab('wallet',this)">Web3</button>
+      </nav>
+
+      <!-- ═══ QUICK TAB ═══ -->
+      <div id="quickTab" class="tab-content active">
+        <button class="auth-btn puter" onclick="loginPuter()">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+          Sign in with Grudge
+        </button>
+        <button class="auth-btn discord" onclick="loginDiscord()">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+          Sign in with Discord
+        </button>
+        <button class="auth-btn web3" onclick="loginWallet()">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          Connect Wallet
+        </button>
+        <div class="divider"><span>or</span></div>
+        <div class="oauth-row">
+          <button class="auth-btn google" onclick="loginGoogle()">
+            <svg viewBox="0 0 24 24" width="20" height="20"><path fill="#fff" d="M5.266 9.765A7.077 7.077 0 0 1 12 4.909c1.69 0 3.218.6 4.418 1.582L19.91 3C17.782 1.145 15.055 0 12 0 7.27 0 3.198 2.698 1.24 6.65l4.026 3.115z"/><path fill="#fff" d="M16.04 18.013C14.95 18.718 13.55 19.09 12 19.09c-3.064 0-5.665-2.07-6.591-4.862L1.24 17.35C3.198 21.302 7.27 24 12 24c2.933 0 5.735-1.043 7.834-3l-3.793-2.987z"/></svg>
+            Google
+          </button>
+          <button class="auth-btn github" onclick="loginGitHub()">
+            <svg viewBox="0 0 24 24" fill="#fff" width="20" height="20"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+            GitHub
+          </button>
+        </div>
+        <button class="auth-btn guest" onclick="loginGuest()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Continue as Guest
+        </button>
+      </div>
+
+      <!-- ═══ EMAIL TAB ═══ -->
+      <div id="emailTab" class="tab-content">
+        <form id="loginForm" onsubmit="handleEmailLogin(event)">
+          <div class="form-group"><label>Username or Email</label><input type="text" id="username" placeholder="Enter username or email" required></div>
+          <div class="form-group"><label>Password</label><input type="password" id="password" placeholder="Enter password" required></div>
+          <button type="submit" class="auth-btn primary">Sign In</button>
+        </form>
+        <div class="divider"><span>new here?</span></div>
+        <form id="registerForm" class="hidden" onsubmit="handleEmailRegister(event)">
+          <div class="form-group"><label>Username</label><input type="text" id="regUsername" placeholder="Choose a username" required minlength="3"></div>
+          <div class="form-group"><label>Email</label><input type="email" id="regEmail" placeholder="Enter your email" required></div>
+          <div class="form-group"><label>Password</label><input type="password" id="regPassword" placeholder="Create a password (8+ chars)" required minlength="8"></div>
+          <button type="submit" class="auth-btn primary">Create Account</button>
+        </form>
+        <button class="auth-btn guest" onclick="toggleRegister()"><span id="toggleRegisterText">Create New Account</span></button>
+      </div>
+
+      <!-- ═══ WEB3 TAB ═══ -->
+      <div id="walletTab" class="tab-content">
+        <p style="color:#888;text-align:center;margin-bottom:20px;">Connect your Solana wallet to authenticate with GRUDGE Studio.</p>
+        <button class="auth-btn web3" onclick="loginWallet()">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          Connect Phantom Wallet
+        </button>
+        <div class="wallet-icons">
+          <div class="wallet-icon-card"><div class="icon">👻</div><div class="label">Phantom</div></div>
+          <div class="wallet-icon-card"><div class="icon">🔥</div><div class="label">Solflare</div></div>
+          <div class="wallet-icon-card"><div class="icon">🌐</div><div class="label">WalletConnect</div></div>
+        </div>
+      </div>
+
+      <div id="statusMessage" class="status-message hidden"></div>
+      <div class="footer-links"><a href="https://grudge-studio.com">Grudge Studio</a> — Created by RacAlvin The Pirate King</div>
+    </div>
+  </div>
+  <script src="https://js.puter.com/v2/"></script>
+  <script>
+  const API_URL = 'https://id.grudge-studio.com';
+  const params = new URLSearchParams(window.location.search);
+  const redirectUrl = params.get('redirect') || params.get('return') || params.get('returnUrl') || '';
+  const appSlug = params.get('app') || '';
+  sessionStorage.setItem('grudge_auth_redirect', redirectUrl);
+  sessionStorage.setItem('grudge_auth_app', appSlug);
+  function getRedirect() { return sessionStorage.getItem('grudge_auth_redirect') || 'https://grudgewarlords.com'; }
+  function completeAuth(token, grudgeId, displayName, provider) {
+    const dest = new URL(getRedirect());
+    dest.hash = new URLSearchParams({ token, grudgeId, name: displayName, provider }).toString();
+    sessionStorage.removeItem('grudge_auth_redirect'); sessionStorage.removeItem('grudge_auth_app');
+    showStatus('Authentication successful! Redirecting...', 'success');
+    setTimeout(() => { window.location.href = dest.toString(); }, 800);
+  }
+  function switchTab(tab, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active'); document.getElementById(tab + 'Tab').classList.add('active'); hideStatus();
+  }
+  function showStatus(msg, type) {
+    const el = document.getElementById('statusMessage');
+    el.className = `status-message ${type}`;
+    el.innerHTML = type === 'info' ? `<span class="spinner"></span> ${msg}` : msg;
+    el.classList.remove('hidden');
+    if (type === 'success') setTimeout(() => el.classList.add('hidden'), 5000);
+  }
+  function hideStatus() { document.getElementById('statusMessage').classList.add('hidden'); }
+  async function loginPuter() {
+    showStatus('Connecting to Grudge...', 'info');
+    try {
+      const user = await puter.auth.signIn();
+      if (!user) throw new Error('Sign-in cancelled');
+      const resp = await fetch(`${API_URL}/auth/puter-bridge`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ puterToken: user.token || '', puterUid: user.uuid || user.uid || user.username, puterUsername: user.username, puterEmail: user.email || null })
+      });
+      const data = await resp.json();
+      if (!data.ok) throw new Error(data.error || 'Auth failed');
+      completeAuth(data.token, data.grudgeId, data.displayName, 'puter');
+    } catch (err) { showStatus(err.message || 'Sign-in cancelled', 'error'); }
+  }
+  function loginDiscord() { window.location.href = `${API_URL}/auth/discord?redirect=${encodeURIComponent(getRedirect())}&app=${encodeURIComponent(appSlug)}`; }
+  function loginGoogle() { window.location.href = `${API_URL}/auth/google?redirect=${encodeURIComponent(getRedirect())}&app=${encodeURIComponent(appSlug)}`; }
+  function loginGitHub() { window.location.href = `${API_URL}/auth/github?redirect=${encodeURIComponent(getRedirect())}&app=${encodeURIComponent(appSlug)}`; }
+  async function loginWallet() {
+    hideStatus();
+    try {
+      if (!window.solana?.isPhantom) { showStatus('Phantom not found. <a href="https://phantom.app" target="_blank" style="color:#ffd700">Install Phantom</a>', 'error'); return; }
+      showStatus('Connecting wallet...', 'info');
+      const conn = await window.solana.connect();
+      const addr = conn.publicKey.toString();
+      const nr = await fetch(`${API_URL}/auth/wallet/nonce`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ walletAddress: addr }) });
+      const nd = await nr.json();
+      showStatus('Sign the message in Phantom...', 'info');
+      const signed = await window.solana.signMessage(new TextEncoder().encode(nd.message), 'utf8');
+      showStatus('Verifying...', 'info');
+      const resp = await fetch(`${API_URL}/auth/wallet`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ walletAddress: addr, signature: signed.signature.toString() }) });
+      const data = await resp.json();
+      if (!data.ok) throw new Error(data.error);
+      completeAuth(data.token, data.grudgeId, data.displayName, 'wallet');
+    } catch (err) { showStatus(err.message?.includes('User rejected') ? 'Cancelled' : (err.message || 'Wallet failed'), 'error'); }
+  }
+  async function handleEmailLogin(e) {
+    e.preventDefault();
+    showStatus('Signing in...', 'info');
+    try {
+      const resp = await fetch(`${API_URL}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: document.getElementById('username').value, password: document.getElementById('password').value }) });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Invalid credentials');
+      completeAuth(data.token, data.user.grudgeId, data.user.username, 'email');
+    } catch (err) { showStatus(err.message, 'error'); }
+  }
+  async function handleEmailRegister(e) {
+    e.preventDefault();
+    showStatus('Creating account...', 'info');
+    try {
+      const resp = await fetch(`${API_URL}/api/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: document.getElementById('regUsername').value, email: document.getElementById('regEmail').value, password: document.getElementById('regPassword').value }) });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Registration failed');
+      completeAuth(data.token, data.user.grudgeId, data.user.username, 'email');
+    } catch (err) { showStatus(err.message, 'error'); }
+  }
+  function toggleRegister() {
+    const l = document.getElementById('loginForm'), r = document.getElementById('registerForm'), t = document.getElementById('toggleRegisterText');
+    if (r.classList.contains('hidden')) { l.classList.add('hidden'); r.classList.remove('hidden'); t.textContent = 'Back to Sign In'; }
+    else { l.classList.remove('hidden'); r.classList.add('hidden'); t.textContent = 'Create New Account'; }
+  }
+  async function loginGuest() {
+    showStatus('Creating guest account...', 'info');
+    try {
+      const resp = await fetch(`${API_URL}/api/auth/guest`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.error || 'Failed');
+      completeAuth(data.token, data.user.grudgeId, data.user.username, 'guest');
+    } catch (err) { showStatus(err.message, 'error'); }
+  }
+  </script>
+</body>
+</html>

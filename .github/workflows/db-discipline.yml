@@ -1,0 +1,118 @@
+name: DB Discipline
+# Enforces docs/ACCOUNT-DATABASE-RULES.md:
+#   account-writing services may NOT import Postgres, Neon, or Supabase clients.
+# Runs on every PR + push to main. Fails the build if a forbidden import is found.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  forbidden-imports:
+    name: No Postgres / Neon / Supabase in account services
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan service code for forbidden DB imports
+        shell: bash
+        run: |
+          # Services that own or touch user-account writes.
+          # Keep in sync with docs/ACCOUNT-DATABASE-RULES.md "Per-service policy".
+          FORBIDDEN_SERVICES="account-api ai-agent asset-service game-api grudge-bridge grudge-id launcher-api wallet-service ws-service"
+
+          # ERE pattern matching imports/requires of forbidden libraries.
+          # Tested cases:
+          #   require('pg')                require("pg")
+          #   const { Pool } = require('pg')
+          #   import pg from 'pg'           import { Client } from 'pg'
+          #   import pg from "pg"
+          #   require('@supabase/supabase-js')
+          #   require('@neondatabase/serverless')
+          FORBIDDEN_RE='(require\(["'"'"'](pg|postgres|pg-pool|pg-promise|@supabase/[a-z0-9-]+|@neondatabase/[a-z0-9-]+)["'"'"']\))|(from\s+["'"'"'](pg|postgres|pg-pool|pg-promise|@supabase/[a-z0-9-]+|@neondatabase/[a-z0-9-]+)["'"'"'])'
+
+          FAIL=0
+
+          for svc in $FORBIDDEN_SERVICES ; do
+            if [ -d "services/$svc" ] ; then
+              echo ""
+              echo "── Scanning services/$svc/ ──"
+              if grep -RnE --include='*.js' --include='*.ts' --include='*.mjs' --include='*.cjs' "$FORBIDDEN_RE" "services/$svc/" ; then
+                echo "::error file=services/$svc::Forbidden DB import in $svc — see docs/ACCOUNT-DATABASE-RULES.md"
+                FAIL=1
+              else
+                echo "  ✓ clean"
+              fi
+            else
+              echo "── services/$svc/ does not exist (yet) — skipping ──"
+            fi
+          done
+
+          # shared/ is depended on by all services; same rule applies.
+          if [ -d "shared" ] ; then
+            echo ""
+            echo "── Scanning shared/ ──"
+            if grep -RnE --include='*.js' --include='*.ts' --include='*.mjs' --include='*.cjs' "$FORBIDDEN_RE" shared/ ; then
+              echo "::error file=shared::Forbidden DB import in shared/ — see docs/ACCOUNT-DATABASE-RULES.md"
+              FAIL=1
+            else
+              echo "  ✓ clean"
+            fi
+          fi
+
+          # services/shared/ duplicate location used by some services.
+          if [ -d "services/shared" ] ; then
+            echo ""
+            echo "── Scanning services/shared/ ──"
+            if grep -RnE --include='*.js' --include='*.ts' --include='*.mjs' --include='*.cjs' "$FORBIDDEN_RE" services/shared/ ; then
+              echo "::error file=services/shared::Forbidden DB import in services/shared/ — see docs/ACCOUNT-DATABASE-RULES.md"
+              FAIL=1
+            else
+              echo "  ✓ clean"
+            fi
+          fi
+
+          echo ""
+          if [ $FAIL -eq 1 ] ; then
+            echo "::error::Forbidden DB import(s) found. Account writes must go to MySQL grudge_game only. See docs/ACCOUNT-DATABASE-RULES.md."
+            exit 1
+          fi
+          echo "✅ All account-writing services clean of Postgres/Neon/Supabase imports."
+
+  forbidden-env-references:
+    name: No Neon/Supabase env-var references in service code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for references to forbidden env vars
+        shell: bash
+        run: |
+          FORBIDDEN_SERVICES="account-api ai-agent asset-service game-api grudge-bridge grudge-id launcher-api wallet-service ws-service"
+
+          # Catches process.env.GRUDGE_ACCOUNT_DB, env.SUPABASE_SERVICE_ROLE_KEY etc.
+          FORBIDDEN_RE='process\.env\.(GRUDGE_ACCOUNT_DB|GRUDGE_ACCOUNT_DB_UNPOOLED|NEON_DATABASE_URL|SUPABASE_SERVICE_ROLE_KEY)'
+
+          FAIL=0
+
+          for svc in $FORBIDDEN_SERVICES ; do
+            if [ -d "services/$svc" ] ; then
+              if grep -RnE --include='*.js' --include='*.ts' --include='*.mjs' --include='*.cjs' "$FORBIDDEN_RE" "services/$svc/" ; then
+                echo "::error file=services/$svc::Forbidden env-var reference in $svc — see docs/ACCOUNT-DATABASE-RULES.md"
+                FAIL=1
+              fi
+            fi
+          done
+
+          if [ -d "shared" ] && grep -RnE --include='*.js' --include='*.ts' --include='*.mjs' --include='*.cjs' "$FORBIDDEN_RE" shared/ ; then
+            echo "::error file=shared::Forbidden env-var reference in shared/"
+            FAIL=1
+          fi
+
+          if [ $FAIL -eq 1 ] ; then
+            echo "::error::Forbidden env-var references found. Remove them or whitelist via { allow: [...] } in validateCanonicalDB() with a comment explaining the exception."
+            exit 1
+          fi
+          echo "✅ No Neon/Supabase env-var references in account services."

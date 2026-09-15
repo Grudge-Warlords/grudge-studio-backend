@@ -1,89 +1,43 @@
-/**
- * Cloudflare Turnstile — server-side verification middleware
- *
- * Free service: unlimited challenges, no credit card needed.
- * Replaces reCAPTCHA / hCaptcha with a privacy-friendly, friction-free widget.
- *
- * Dashboard setup (one-time):
- *   https://dash.cloudflare.com → Turnstile → Add Site
- *   Site keys:
-   *     Domain    : grudge-studio.com (+ grudgewarlords.com)
- *     Widget type: Managed (invisible challenge, no user interaction needed)
- *   Copy:
- *     Site Key   → CF_TURNSTILE_SITE_KEY  (put in frontend .env / HTML)
- *     Secret Key → CF_TURNSTILE_SECRET_KEY (put in backend .env)
- *
- * Frontend usage:
- *   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
- *   <div class="cf-turnstile" data-sitekey="<CF_TURNSTILE_SITE_KEY>"></div>
- *   // On form submit, the widget injects `cf-turnstile-response` into the form.
- *   // For programmatic use: window.turnstile.getResponse()
- *   // Pass as `cf_turnstile_token` in the POST body.
- *
- * Backend — apply this middleware to any endpoint you want to protect:
- *   router.post('/wallet', verifyTurnstile, handler);
- */
+"use strict";
 
-const axios = require('axios');
+const cfg = require("../config");
 
-const VERIFY_URL     = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
-const SECRET_KEY     = process.env.CF_TURNSTILE_SECRET_KEY;
-// Skip in dev/test if secret not configured — fail open so local dev isn't blocked
-const IS_ENABLED     = !!SECRET_KEY && process.env.NODE_ENV === 'production';
+const VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
 /**
- * Express middleware — reads `cf_turnstile_token` from request body,
- * verifies it with Cloudflare, rejects bots with 403.
- *
- * The token field name matches the default form field injected by the Turnstile widget.
+ * Middleware — verifies Cloudflare Turnstile token from body.turnstileToken.
+ * Skips verification in development or if Turnstile is not configured.
  */
-async function verifyTurnstile(req, res, next) {
-  if (!IS_ENABLED) {
-    // Dev / staging — skip challenge
-    return next();
-  }
+async function requireTurnstile(req, res, next) {
+  // Skip if not configured (dev mode)
+  if (!cfg.turnstile.secretKey) return next();
 
-  const token = req.body?.cf_turnstile_token;
-
+  const token = req.body?.turnstileToken;
   if (!token) {
-    return res.status(400).json({
-      error: 'Bot challenge token missing. Include cf_turnstile_token in request body.',
-    });
+    return res.status(400).json({ error: "Missing turnstileToken" });
   }
 
   try {
-    const { data } = await axios.post(
-      VERIFY_URL,
-      new URLSearchParams({
-        secret:   SECRET_KEY,
+    const resp = await fetch(VERIFY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        secret: cfg.turnstile.secretKey,
         response: token,
-        // CF-Connecting-IP is set by Cloudflare when traffic is proxied
-        remoteip: req.headers['cf-connecting-ip'] ?? req.ip ?? '',
+        remoteip: req.ip,
       }),
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 5000 }
-    );
-
+    });
+    const data = await resp.json();
     if (!data.success) {
-      console.warn('[turnstile] challenge failed — error-codes:', data['error-codes']);
-      return res.status(403).json({
-        error: 'Bot challenge failed. Please try again.',
-        codes: data['error-codes'],
-      });
+      console.warn("[TURNSTILE] Verification failed:", data["error-codes"]);
+      return res.status(403).json({ error: "Captcha verification failed" });
     }
-
-    // Attach verification result to request for downstream logging
-    req.turnstile = {
-      hostname:    data.hostname,
-      challenge_ts: data.challenge_ts,
-      action:      data.action,
-    };
-
-    return next();
+    next();
   } catch (err) {
-    // Fail open — don't block real users if Cloudflare's API is unreachable
-    console.error('[turnstile] verification request failed:', err.message);
-    return next();
+    console.error("[TURNSTILE] Error:", err.message);
+    // Fail open in case Cloudflare is down — but log it
+    next();
   }
 }
 
-module.exports = { verifyTurnstile };
+module.exports = { requireTurnstile };

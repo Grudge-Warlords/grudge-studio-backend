@@ -22,12 +22,6 @@ import { backupsRoutes } from "./routes/backups";
 import { settingsRoutes } from "./routes/settings";
 import { deployRoutes } from "./routes/deploy";
 import { nodesRoutes } from "./routes/nodes";
-import { validatorRoutes } from "./routes/validator";
-import { legionRoutes } from "./routes/legion";
-
-// Modules
-import { initValidator } from "./lib/validator";
-import { initLegion, purgeExpired } from "./lib/legion";
 
 // ── Load config ───────────────────────────────────────────
 const config = loadConfig();
@@ -35,26 +29,11 @@ const app = express();
 
 app.use(express.json({ limit: "50mb" }));
 
-// ── CORS ────────────────────────────────────────────
-// Restricted to trusted origins only. Server-to-server bridge calls
-// have no Origin header and pass through; browser callers must be on
-// a trusted Grudge domain.
-const BRIDGE_ALLOWED_ORIGINS = [
-  "https://dash.grudge-studio.com",
-  "https://bridge.grudge-studio.com",
-  "http://localhost:3000",
-  "http://localhost:5173",
-];
+// ── CORS ──────────────────────────────────────────────────
 app.use((_req: Request, res: Response, next: NextFunction) => {
-  const origin = _req.headers.origin;
-  if (origin && BRIDGE_ALLOWED_ORIGINS.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin");
-  }
-  // No wildcard — server-to-server calls have no origin, browser calls must match list
+  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
   if (_req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
@@ -107,8 +86,6 @@ app.use("/api/bridge", backupsRoutes(config));
 app.use("/api/bridge", settingsRoutes(config));
 app.use("/api/bridge", deployRoutes(config));
 app.use("/api/bridge", nodesRoutes(config));
-app.use("/api/bridge", validatorRoutes(config));
-app.use("/api/bridge", legionRoutes(config));
 
 // ── 404 catch-all ─────────────────────────────────────────
 app.use((_req: Request, res: Response) => {
@@ -165,24 +142,10 @@ if (config.nodeRole === "primary") {
   console.log(`📅 Backup schedule: daily="${config.schedule.dailyCron}", weekly="${config.schedule.weeklyCron}"`);
 }
 
-// ── Init validator + legion ─────────────────────────────────────
-initValidator(config);
-initLegion(config);
-
-// ── Start heartbeat loop ──────────────────────────────────────────
+// ── Start heartbeat loop ──────────────────────────────────
 if (config.peers.length > 0) {
   startHeartbeatLoop(config);
   console.log(`💓 Heartbeat loop started (30s interval, ${config.peers.length} peers)`);
-}
-
-// ── Legion GRD-17 housekeeping (purge expired messages every 5 min) ──
-if (config.legion.enabled) {
-  setInterval(() => {
-    const result = purgeExpired();
-    if (result.purgedInbox > 0 || result.purgedOutbox > 0) {
-      console.log(`[legion] Purged ${result.purgedInbox} inbox, ${result.purgedOutbox} outbox`);
-    }
-  }, 5 * 60 * 1000);
 }
 
 // ── Start server ──────────────────────────────────────────
@@ -195,8 +158,6 @@ app.listen(config.port, "0.0.0.0", () => {
   console.log(`  MySQL: ${config.mysql.host}:${config.mysql.port}/${config.mysql.database}`);
   console.log(`  R2:    ${config.r2.bucket} (${config.r2.accessKeyId ? "configured" : "NOT configured"})`);
   console.log(`  Peers: ${config.peers.length} configured`);
-  console.log(`  Validator: ${config.validator.enabled ? config.validator.identity : "DISABLED"}`);
-  console.log(`  Legion:  ${config.legion.enabled ? "GRD-17 ACTIVE" : "DISABLED"} | Gemini: ${config.legion.geminiApiKey ? "✓" : "✗"} | Anthropic: ${config.legion.anthropicApiKey ? "✓" : "✗"}`);
   console.log("═══════════════════════════════════════════════");
   console.log("");
 });

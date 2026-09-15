@@ -1,0 +1,4 @@
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGxXi9j8jEZvdxNpulTcKlryJxeHyhyut7HUy7BfTD1y root@coolify-legion
+
+# Add this to DESKTOP-AA5O5QR's ~/.ssh/authorized_keys (in WSL)
+# This lets the VPS Coolify manage DESKTOP-AA5O5QR as a legion node.

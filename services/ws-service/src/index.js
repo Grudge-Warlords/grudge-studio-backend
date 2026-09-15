@@ -1,5 +1,7 @@
 require('dotenv').config();
-require('../../shared/validate-env')(['JWT_SECRET', 'INTERNAL_API_KEY']);
+const { validateEnv, validateCanonicalDB } = require('../../shared/validate-env');
+validateEnv(['JWT_SECRET', 'INTERNAL_API_KEY']);
+validateCanonicalDB({ serviceName: 'ws-service' });
 
 let Sentry;
 if (process.env.SENTRY_DSN) {

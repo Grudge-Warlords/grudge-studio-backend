@@ -1,5 +1,7 @@
 require('dotenv').config();
-require('../../shared/validate-env')(['JWT_SECRET', 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS', 'INTERNAL_API_KEY']);
+const { validateEnv, validateCanonicalDB } = require('../../shared/validate-env');
+validateEnv(['JWT_SECRET', 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS', 'INTERNAL_API_KEY']);
+validateCanonicalDB({ serviceName: 'game-api' });
 
 let Sentry;
 if (process.env.SENTRY_DSN) {

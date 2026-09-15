@@ -1,14 +1,8 @@
 name: Deploy to Grudge Studio VPS
 
+# RETIRED: auto-deploy disabled 2026-07-06. Production is grudge-backend + GrudgeBuilder Railway.
+# Manual dispatch only if you intentionally need to touch the legacy VPS stack.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'services/**'
-      - 'shared/**'
-      - 'docker-compose*.yml'
-      - 'migrations/**'
-      - 'scripts/**'
   workflow_dispatch:
     inputs:
       services:

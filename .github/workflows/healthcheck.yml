@@ -1,33 +1,34 @@
-name: External Health Check
+name: Fleet Health Check
 
 on:
   schedule:
-    - cron: "*/5 * * * *"  # Every 5 minutes
-  workflow_dispatch: {}     # Manual trigger
+    - cron: "*/30 * * * *"  # Every 30 minutes — canonical fleet endpoints
+  workflow_dispatch: {}
 
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 3
     steps:
-      - name: Health check all services
+      - name: Health check canonical Grudge fleet
         id: health
         run: |
           FAIL=0
           REPORT=""
 
+          # SSOT: GrudgeBuilder/shared/fleet/manifest.ts + grudge-backend
+          # This repo (grudge-studio-backend) is retired — do not probe legacy VPS microservices.
           declare -A ENDPOINTS=(
-            [grudge-id]="https://id.grudge-studio.com/health"
-            [game-api]="https://api.grudge-studio.com/health"
-            [account-api]="https://account.grudge-studio.com/health"
-            [launcher-api]="https://launcher.grudge-studio.com/health"
-            [asset-service]="https://assets-api.grudge-studio.com/health"
-            [ws-service]="https://ws.grudge-studio.com/health"
+            [grudge-auth]="https://id.grudge-studio.com/api/health"
+            [grudge-api]="https://api.grudge-studio.com/api/health"
+            [game-data-railway]="https://grudge-api-production-0d46.up.railway.app/api/health"
+            [objectstore]="https://objectstore.grudge-studio.com/health"
+            [ai-gateway]="https://ai.grudge-studio.com/health"
           )
 
           for SVC in "${!ENDPOINTS[@]}"; do
             URL="${ENDPOINTS[$SVC]}"
-            HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 10 "$URL" 2>/dev/null || echo "000")
+            HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 15 "$URL" 2>/dev/null || echo "000")
             if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
               echo "  ✅ $SVC ($HTTP_CODE)"
               REPORT="$REPORT\n✅ $SVC"
@@ -44,10 +45,10 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
           if [ $FAIL -gt 0 ]; then
-            echo "⚠️ $FAIL service(s) down!"
+            echo "⚠️ $FAIL fleet service(s) down!"
             exit 1
           fi
-          echo "All services healthy!"
+          echo "All canonical fleet services healthy!"
 
       - name: Discord alert on failure
         if: failure() && steps.health.outputs.fail_count != '0'
@@ -61,10 +62,10 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{
               \"embeds\": [{
-                \"title\": \"🚨 Grudge Studio — Services DOWN\",
+                \"title\": \"🚨 Grudge Fleet — Services DOWN\",
                 \"color\": 15158332,
-                \"description\": \"External health check detected ${{ steps.health.outputs.fail_count }} service(s) down:\\n${{ steps.health.outputs.report }}\",
-                \"footer\": {\"text\": \"GitHub Actions external check\"},
+                \"description\": \"Fleet health check detected ${{ steps.health.outputs.fail_count }} service(s) down:\\n${{ steps.health.outputs.report }}\",
+                \"footer\": {\"text\": \"grudge-studio-backend fleet monitor (legacy repo)\"},
                 \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
               }]
             }"
