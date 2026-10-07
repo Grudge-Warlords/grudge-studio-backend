@@ -6,8 +6,10 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon --watch src -e ts --exec ts-node src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js"
+    "build": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\\grudgegit\\grudge-studio-backend/Build-Workspace.ps1\" -PackageRelative \"services/grudge-bridge\" -Script \"build\" -NoLaunchPrompt",
+    "start": "node dist/index.js",
+    "workspace:build": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\\grudgegit\\grudge-studio-backend/Build-Workspace.ps1\"",
+    "workspace:menu": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\\grudgegit\\grudge-studio-backend/Project-Console.ps1\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.540.0",

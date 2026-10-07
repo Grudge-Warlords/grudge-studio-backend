@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "project": "grudgegit/grudge-studio-backend",
+  "name": "grudge-studio-backend",
+  "roles": [
+    {
+      "id": "application",
+      "label": "Installed application",
+      "requiredBytes": 0,
+      "recommendedBytes": 0,
+      "performance": "Read mostly; SSD improves cold start."
+    },
+    {
+      "id": "runtime",
+      "label": "Live data / database indexes",
+      "requiredBytes": 268435456,
+      "recommendedBytes": 2147483648,
+      "performance": "SSD preferred for random reads and writes."
+    },
+    {
+      "id": "scratch",
+      "label": "Temporary work and caches",
+      "requiredBytes": 268435456,
+      "recommendedBytes": 10737418240,
+      "performance": "SSD preferred; separate from retained data."
+    },
+    {
+      "id": "bulk",
+      "label": "Media / assets / retained datasets",
+      "requiredBytes": 0,
+      "recommendedBytes": 100000000000,
+      "performance": "HDD suitable for sequential reads and writes; grows with imports."
+    },
+    {
+      "id": "backup",
+      "label": "Backup destination",
+      "requiredBytes": 0,
+      "recommendedBytes": 0,
+      "performance": "Separate physical drive preferred; capacity depends on retained data."
+    },
+    {
+      "id": "models",
+      "label": "Optional model cache",
+      "requiredBytes": 0,
+      "recommendedBytes": 0,
+      "performance": "SSD preferred if local models are added. No required model size is verified; use its exact download manifest."
+    }
+  ],
+  "payloadBytes": null,
+  "storeMarker": null,
+  "sizeBasis": "Payload bytes are measured after a future build. Required data/scratch values are operational allowances; recommendations are growth scenarios, not preallocated storage or measured requirements.",
+  "usage": "Continuous while clients need service; otherwise on demand",
+  "aiModels": "None identified in assessed purpose; dependency references are not proof of local weights",
+  "releaseRepository": "Grudge-Warlords/grudge-studio-backend",
+  "publication": "Only installer/release artifacts; no personal paths, databases, keys, media or private source.",
+  "requirements": {
+    "broken-sun-3a00": [
+      "Node.js and Wrangler"
+    ],
+    "broken-sun-3a00-container_src": [
+      "Go"
+    ],
+    "services-account-api": [
+      "Node.js and project package manager"
+    ],
+    "services-ai-agent": [
+      "Node.js and project package manager"
+    ],
+    "services-asset-service": [
+      "Node.js and project package manager"
+    ],
+    "services-game-api": [
+      "Node.js and project package manager"
+    ],
+    "services-grudge-bridge": [
+      "Node.js and project package manager"
+    ],
+    "services-grudge-id": [
+      "Node.js and project package manager"
+    ],
+    "services-launcher-api": [
+      "Node.js and project package manager"
+    ],
+    "services-wallet-service": [
+      "Node.js and project package manager"
+    ],
+    "services-ws-service": [
+      "Node.js and project package manager"
+    ]
+  },
+  "environmentRoles": {}
+}

@@ -5,7 +5,9 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "workspace:build": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\\grudgegit\\grudge-studio-backend/Build-Workspace.ps1\"",
+    "workspace:menu": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\\grudgegit\\grudge-studio-backend/Project-Console.ps1\""
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

@@ -9,5 +9,9 @@
     "cors": "^2.8.5",
     "jsonwebtoken": "^9.0.0",
     "multer": "^2.1.1"
+  },
+  "scripts": {
+    "workspace:build": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\\grudgegit\\grudge-studio-backend/Build-Workspace.ps1\"",
+    "workspace:menu": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\\grudgegit\\grudge-studio-backend/Project-Console.ps1\""
   }
 }

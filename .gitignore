@@ -37,3 +37,6 @@ Desktop.ini
 *.swp
 *.swo
 *~
+
+# This device only; public installers collect their own drive choices.
+.storage/device.json

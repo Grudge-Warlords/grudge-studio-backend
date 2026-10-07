@@ -1,0 +1,299 @@
+{
+  "id": "grudgegit/grudge-studio-backend",
+  "repository": "Grudge-Warlords/grudge-studio-backend",
+  "group": "grudgegit",
+  "name": "grudge-studio-backend",
+  "source": "C:\\grudgegit\\grudge-studio-backend",
+  "buildRoot": "D:\\grudgegit\\grudge-studio-backend",
+  "outputRoot": "E:\\grudgegit\\grudge-studio-backend",
+  "components": [
+    {
+      "id": "broken-sun-3a00",
+      "label": "broken-sun-3a00",
+      "relative": "broken-sun-3a00",
+      "output": "broken-sun-3a00",
+      "kind": "worker",
+      "buildScript": null,
+      "launchScript": null,
+      "installer": false,
+      "requires": [
+        "Node.js and Wrangler"
+      ],
+      "notes": [
+        "Bundles with wrangler deploy --dry-run; launcher uses local wrangler dev. No remote deployment."
+      ],
+      "launchOptionOnBuildCompletion": true
+    },
+    {
+      "id": "broken-sun-3a00-container_src",
+      "label": "broken-sun-3a00/container_src",
+      "relative": "broken-sun-3a00/container_src",
+      "output": "broken-sun-3a00/container_src",
+      "kind": "go",
+      "buildScript": null,
+      "launchScript": null,
+      "installer": false,
+      "requires": [
+        "Go"
+      ],
+      "notes": [
+        "Builds the main package; libraries are published as Go source if no main package exists."
+      ],
+      "launchOptionOnBuildCompletion": true
+    },
+    {
+      "id": "services-account-api",
+      "label": "services/account-api",
+      "relative": "services/account-api",
+      "output": "services/account-api",
+      "kind": "node",
+      "buildScript": null,
+      "launchScript": "start",
+      "installer": false,
+      "requires": [
+        "Node.js and project package manager"
+      ],
+      "notes": [],
+      "launchOptionOnBuildCompletion": true
+    },
+    {
+      "id": "services-ai-agent",
+      "label": "services/ai-agent",
+      "relative": "services/ai-agent",
+      "output": "services/ai-agent",
+      "kind": "node",
+      "buildScript": null,
+      "launchScript": "start",
+      "installer": false,
+      "requires": [
+        "Node.js and project package manager"
+      ],
+      "notes": [],
+      "launchOptionOnBuildCompletion": true
+    },
+    {
+      "id": "services-asset-service",
+      "label": "services/asset-service",
+      "relative": "services/asset-service",
+      "output": "services/asset-service",
+      "kind": "node",
+      "buildScript": null,
+      "launchScript": "start",
+      "installer": false,
+      "requires": [
+        "Node.js and project package manager"
+      ],
+      "notes": [],
+      "launchOptionOnBuildCompletion": true
+    },
+    {
+      "id": "services-game-api",
+      "label": "services/game-api",
+      "relative": "services/game-api",
+      "output": "services/game-api",
+      "kind": "node",
+      "buildScript": null,
+      "launchScript": "start",
+      "installer": false,
+      "requires": [
+        "Node.js and project package manager"
+      ],
+      "notes": [],
+      "launchOptionOnBuildCompletion": true
+    },
+    {
+      "id": "services-grudge-bridge",
+      "label": "services/grudge-bridge",
+      "relative": "services/grudge-bridge",
+      "output": "services/grudge-bridge",
+      "kind": "node",
+      "buildScript": "build",
+      "launchScript": "start",
+      "installer": false,
+      "requires": [
+        "Node.js and project package manager"
+      ],
+      "notes": [],
+      "launchOptionOnBuildCompletion": true
+    },
+    {
+      "id": "services-grudge-id",
+      "label": "services/grudge-id",
+      "relative": "services/grudge-id",
+      "output": "services/grudge-id",
+      "kind": "node",
+      "buildScript": null,
+      "launchScript": "start",
+      "installer": false,
+      "requires": [
+        "Node.js and project package manager"
+      ],
+      "notes": [],
+      "launchOptionOnBuildCompletion": true
+    },
+    {
+      "id": "services-launcher-api",
+      "label": "services/launcher-api",
+      "relative": "services/launcher-api",
+      "output": "services/launcher-api",
+      "kind": "node",
+      "buildScript": null,
+      "launchScript": "start",
+      "installer": false,
+      "requires": [
+        "Node.js and project package manager"
+      ],
+      "notes": [],
+      "launchOptionOnBuildCompletion": true
+    },
+    {
+      "id": "services-wallet-service",
+      "label": "services/wallet-service",
+      "relative": "services/wallet-service",
+      "output": "services/wallet-service",
+      "kind": "node",
+      "buildScript": null,
+      "launchScript": "start",
+      "installer": false,
+      "requires": [
+        "Node.js and project package manager"
+      ],
+      "notes": [],
+      "launchOptionOnBuildCompletion": true
+    },
+    {
+      "id": "services-ws-service",
+      "label": "services/ws-service",
+      "relative": "services/ws-service",
+      "output": "services/ws-service",
+      "kind": "node",
+      "buildScript": null,
+      "launchScript": "start",
+      "installer": false,
+      "requires": [
+        "Node.js and project package manager"
+      ],
+      "notes": [],
+      "launchOptionOnBuildCompletion": true
+    }
+  ],
+  "packages": {
+    ".": {
+      "scripts": {
+        "dev": "concurrently -n \"id,wallet,game,ai,account,launcher,assets,ws\" -c \"cyan,yellow,green,magenta,blue,red,white,gray\" \"npm:dev:id\" \"npm:dev:wallet\" \"npm:dev:game\" \"npm:dev:ai\" \"npm:dev:account\" \"npm:dev:launcher\" \"npm:dev:assets\" \"npm:dev:ws\"",
+        "dev:id": "npm run dev --workspace=services/grudge-id",
+        "dev:wallet": "npm run dev --workspace=services/wallet-service",
+        "dev:game": "npm run dev --workspace=services/game-api",
+        "dev:ai": "npm run dev --workspace=services/ai-agent",
+        "dev:account": "npm run dev --workspace=services/account-api",
+        "dev:launcher": "npm run dev --workspace=services/launcher-api",
+        "dev:assets": "npm run dev --workspace=services/asset-service",
+        "dev:ws": "npm run dev --workspace=services/ws-service",
+        "dev:bridge": "npm run dev --workspace=services/grudge-bridge",
+        "install:all": "npm install --workspaces --include-workspace-root",
+        "docker:deps": "docker compose up -d mysql redis",
+        "docker:dev": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build",
+        "docker:prod": "docker compose up --build -d",
+        "docker:down": "docker compose down",
+        "docker:logs": "docker compose logs -f",
+        "docker:restart": "docker compose restart",
+        "secrets:gen": "node scripts/gen-secrets.js"
+      },
+      "packageManager": null,
+      "name": "grudge-studio-backend"
+    },
+    "broken-sun-3a00": {
+      "scripts": {
+        "cf-typegen": "wrangler types",
+        "deploy": "wrangler deploy",
+        "dev": "wrangler dev",
+        "start": "wrangler dev"
+      },
+      "packageManager": null,
+      "name": "containers-template"
+    },
+    "services/account-api": {
+      "scripts": {
+        "start": "node src/index.js",
+        "dev": "nodemon src/index.js"
+      },
+      "packageManager": null,
+      "name": "grudge-account-api"
+    },
+    "services/ai-agent": {
+      "scripts": {
+        "start": "node src/index.js",
+        "dev": "nodemon src/index.js"
+      },
+      "packageManager": null,
+      "name": "ai-agent"
+    },
+    "services/asset-service": {
+      "scripts": {
+        "start": "node src/index.js",
+        "dev": "nodemon src/index.js"
+      },
+      "packageManager": null,
+      "name": "grudge-asset-service"
+    },
+    "services/game-api": {
+      "scripts": {
+        "start": "node src/index.js",
+        "dev": "nodemon src/index.js"
+      },
+      "packageManager": null,
+      "name": "game-api-gruda"
+    },
+    "services/grudge-bridge": {
+      "scripts": {
+        "dev": "nodemon --watch src -e ts --exec ts-node src/index.ts",
+        "build": "tsc",
+        "start": "node dist/index.js"
+      },
+      "packageManager": null,
+      "name": "grudge-bridge"
+    },
+    "services/grudge-id": {
+      "scripts": {
+        "start": "node src/index.js",
+        "dev": "nodemon src/index.js"
+      },
+      "packageManager": null,
+      "name": "grudge-id"
+    },
+    "services/launcher-api": {
+      "scripts": {
+        "start": "node src/index.js",
+        "dev": "nodemon src/index.js"
+      },
+      "packageManager": null,
+      "name": "grudge-launcher-api"
+    },
+    "services/shared": {
+      "scripts": {},
+      "packageManager": null,
+      "name": "@grudge/shared"
+    },
+    "services/wallet-service": {
+      "scripts": {
+        "start": "node src/index.js",
+        "dev": "nodemon src/index.js"
+      },
+      "packageManager": null,
+      "name": "wallet-service"
+    },
+    "services/ws-service": {
+      "scripts": {
+        "start": "node src/index.js",
+        "dev": "nodemon src/index.js"
+      },
+      "packageManager": null,
+      "name": "grudge-ws-service"
+    }
+  },
+  "nativeEntries": [],
+  "preexistingTrackedChanges": [],
+  "releaseOnly": false,
+  "storageProfile": ".storage/profile.json",
+  "storageDevice": ".storage/device.json"
+}
